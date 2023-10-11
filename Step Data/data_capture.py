@@ -1,8 +1,13 @@
 
-# INSTRUCTIONS: This script is used to collect data from the ESP8266. It will ask you for a file name and the number of seconds to collect data. It will then collect data for that many seconds and save it to a file with the given name. The data will be saved in the same directory as this script.
+# PURPOSE: This script is used to collect and save data from the ESP8266.
+
+#INSTRUCTIONS: 
+#  1. Connect the ESP8266 to your computer via USB.
+#  2. Upload the 'arduino_data_capture_accel.ino' sketch to the ESP8266. You should see data coming in the serial monitor in arduino IDE.
+#  3. Modify the 'serial_port' variable below to match the serial port of your ESP8266. You can find the serial port by looking at the bottom right corner of the arduino IDE. It will be something like '/dev/cu.usbserial-0001' or 'COM5'.
+#  4. Run this script to collect data. You will be prompted to enter a file name and the number of seconds to collect data.
 
 # NOTE: You can stop the data collection early by pressing Ctrl+C.
-
 
 import serial
 import time
@@ -28,6 +33,6 @@ def collect_data(filename, seconds):
             file.close()
 
 
-filename = input('Input the file name (description of the data): ') + '.csv'
+filename = 'Step Data/' + input('Input the file name (description of the data): ') + '.csv'
 seconds = input('Input the number of seconds to collect data: ')
 collect_data(filename, int(seconds))
