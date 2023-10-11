@@ -27,7 +27,7 @@ def collect_data(filename, seconds):
             ser.close()
             file.close()
 
-while True:
-    filename = input('Input the file name (description of the data): ') + '.csv'
-    seconds = input('Input the number of seconds to collect data: ')
-    collect_data(filename, int(seconds))
+
+filename = input('Input the file name (description of the data): ') + '.csv'
+seconds = input('Input the number of seconds to collect data: ')
+collect_data(filename, int(seconds))
