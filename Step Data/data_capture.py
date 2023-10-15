@@ -4,7 +4,7 @@
 #INSTRUCTIONS: 
 #  1. Connect the ESP8266 to your computer via USB.
 #  2. Upload the 'arduino_data_capture_accel.ino' sketch to the ESP8266. You should see data coming in the serial monitor in arduino IDE.
-#  3. Modify the 'serial_port' variable below to match the serial port of your ESP8266. You can find the serial port by looking at the bottom right corner of the arduino IDE. It will be something like '/dev/cu.usbserial-0001' or 'COM5'.
+#  3. Modify the 'serial_port' variaxble below to match the serial port of your ESP8266. You can find the serial port by looking at the bottom right corner of the arduino IDE. It will be something like '/dev/cu.usbserial-0001' or 'COM5'.
 #  4. Run this script to collect data. You will be prompted to enter a file name and the number of seconds to collect data.
 
 # NOTE: You can stop the data collection early by pressing Ctrl+C.
@@ -15,11 +15,11 @@ import time
 # Name of your serial port (e.g., '/dev/cu.usbserial-0001', or COM5).
 serial_port = '/dev/cu.usbserial-0001'
 
-# Open the serial port for communication with the ESP8266.
-ser = serial.Serial(serial_port, 115200)
-
 def collect_data(filename, seconds):
+    # Open the serial port for communication with the ESP8266.
+    ser = serial.Serial(serial_port, 115200)
     t_end = time.time() + seconds #data collection will run for this many seconds
+    
     # Open a file to save the data (create it if it doesn't exist).
     with open(filename, 'a') as file:
         try:
