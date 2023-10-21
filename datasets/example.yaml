@@ -1,0 +1,32 @@
+# Metadata
+environment:
+  location: 'talias living room' # Description of where we recorded the data
+  fs: 100 # Sampling frequency (Hz)
+  floor: hardwood
+  obstacle_radius: 0.1 # Distance to any obstacle, including walls (m)
+  wall_radius: 0.1 # Distance to the nearest wall (m)
+  version: 1 # Version of the file format. Increments whenever there a breaking change in the version
+  sources: # Possible sources of events in this data
+    - user
+    - pet
+    - cane
+
+# Source of truth
+events:
+  - category: step
+    timestamp: 0.01 # Time since the start of the recording (synced using timestamps)
+    source: user # Must be found in list of sources. Optional if there is only one source
+    distance: 0.2 # Distance to the sensor, optional (m)
+  - category: step
+    timestamp: 0.85
+    source: user
+  - category: fall
+    timestamp: 1.29
+    source: user
+
+# Timeseries recordings
+ts:
+  - 0.101
+  - 0.150
+  - -0.208
+  - -0.230
