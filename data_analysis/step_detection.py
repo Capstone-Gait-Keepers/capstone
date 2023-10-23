@@ -65,7 +65,6 @@ def count_steps(vibes: np.ndarray, fs: int, window_duration=0.1, amp_threshold=0
     amps = np.abs(rolling_fft)
     peaks = np.mean(amps, axis=0)
     if plot:
-        show_processed_ts = False
         freqs = np.fft.fftfreq(window, 1/fs)[:window//2] # Ignore negative frequencies
         titles = ("Raw Timeseries", "Scrolling FFT", "Average Energy")
         fig = make_subplots(rows=3, cols=1, shared_xaxes=True, subplot_titles=titles)
@@ -74,8 +73,8 @@ def count_steps(vibes: np.ndarray, fs: int, window_duration=0.1, amp_threshold=0
         fig.add_trace(go.Heatmap(x=timestamps[::window], y=freqs, z=amps), row=2, col=1)
         fig.add_trace(go.Scatter(x=timestamps[::window], y=peaks, name='peaks'), row=3, col=1)
         fig.add_hline(y=amp_threshold, row=3, col=1)
-        fig.write_html("normal_detection.html")
-        # fig.show()
+        # fig.write_html("normal_detection.html")
+        fig.show()
 
     # TODO: Count wide peaks as 1 step
     # TODO: Return timestamps of steps
@@ -87,7 +86,7 @@ def count_steps(vibes: np.ndarray, fs: int, window_duration=0.1, amp_threshold=0
 
 
 if __name__ == "__main__":
-    vibes = np.genfromtxt('datasets\Ron Regular Room Walk Hardwood.csv', delimiter=',', skip_header=True)
+    vibes = np.genfromtxt('datasets/Ron Regular Room Walk Hardwood.csv', delimiter=',', skip_header=True)
     sample_rate_Hz = 100
     print("Steps: ", count_steps(vibes, sample_rate_Hz, plot=True, amp_threshold=0.3))
 
