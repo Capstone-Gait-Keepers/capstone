@@ -1,0 +1,28 @@
+# Metadata
+environment:
+  location: 'talias living room' # Description of where we recorded the data
+  fs: 100 # Sampling frequency (Hz)
+  floor: hardwood
+  obstacle_radius: 0.1 # Distance to any obstacle, including walls (m)
+  wall_radius: 0.1 # Distance to the nearest wall (m)
+  user: ron # User during recording. In future will become a list of sources (e.g. daniel, pet, cane, etc.)
+
+# Source of truth
+events:
+  - category: step
+    timestamp: 0.01 # Time since the start of the recording (synced using timestamps)
+    # In future, source of event will be recorded
+  - category: step
+    timestamp: 0.85
+    distance: 0.2 # Distance from sensor, optional (m). In future, will be a dict containing dist to each sensor
+  - category: fall
+    timestamp: 1.29
+    duration: 0.1 # Duration of the event, optional (s)
+
+# Timeseries recordings
+# In future, will contain a list of readings from multiple sensors
+ts:
+  - 0.101
+  - 0.150
+  - -0.208
+  - -0.230
