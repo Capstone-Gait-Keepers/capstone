@@ -4,38 +4,42 @@
 #include <utility/imumaths.h>
 #include "ESP8266TimerInterrupt.h"              //https://github.com/khoih-prog/ESP8266TimerInterrupt
 
-/* This driver uses the Adafruit unified sensor library (Adafruit_Sensor)
-
-   You should also assign a unique ID to this sensor for use with
-   the Adafruit Sensor API so that you can identify this particular
-   sensor in any data logs, etc.  To assign a unique ID, simply
-   provide an appropriate value in the constructor below (12345
-   is used by default in this example).
+/*
+  Note from Adafruit:
+  You should also assign a unique ID to this sensor for use with
+  the Adafruit Sensor API so that you can identify this particular
+  sensor in any data logs, etc.  To assign a unique ID, simply
+  provide an appropriate value in the constructor below (12345
+  is used by default in this example).
 
    Connections
    ===========
-   Connect SCL to analog 5
-   Connect SDA to analog 4
-   Connect VDD to 3.3-5V DC
-   Connect GROUND to common ground
+    Accelerometer:
+    Connect SCL to D1 (GPI05)
+    Connect SDA to D2 (GPI04)
+    Connect VDD to 3.3-5V DC
+    Connect GROUND to common ground
+    Button:
+    Connect the sense wire from button to D3 (GPI00)
+    Connect one side of button to 3v and the other to ground
 */
 
-/* Set the delay between fresh samples */
+// Set the delay between fresh samples
 #define BNO055_SAMPLERATE_DELAY_MS (10)
 
-// Check I2C device address and correct line below (by default address is 0x29 or 0x28)
+// Check I2C device address and correct line below (by default address is 0x28)
 //                                   id, address
 Adafruit_BNO055 bno = Adafruit_BNO055(55, 0x28);
-ESP8266Timer ITimer;
-volatile bool startRunning = false;
-int scale = 10;
+ESP8266Timer ITimer;  // Hardware Timer
+volatile bool start_sampling = false; // Flag to indicate if a new sample should be taken based on timer interrupt
+int scale = 10; // Scale factor for acceleration, currently not used
+boolean button_pressed = false; // Flag to indicate if button is pressed
+boolean button_pressed_last = false; // Flag to indicate if button was pressed last time (used to prevent multiple presses)
+const int buttonPin = 0; // Button pin
+int interrupt_interval = 10000; // 10ms interval
 
-/**************************************************************************/
-/*
-    Displays some basic information on this sensor from the unified
-    sensor API sensor_t type (see Adafruit_Sensor for more information)
-*/
-/**************************************************************************/
+
+// Displays some basic information on the sensor from the unified sensor API sensor_t type (see Adafruit_Sensor for more information)
 void displaySensorDetails(void)
 {
   sensor_t sensor;
@@ -51,28 +55,30 @@ void displaySensorDetails(void)
   Serial.println("");
   delay(500);
 }
-
+// Interrupt handler for timer
 void ICACHE_RAM_ATTR TimerHandler(void)
 {
-  if (startRunning) {
+  if (start_sampling) {
     Serial.println("ERROR: PREVIOUS SAMPLED WAS NOT FINISHED");
   }
-  startRunning = true;
+  start_sampling = true;
 }
 
 void setup(void)
 {
-  Serial.begin(115200);
+  Serial.begin(115200); 
   Serial.println("Orientation Sensor Test"); Serial.println("");
 
-  /* Initialise the sensor */
+  // Initialise the sensor
   if(!bno.begin())
   {
     /* There was a problem detecting the BNO055 ... check your connections */
     Serial.print("Ooops, no BNO055 detected ... Check your wiring or I2C ADDR!");
     while(1);
   }
-   
+
+  pinMode(buttonPin, INPUT);
+  
   delay(1000);
 
   /* Use external crystal for better accuracy */
@@ -82,30 +88,40 @@ void setup(void)
   displaySensorDetails();
 
   // Setup Timer
-  ITimer.attachInterruptInterval(10000, TimerHandler); // 10ms interval
+  ITimer.attachInterruptInterval(interrupt_interval, TimerHandler);
   ITimer.enableTimer();
 }
 
 void loop(void)
 {
-  if (startRunning) {
-    /* Get a new sensor event for linear acceleration */
+  if (digitalRead(buttonPin) == LOW) {   // Check if button is pressed
+    button_pressed = true;
+  }
+  else if (button_pressed_last){   // reset button_pressed_last to false once button is released
+    button_pressed_last = false;
+  }
+  else {
+    button_pressed = false;
+  }
+  if (start_sampling) {
+    // Get a new sensor event for linear acceleration
     sensors_event_t event;
     bno.getEvent(&event, Adafruit_BNO055::VECTOR_LINEARACCEL);
-    startRunning = false;
+    start_sampling = false;
 
     // Print in format: timestamp, acceleration, event
     Serial.print(millis());
     Serial.print(",");
     Serial.print(event.acceleration.z);
-    Serial.println(", ");
-
-    // Print absolute value of acceleration
-    // Serial.print("ABS:");
-    // Serial.println(sqrt(event.acceleration.x*event.acceleration.x + event.acceleration.y*event.acceleration.y + event.acceleration.z*event.acceleration.z));
+    Serial.print(",");
+    // Print event only if button is pressed, else print space
+    if (button_pressed && !button_pressed_last){
+      Serial.println("BUTTON");
+      button_pressed = false;
+      button_pressed_last = true;
+    }
+    else {
+      Serial.println(" ");
+    }
   }
-
-  // add event button
-
-  // delay(BNO055_SAMPLERATE_DELAY_MS);
 }

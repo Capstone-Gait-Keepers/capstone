@@ -25,17 +25,20 @@ def collect_data(seconds: float, serial_port = '/dev/cu.usbserial-0001', fs=None
     button_presses = [] # Timestamps of button presses
     start_time = None
     last_time = None
+    expected_period = 1/fs
 
     try:
         while time.time() < t_end:
-            timestamp, accel, event = ser.readline().decode().strip().split(',') # Read data from the serial port.
+            try:
+                timestamp, accel, event = ser.readline().decode().strip().split(',') # Read data from the serial port.
+            except ValueError:
+                print('ValueError:', ser.readline().decode().strip())
             timestamp = int(timestamp)/1000
             if last_time is not None and fs is not None:
-                fs_error = (timestamp - last_time) - (1/fs)
-                if (fs_error) >= (1/fs)*error_threshold:
-                    raise EnvironmentError(f'Expected {1/fs} sampling period, received {timestamp - last_time}')
+                fs_error = (timestamp - last_time) - expected_period
+                if fs_error >= expected_period*error_threshold:
+                    raise EnvironmentError(f'Expected {expected_period} sampling period, received {timestamp - last_time}')
             last_time = timestamp
-            print(accel) # Print the data to the console.
             vibes.append(float(accel))
             if start_time is None:
                 start_time = timestamp
