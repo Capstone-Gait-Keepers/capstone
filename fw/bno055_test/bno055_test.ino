@@ -2,12 +2,9 @@
 #include <Adafruit_Sensor.h>
 #include <Adafruit_BNO055.h>
 #include <utility/imumaths.h>
+#include "ESP8266TimerInterrupt.h"              //https://github.com/khoih-prog/ESP8266TimerInterrupt
 
-/* This driver uses the Adafruit unified sensor library (Adafruit_Sensor),
-   which provides a common 'type' for sensor data and some helper functions.
-
-   To use this driver you will also need to download the Adafruit_Sensor
-   library and include it in your libraries folder.
+/* This driver uses the Adafruit unified sensor library (Adafruit_Sensor)
 
    You should also assign a unique ID to this sensor for use with
    the Adafruit Sensor API so that you can identify this particular
@@ -21,19 +18,16 @@
    Connect SDA to analog 4
    Connect VDD to 3.3-5V DC
    Connect GROUND to common ground
-
-   History
-   =======
-   2015/MAR/03  - First release (KTOWN)
 */
 
 /* Set the delay between fresh samples */
-#define BNO055_SAMPLERATE_DELAY_MS (5)
+#define BNO055_SAMPLERATE_DELAY_MS (10)
 
 // Check I2C device address and correct line below (by default address is 0x29 or 0x28)
 //                                   id, address
 Adafruit_BNO055 bno = Adafruit_BNO055(55, 0x28);
-
+ESP8266Timer ITimer;
+volatile bool startRunning = false;
 int scale = 10;
 
 /**************************************************************************/
@@ -58,11 +52,14 @@ void displaySensorDetails(void)
   delay(500);
 }
 
-/**************************************************************************/
-/*
-    Arduino setup function (automatically called at startup)
-*/
-/**************************************************************************/
+void ICACHE_RAM_ATTR TimerHandler(void)
+{
+  if (startRunning) {
+    Serial.println("ERROR: PREVIOUS SAMPLED WAS NOT FINISHED");
+  }
+  startRunning = true;
+}
+
 void setup(void)
 {
   Serial.begin(115200);
@@ -83,34 +80,32 @@ void setup(void)
    
   /* Display some basic information on this sensor */
   displaySensorDetails();
+
+  // Setup Timer
+  ITimer.attachInterruptInterval(10000, TimerHandler); // 10ms interval
+  ITimer.enableTimer();
 }
 
-/**************************************************************************/
-/*
-    Arduino loop function, called once 'setup' is complete (your own code
-    should go here)
-*/
-/**************************************************************************/
 void loop(void)
 {
-  /* Get a new sensor event for linear acceleration */
-  sensors_event_t event;
-  bno.getEvent(&event, Adafruit_BNO055::VECTOR_LINEARACCEL);
+  if (startRunning) {
+    /* Get a new sensor event for linear acceleration */
+    sensors_event_t event;
+    bno.getEvent(&event, Adafruit_BNO055::VECTOR_LINEARACCEL);
+    startRunning = false;
 
-  /* Print linear acceleration data */
+    // Print in format: timestamp, acceleration, event
+    Serial.print(millis());
+    Serial.print(",");
+    Serial.print(event.acceleration.z);
+    Serial.println(", ");
 
-//  Serial.print("X:");
-//  Serial.print(event.acceleration.x*scale);
-//  Serial.print(",");
-//  Serial.print("Y:");
-//  Serial.print(event.acceleration.y*scale);
-//  Serial.print(",");
-//  Serial.print("Z:");
-//    Serial.print(millis());
-//    Serial.println(",");
-    Serial.println(event.acceleration.z);
-//    Serial.println(",");
+    // Print absolute value of acceleration
+    // Serial.print("ABS:");
+    // Serial.println(sqrt(event.acceleration.x*event.acceleration.x + event.acceleration.y*event.acceleration.y + event.acceleration.z*event.acceleration.z));
+  }
 
+  // add event button
 
-  delay(BNO055_SAMPLERATE_DELAY_MS);
+  // delay(BNO055_SAMPLERATE_DELAY_MS);
 }
