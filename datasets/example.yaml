@@ -7,6 +7,7 @@ environment:
   wall_radius: 0.1 # Distance to the nearest wall (m)
   user: ron # User during recording. In future will become a list of sources (e.g. daniel, pet, cane, etc.)
 
+
 # Source of truth
 events:
   - category: step
