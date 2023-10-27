@@ -32,7 +32,7 @@ def collect_data(seconds: float, serial_port = '/dev/cu.usbserial-0001', fs=None
             try:
                 timestamp, accel, event = ser.readline().decode().strip().split(',') # Read data from the serial port.
             except ValueError:
-                print('ValueError:', ser.readline().decode().strip())
+                raise ValueError('Unable to decode: ', ser.readline().decode().strip()) 
             timestamp = int(timestamp)/1000
             if last_time is not None and fs is not None:
                 fs_error = (timestamp - last_time) - expected_period
@@ -59,6 +59,9 @@ if __name__ == "__main__":
         obstacle_radius=0.5,
         wall_radius=0.5,
         user='ron',
+        footwear='socks',
+        temperature=22,
+        notes='Testing',
     )
 
     seconds = input('Input the number of seconds to collect data: ')

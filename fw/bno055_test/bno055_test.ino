@@ -24,20 +24,19 @@
     Connect one side of button to 3v and the other to ground
 */
 
-// Set the delay between fresh samples
-#define BNO055_SAMPLERATE_DELAY_MS (10)
+#define BUTTON_PIN 0 // D3 (GPI00)
 
 // Check I2C device address and correct line below (by default address is 0x28)
 //                                   id, address
 Adafruit_BNO055 bno = Adafruit_BNO055(55, 0x28);
-ESP8266Timer ITimer;  // Hardware Timer
+ESP8266Timer i_timer;  // Hardware Timer
+
+
 volatile bool start_sampling = false; // Flag to indicate if a new sample should be taken based on timer interrupt
-int scale = 10; // Scale factor for acceleration, currently not used
 boolean button_pressed = false; // Flag to indicate if button is pressed
 boolean button_pressed_last = false; // Flag to indicate if button was pressed last time (used to prevent multiple presses)
-const int buttonPin = 0; // Button pin
-int interrupt_interval = 10000; // 10ms interval
-
+int interrupt_interval = 10000; // Interval (sample rate) for timer interrupt in microseconds
+int scale = 10; // Scale factor for acceleration, currently not used
 
 // Displays some basic information on the sensor from the unified sensor API sensor_t type (see Adafruit_Sensor for more information)
 void displaySensorDetails(void)
@@ -66,7 +65,7 @@ void ICACHE_RAM_ATTR TimerHandler(void)
 
 void setup(void)
 {
-  Serial.begin(115200); 
+  Serial.begin(115200);
   Serial.println("Orientation Sensor Test"); Serial.println("");
 
   // Initialise the sensor
@@ -77,7 +76,7 @@ void setup(void)
     while(1);
   }
 
-  pinMode(buttonPin, INPUT);
+  pinMode(BUTTON_PIN, INPUT);
   
   delay(1000);
 
@@ -88,13 +87,13 @@ void setup(void)
   displaySensorDetails();
 
   // Setup Timer
-  ITimer.attachInterruptInterval(interrupt_interval, TimerHandler);
-  ITimer.enableTimer();
+  i_timer.attachInterruptInterval(interrupt_interval, TimerHandler);
+  i_timer.enableTimer();
 }
 
 void loop(void)
 {
-  if (digitalRead(buttonPin) == LOW) {   // Check if button is pressed
+  if (digitalRead(BUTTON_PIN) == LOW) {   // Check if button is pressed
     button_pressed = true;
   }
   else if (button_pressed_last){   // reset button_pressed_last to false once button is released
