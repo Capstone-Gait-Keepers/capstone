@@ -2,21 +2,24 @@ from flask import Flask, jsonify, request
 
 app = Flask(__name__)
 
+## SETUP TEST METHODS
+
 # sample data for testing get request
 sensor_data = {
     1: {'name': 'Sensor 1', 'value': 1},
     2: {'name': 'Sensor 2', 'value': 2},
 }
 
+# Hello World (Daniel)
 @app.route('/')
 def hello_world():
     return 'Hello, Daniel!'
 
-# works with "curl -X POST -H "Content-Type: application/json" -d '{"key": "value"}' http://localhost:5000/post_example"
-# doesn't work with test.py
+# POST request example
+# works with curl, test.py
 @app.route('/post_example', methods=['POST'])
 def post_example():
-    # Get JSON data from the request
+    # get JSON data from the request
     data = request.get_json()
 
     if data is None:
@@ -24,8 +27,8 @@ def post_example():
 
     return jsonify({"message": "Received JSON data", "data": data}), 200
 
-
-# test api endpoint for sensorId (int) and name (string), not useful for our application
+# GET request example
+# works with curl, test.py
 @app.route('/api/sensor_info_test', methods=['GET'])
 def get_sensor_data():
     try:
@@ -45,6 +48,38 @@ def get_sensor_data():
     except ValueError:
         return jsonify({'error': 'Invalid sensorId format'}), 400
 
+##
+
+# collects recordingId (step sequence), sensorId (from which sensor), time (time of event), stepTrue(1 for step, 0 for fall)
+@app.route('/api/event_collection', methods=['POST'])
+def get_events():
+    print("Getting events...")
+    try:
+        data = request.get_json()
+        recordingId = data.get('recordingId')
+        sensorId = data.get('sensorId')
+        timeEvent = data.get('time')
+        stepTrue = data.get('stepTrue')
+
+        # error handling
+        # if any of these variables are empty / stepTrue != 0 or 1, data is in invalid format
+        if not (sensorId and recordingId and timeEvent and stepTrue in (0, 1)):
+            return jsonify({'error': 'Invalid data format'}), 400
+        
+        # data storage
+        # key = combo of recordingId and sensorId
+        key = f'{recordingId}-{sensorId}'
+        
+        sensor_data[key] = {
+            'time': timeEvent,
+            'stepTrue': bool(stepTrue)
+        }
+        print("Stored data!")
+
+        return jsonify({'message': 'Recording event data created successfully!'}), 201
+        
+    except:
+        return jsonify({'error': 'Invalid data format'}), 400
 
 if __name__ == '__main__':
     app.run(debug=True)
