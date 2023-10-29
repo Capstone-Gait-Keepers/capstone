@@ -17,27 +17,27 @@ from datetime import datetime
 from data_types import Recording, RecordingEnvironment, Event, WalkPath
 
 # Name of your serial port (e.g., '/dev/cu.usbserial-0001', or COM5).
-def collect_data(seconds: float, serial_port = '/dev/cu.usbserial-0001', fs=None, error_threshold=0.5):
+def collect_data(seconds: float = None, serial_port = '/dev/cu.usbserial-0001', fs=None, error_threshold=0.5):
     # Open the serial port for communication with the ESP8266.
     ser = serial.Serial(serial_port, 115200)
-    t_end = time.time() + seconds # Data collection will run for this many seconds
+    t_end = time.time() + seconds if seconds else None # Data collection will run for this many seconds
     vibes = [] # Raw accelerometer data
     events = [] # Timestamps of button presses
     start_time = None
     last_time = None
-    expected_period = 1/fs
+    expected_period = 1 / fs
 
     try:
-        while time.time() < t_end:
+        while not t_end or time.time() < t_end:
             try:
-                # TODO: First sample can be bad do to timing issues. Discard it.
-                timestamp, accel, event = ser.readline().decode().strip().split(',') # Read data from the serial port.
-            except ValueError:
-                raise ValueError('Unable to decode: ' + ser.readline().decode()) 
-            timestamp = int(timestamp)/1000
+                timestamp, accel, event = ser.readline().decode().strip().split(',')
+            except ValueError as e:
+                if last_time is not None: # Ignore the first sample being bad
+                    raise ValueError('Unable to decode: ' + ser.readline().decode()) from e
+            timestamp = int(timestamp) / 1000
             if last_time is not None and fs is not None:
                 fs_error = (timestamp - last_time) - expected_period
-                if fs_error >= expected_period*error_threshold:
+                if fs_error >= expected_period * error_threshold:
                     raise EnvironmentError(f'Expected {expected_period} sampling period, received {timestamp - last_time}')
             last_time = timestamp
             vibes.append(float(accel))

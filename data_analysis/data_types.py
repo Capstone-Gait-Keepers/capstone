@@ -30,6 +30,7 @@ class WalkPath:
     stop: float # End distance from sensor (m)
     length: float # Total length of the walk (m)
 
+
 @dataclass
 class RecordingEnvironment:
     location: str
@@ -43,6 +44,14 @@ class RecordingEnvironment:
     path: WalkPath
     temperature: Optional[float] = None # in Celsius
     notes: str = ''
+
+    def __post_init__(self):
+        valid_walks = ['normal', 'stomp', 'shuffle', 'limp']
+        valid_footwear = ['barefoot', 'shoes', 'slides']
+        if self.walk_type not in valid_walks:
+            raise ValueError(f'Invalid walk type "{self.walk_type}". Valid walks are: {valid_walks}')
+        if self.footwear not in valid_footwear:
+            raise ValueError(f'Invalid footwear "{self.footwear}". Valid footwear are: {valid_footwear}')
 
     def to_dict(self):
         return asdict(self)
