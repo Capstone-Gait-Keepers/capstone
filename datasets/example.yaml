@@ -1,5 +1,5 @@
 # Metadata
-environment:
+env:
   location: talias living room # Description of where we recorded the data
   fs: 100 # Sampling frequency (Hz)
   floor: hardwood

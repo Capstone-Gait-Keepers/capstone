@@ -1,8 +1,8 @@
 import os
 import numpy as np
 import plotly.graph_objects as go
-from plotly.subplots import make_subplots
 from data_types import Recording
+from plotly.subplots import make_subplots
 
 
 def rolling_window(a: np.ndarray, window_size: int, overlap: int = 0):
@@ -26,21 +26,26 @@ def rolling_window(a: np.ndarray, window_size: int, overlap: int = 0):
     return np.asarray([a[i:i + window_size] for i in range(0, len(a) - window_size, window_size - overlap)])
 
 
-def view_datasets(*keywords: str, dataset_dir: str = "datasets", fs = 1):
+def view_datasets(dataset_dir: str = "datasets", **filters):
     """Walk through datasets folder and plot all csv files"""
-    raise NotImplementedError("Switch implementation to use yamls")
-    datasets = []
-    for root, dirs, files in os.walk(dataset_dir):
-        for file in files:
-            if file.endswith(".csv") and all(keyword.lower() in file.lower() for keyword in keywords):
-                datasets.append(file)
+    filepaths = [file for root, dirs, files in os.walk(dataset_dir) for file in files if file.endswith(".yaml")]
+    filepaths.remove('example.yaml')
+    datasets = [Recording.from_file(os.path.join(dataset_dir, filename)) for filename in filepaths]
+
+    # Filter datasets based on environment filters
+    for key, value in filters.items():
+        datasets = [dataset for dataset in datasets if getattr(dataset.env, key) == value]
 
     fig = make_subplots(rows=len(datasets), cols=1, shared_xaxes=True)
-    for i, filename in enumerate(datasets, start=1):
-        vibes = np.genfromtxt(os.path.join(root, filename), delimiter=',')
-        timestamps = np.linspace(0, len(vibes) / fs, len(vibes))
-        fig.add_trace(go.Scatter(x=timestamps, y=vibes, name='vibes'), row=i, col=1)
-        fig.update_xaxes(title_text=filename, row=i, col=1)
+    fig.update_layout(title=str(filters), showlegend=False)
+    for i, data in enumerate(datasets, start=1):
+        timestamps = np.linspace(0, len(data.ts) / data.env.fs, len(data.ts))
+        fig.add_trace(go.Scatter(x=timestamps, y=data.ts, name='vibes'), row=i, col=1)
+        # TODO: Better text to identify between datasets. Drop entries that are common to all datasets
+        env_vars = data.env.to_dict()
+        env_vars = {key: value for key, value in env_vars.items() if value is not None}
+        for y, (key, value) in enumerate(env_vars.items(), start=-len(env_vars) // 2):
+            fig.add_annotation(x=timestamps[len(timestamps)//2], y=y/80, text=f"{key} = {value}", xshift=0, showarrow=False, row=i, col=1)
     fig.show()
 
 
@@ -50,12 +55,10 @@ def count_steps(data: Recording, window_duration=0.1, amp_threshold=0.3, plot=Fa
 
     Parameters
     ----------
-    vibes : np.ndarray
-        Time series of accelerometer data
-    fs : int
-        Sampling frequency of the accelerometer data, in Hz
+    data : Recording
+        Time series of accelerometer data, plus the environmental data
     window_duration : int, optional
-        Duration of the rolling window in seconds, by default 1
+        Duration of the rolling window in seconds
     """
     vibes = data.ts
     fs = data.env.fs
@@ -93,8 +96,8 @@ def count_steps(data: Recording, window_duration=0.1, amp_threshold=0.3, plot=Fa
 
 
 if __name__ == "__main__":
-    data = Recording.from_file('datasets/2023-10-29_18-16-34.yaml')
+    # data = Recording.from_file('datasets/2023-10-29_18-16-34.yaml')
     # data = Recording.from_file('datasets/2023-10-29_18-20-13.yaml')
-    print("Steps: ", count_steps(data, plot=True, amp_threshold=0.3))
+    # print("Steps: ", count_steps(data, plot=True, amp_threshold=0.3))
 
-    # view_datasets("living", "shuffle")
+    view_datasets(walk_type='normal')

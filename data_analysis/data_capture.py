@@ -13,6 +13,7 @@ import serial
 import time
 from json import dumps
 from datetime import datetime
+from step_detection import count_steps
 
 from data_types import Recording, RecordingEnvironment, Event, WalkPath
 
@@ -72,3 +73,4 @@ if __name__ == "__main__":
 
     rec = Recording(env, events, vibes)
     rec.to_yaml(f'datasets/{timestamp}.yaml')
+    count_steps(rec, plot=True)
