@@ -30,6 +30,7 @@ def collect_data(seconds: float, serial_port = '/dev/cu.usbserial-0001', fs=None
     try:
         while time.time() < t_end:
             try:
+                # TODO: First sample can be bad do to timing issues. Discard it.
                 timestamp, accel, event = ser.readline().decode().strip().split(',') # Read data from the serial port.
             except ValueError:
                 raise ValueError('Unable to decode: ' + ser.readline().decode()) 
@@ -58,11 +59,10 @@ if __name__ == "__main__":
         floor='tile',
         obstacle_radius=1,
         wall_radius=1.34,
-        walk_type='stomp',
+        walk_type='normal',
         user='ron',
         footwear='socks',
         path=WalkPath(start=1.5+0.82, stop=1.5+0.48, length=0.6*7),
-        notes='First real test!',
     )
 
     seconds = input('Input the number of seconds to collect data: ')
