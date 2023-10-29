@@ -47,7 +47,7 @@ class RecordingEnvironment:
 
     def __post_init__(self):
         valid_walks = ['normal', 'stomp', 'shuffle', 'limp']
-        valid_footwear = ['barefoot', 'shoes', 'slides']
+        valid_footwear = ['barefoot', 'shoes', 'socks', 'slides']
         if self.walk_type not in valid_walks:
             raise ValueError(f'Invalid walk type "{self.walk_type}". Valid walks are: {valid_walks}')
         if self.footwear not in valid_footwear:

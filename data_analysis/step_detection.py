@@ -2,6 +2,7 @@ import os
 import numpy as np
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
+from data_types import Recording
 
 
 def rolling_window(a: np.ndarray, window_size: int, overlap: int = 0):
@@ -27,6 +28,7 @@ def rolling_window(a: np.ndarray, window_size: int, overlap: int = 0):
 
 def view_datasets(*keywords: str, dataset_dir: str = "datasets", fs = 1):
     """Walk through datasets folder and plot all csv files"""
+    raise NotImplementedError("Switch implementation to use yamls")
     datasets = []
     for root, dirs, files in os.walk(dataset_dir):
         for file in files:
@@ -42,7 +44,7 @@ def view_datasets(*keywords: str, dataset_dir: str = "datasets", fs = 1):
     fig.show()
 
 
-def count_steps(vibes: np.ndarray, fs: int, window_duration=0.1, amp_threshold=0.3, plot=False) -> int:
+def count_steps(data: Recording, window_duration=0.1, amp_threshold=0.3, plot=False) -> int:
     """
     Counts the number of steps in a time series of accelerometer data
 
@@ -55,6 +57,8 @@ def count_steps(vibes: np.ndarray, fs: int, window_duration=0.1, amp_threshold=0
     window_duration : int, optional
         Duration of the rolling window in seconds, by default 1
     """
+    vibes = data.ts
+    fs = data.env.fs
     window = np.floor(window_duration * fs).astype(int)
     timestamps = np.linspace(0, len(vibes) / fs, len(vibes))
     ### Time series processing
@@ -73,6 +77,9 @@ def count_steps(vibes: np.ndarray, fs: int, window_duration=0.1, amp_threshold=0
         fig.add_trace(go.Heatmap(x=timestamps[::window], y=freqs, z=amps), row=2, col=1)
         fig.add_trace(go.Scatter(x=timestamps[::window], y=peaks, name='peaks'), row=3, col=1)
         fig.add_hline(y=amp_threshold, row=3, col=1)
+        for event in data.events:
+            fig.add_vline(x=event.timestamp, row=1, col=1)
+            fig.add_annotation(x=event.timestamp, y=0, text="Step", xshift=-17, showarrow=False, row=1, col=1)
         # fig.write_html("normal_detection.html")
         fig.show()
 
@@ -86,8 +93,8 @@ def count_steps(vibes: np.ndarray, fs: int, window_duration=0.1, amp_threshold=0
 
 
 if __name__ == "__main__":
-    vibes = np.genfromtxt('datasets/Ron Regular Room Walk Hardwood.csv', delimiter=',', skip_header=True)
-    sample_rate_Hz = 100
-    print("Steps: ", count_steps(vibes, sample_rate_Hz, plot=True, amp_threshold=0.3))
+    data = Recording.from_file('datasets/2023-10-29_18-16-34.yaml')
+    # data = Recording.from_file('datasets/2023-10-29_18-20-13.yaml')
+    print("Steps: ", count_steps(data, plot=True, amp_threshold=0.3))
 
     # view_datasets("living", "shuffle")
