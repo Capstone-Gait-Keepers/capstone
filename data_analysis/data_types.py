@@ -1,7 +1,6 @@
 
 from copy import deepcopy
-from dataclasses import dataclass, field
-from enum import Enum
+from dataclasses import dataclass, field, asdict
 from pathlib import Path
 from ruamel.yaml import YAML
 from typing import Optional
@@ -24,17 +23,29 @@ class Event:
         return data
 
 
+# Path the user walked. Assumed to be a straight line. Measurements define a triangle :)
+@dataclass
+class WalkPath:
+    start: float # Start distance from sensor (m)
+    stop: float # End distance from sensor (m)
+    length: float # Total length of the walk (m)
+
 @dataclass
 class RecordingEnvironment:
     location: str
     fs: float
     user: str
     floor: str
+    footwear: str
+    walk_type: str
     obstacle_radius: float
     wall_radius: float
+    path: WalkPath
+    temperature: Optional[float] = None # in Celsius
+    notes: str = ''
 
     def to_dict(self):
-        return deepcopy(self.__dict__)
+        return asdict(self)
 
 
 @dataclass

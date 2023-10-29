@@ -1,12 +1,19 @@
 # Metadata
 environment:
-  location: 'talias living room' # Description of where we recorded the data
+  location: talias living room # Description of where we recorded the data
   fs: 100 # Sampling frequency (Hz)
   floor: hardwood
+  footwear: socks
+  walk_type: normal
+  temperature: 22 # in Celsius
   obstacle_radius: 0.1 # Distance to any obstacle, including walls (m)
   wall_radius: 0.1 # Distance to the nearest wall (m)
   user: ron # User during recording. In future will become a list of sources (e.g. daniel, pet, cane, etc.)
-
+  path: # Path the user walked. Assumed to be a straight line. Measurements define a triangle :)
+    start: 2 # Start distance from sensor (m)
+    stop: 1 # End distance from sensor (m)
+    length: 2 # Total length of the walk (m)
+  notes: Anything! # Any other notes about the recording
 
 # Source of truth
 events:
