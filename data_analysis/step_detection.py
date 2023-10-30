@@ -84,36 +84,39 @@ def find_steps(data: Recording, window_duration=0.2, stride=1, amp_threshold=0.3
     p_vibes = vibes - np.mean(vibes, axis=0) # Subtract DC offset
     if stride is None:
         stride = window # Tiny stride to get more data points
-    intervals = rolling_window(p_vibes, window, overlap=window-stride)
-    if stride < window: # TODO: Better condition for tapering?
+    overlap = window - stride
+    intervals = rolling_window(p_vibes, window, overlap)
+    if overlap: # TODO: Better condition for tapering?
         tapering_window = np.vstack([np.blackman(window)] * len(intervals))
         intervals *= tapering_window
     ### Frequency domain processing
     rolling_fft = np.fft.fft(intervals, axis=-1).T[:window//2] # Ignore negative frequencies
+    fft_timestamps = timestamps[::stride] + window_duration/2 # Add half window duration to center the window
     amps = np.abs(rolling_fft)
     # TODO: Weight average based on shape of frequency spectrum
     energy = np.mean(amps, axis=0)
-    # TODO: Count wide peaks as 1 step
-    peak_indices = np.where(energy > amp_threshold)[0] * stride # Rescale to original time series
-    fft_timestamps = timestamps[::stride] + window_duration/2
-    peak_stamps = fft_timestamps[peak_indices] # Add half window duration to get center of window
+    de_dt = np.gradient(energy)
+    optima = np.diff(np.sign(de_dt), prepend=[0]) != 0
+    peak_indices = np.where((energy > amp_threshold) & optima)[0]
+    peak_indices *= stride # Rescale to original time series
+    peak_stamps = fft_timestamps[peak_indices]
     # TODO: Find start of step within confirmed window
 
     if plot:
-        freqs = np.fft.fftfreq(window, 1/fs)[:window//2] # Ignore negative frequencies
         titles = ("Raw Timeseries", "Scrolling FFT", "Average Energy")
-        fig = make_subplots(rows=3, cols=1, shared_xaxes=True, subplot_titles=titles)
-        fig.add_trace(go.Scatter(x=timestamps, y=vibes, name='vibes'), row=1, col=1)
-        # fig.add_trace(go.Scatter(x=timestamps, y=p_vibes, name='pvibes'), row=2, col=1)
+        fig = make_subplots(rows=4, cols=1, shared_xaxes=True, subplot_titles=titles)
+        fig.add_scatter(x=timestamps, y=vibes, name='vibes', showlegend=False, row=1, col=1)
+        freqs = np.fft.fftfreq(window, 1/fs)[:window//2] # Ignore negative frequencies
         fig.add_trace(go.Heatmap(x=fft_timestamps, y=freqs, z=amps), row=2, col=1)
-        fig.add_trace(go.Scatter(x=fft_timestamps, y=energy, name='energy'), row=3, col=1)
+        fig.add_scatter(x=fft_timestamps, y=energy, name='energy', showlegend=False, row=3, col=1)
         fig.add_hline(y=amp_threshold, row=3, col=1)
         for event in data.events:
             fig.add_vline(x=event.timestamp, line_color='green', row=1, col=1)
-            fig.add_annotation(x=event.timestamp, y=0, text="Step", xshift=-17, showarrow=False, row=1, col=1)
-        # for peak in peak_stamps:
-        #     fig.add_vline(x=peak, line_dash="dash", row=1, col=1)
+            fig.add_annotation(x=event.timestamp, y=0, xshift=-17, text="Step", showarrow=False, row=1, col=1)
+        for peak in peak_stamps:
+            fig.add_vline(x=peak, line_dash="dash", row=1, col=1)
         # fig.write_html("normal_detection.html")
+        fig.add_scatter(x=fft_timestamps, y=de_dt, name='de_dt', showlegend=False, row=4, col=1)
         fig.show()
 
     # TODO: Hysterisis: Count small steps if they are between two large steps
