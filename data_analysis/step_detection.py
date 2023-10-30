@@ -1,7 +1,7 @@
 import os
 import numpy as np
 import plotly.graph_objects as go
-from data_types import Recording
+from data_types import Recording, Event
 from plotly.subplots import make_subplots
 from typing import List
 
@@ -225,6 +225,42 @@ def get_cadence(step_timestamps: List[float]):
     return 1 / np.mean(step_durations)
 
 
+def get_algorithm_error(measured_step_times: List[float], events: List[Event]):
+    """
+    Calculates the algorithm error of a recording. There are three types of errors:
+    - Incorrect measurements: The algorithm found a step when there was none (False Positive)
+    - Missed steps: The algorithm missed a step (False Negative)
+    - Measurement error: The algorithm found a step correctly, but at the wrong time
+
+    Parameters
+    ----------
+    measured_step_times : List[float]
+        List of timestamps where the algorithm found steps
+    events : List[Event]
+        List of events from the source of truth
+    """
+    if not len(measured_step_times):
+        raise ValueError("Algorithm did not find any steps")
+    true_step_times = [event.timestamp for event in events if event.category == 'step']
+    errors = []
+    missed_steps = 0
+    selected_measurements = []
+    for step_stamp in true_step_times:
+        measurement_error = np.abs(measured_step_times - step_stamp)
+        best_measurement = np.argmin(measurement_error)
+        # If the measurement is already the best one for another step, it means we missed this step
+        if best_measurement in selected_measurements:
+            missed_steps += 1
+        else:
+            selected_measurements.append(best_measurement)
+            errors.append(measurement_error[best_measurement])
+    incorrect_measurements = len(measured_step_times) - len(selected_measurements)
+    return {
+        "error": np.mean(errors),
+        "incorrect": incorrect_measurements,
+        "missed": missed_steps
+    }
+
 if __name__ == "__main__":
     freqs, weights = get_frequency_weights(Recording.from_file('datasets/2023-10-29_18-16-34.yaml'), plot=False)
     data = Recording.from_file('datasets/2023-10-29_18-16-34.yaml')
@@ -232,4 +268,5 @@ if __name__ == "__main__":
     steps = find_steps(data, amp_threshold=10 * get_noise_floor(data), freq_weights=weights, plot=True)
     print(f"Asymmetry: {get_temporal_asymmetry(steps) * 100:.2f} %")
     print(f"Steps/s: {get_cadence(steps):.2f}")
+    print(f"Algorithm error: {get_algorithm_error(steps, data.events)}")
     # view_datasets(walk_type='normal')
