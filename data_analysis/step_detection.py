@@ -49,7 +49,7 @@ def view_datasets(dataset_dir: str = "datasets", **filters):
     fig.show()
 
 
-def count_steps(data: Recording, window_duration=0.1, amp_threshold=0.3, plot=False) -> int:
+def find_steps(data: Recording, window_duration=0.05, amp_threshold=0.3, plot=False) -> int:
     """
     Counts the number of steps in a time series of accelerometer data
 
@@ -70,7 +70,12 @@ def count_steps(data: Recording, window_duration=0.1, amp_threshold=0.3, plot=Fa
     ### Frequency domain processing
     rolling_fft = np.fft.fft(intervals, axis=-1).T[:window//2] # Ignore negative frequencies
     amps = np.abs(rolling_fft)
-    peaks = np.mean(amps, axis=0)
+    energy = np.mean(amps, axis=0)
+    # TODO: Count wide peaks as 1 step
+    peak_indices = np.where(energy > amp_threshold)[0] * window # Rescale to original time series
+    peak_stamps = timestamps[peak_indices]
+    # TODO: Find start of step within confirmed window
+
     if plot:
         freqs = np.fft.fftfreq(window, 1/fs)[:window//2] # Ignore negative frequencies
         titles = ("Raw Timeseries", "Scrolling FFT", "Average Energy")
@@ -78,26 +83,25 @@ def count_steps(data: Recording, window_duration=0.1, amp_threshold=0.3, plot=Fa
         fig.add_trace(go.Scatter(x=timestamps, y=vibes, name='vibes'), row=1, col=1)
         # fig.add_trace(go.Scatter(x=timestamps, y=p_vibes, name='pvibes'), row=2, col=1)
         fig.add_trace(go.Heatmap(x=timestamps[::window], y=freqs, z=amps), row=2, col=1)
-        fig.add_trace(go.Scatter(x=timestamps[::window], y=peaks, name='peaks'), row=3, col=1)
+        fig.add_trace(go.Scatter(x=timestamps[::window], y=energy, name='energy'), row=3, col=1)
         fig.add_hline(y=amp_threshold, row=3, col=1)
         for event in data.events:
-            fig.add_vline(x=event.timestamp, row=1, col=1)
+            fig.add_vline(x=event.timestamp, line_color='green', row=1, col=1)
             fig.add_annotation(x=event.timestamp, y=0, text="Step", xshift=-17, showarrow=False, row=1, col=1)
+        for peak in peak_stamps:
+            fig.add_vline(x=peak, line_dash="dash", row=1, col=1)
         # fig.write_html("normal_detection.html")
         fig.show()
 
-    # TODO: Count wide peaks as 1 step
-    # TODO: Return timestamps of steps
-    # Later
     # TODO: Hysterisis: Count small steps if they are between two large steps
     # TODO: Only count multiple confirmed steps?
-    return np.count_nonzero(peaks > amp_threshold)
+    return peak_stamps
 
 
 
 if __name__ == "__main__":
-    # data = Recording.from_file('datasets/2023-10-29_18-16-34.yaml')
+    data = Recording.from_file('datasets/2023-10-29_18-16-34.yaml')
     # data = Recording.from_file('datasets/2023-10-29_18-20-13.yaml')
-    # print("Steps: ", count_steps(data, plot=True, amp_threshold=0.3))
+    print("Steps: ", find_steps(data, plot=True, amp_threshold=0.15))
 
-    view_datasets(walk_type='normal')
+    # view_datasets(walk_type='normal')
