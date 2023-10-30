@@ -214,7 +214,7 @@ def get_temporal_asymmetry(step_timestamps: List[float]):
     Calculates the temporal asymmetry of a list of step timestamps. 
     """
     step_durations = np.diff(step_timestamps)
-    return np.mean(step_durations[1:] / step_durations[:-1]) - 1
+    return np.abs(np.mean(step_durations[1:] / step_durations[:-1]) - 1)
 
 
 def get_cadence(step_timestamps: List[float]):
@@ -227,9 +227,9 @@ def get_cadence(step_timestamps: List[float]):
 
 if __name__ == "__main__":
     freqs, weights = get_frequency_weights(Recording.from_file('datasets/2023-10-29_18-16-34.yaml'), plot=False)
-    # data = Recording.from_file('datasets/2023-10-29_18-16-34.yaml')
-    data = Recording.from_file('datasets/2023-10-29_18-20-13.yaml')
-    steps = find_steps(data, amp_threshold=5 * get_noise_floor(data), freq_weights=weights, plot=True)
+    data = Recording.from_file('datasets/2023-10-29_18-16-34.yaml')
+    # data = Recording.from_file('datasets/2023-10-29_18-20-13.yaml')
+    steps = find_steps(data, amp_threshold=10 * get_noise_floor(data), freq_weights=weights, plot=True)
     print(f"Asymmetry: {get_temporal_asymmetry(steps) * 100:.2f} %")
     print(f"Steps/s: {get_cadence(steps):.2f}")
     # view_datasets(walk_type='normal')
