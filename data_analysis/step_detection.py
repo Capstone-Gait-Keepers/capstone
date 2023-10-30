@@ -129,9 +129,8 @@ def get_frequency_weights(data: Recording, window_duration=0.2, plot=False):
         fft_timestamps, freqs, amps = rolling_window_fft(step - DC, window_duration, 1, data.env.fs)
         amp_per_step_freq_time.append(amps)
     amp_per_step_freq_time = np.asarray(amp_per_step_freq_time)
-    amp_per_step_freq = np.mean(amp_per_step_freq_time, axis=0)
+    amp_per_step_freq = np.mean(amp_per_step_freq_time, axis=-1)
     amp_per_freq = np.mean(amp_per_step_freq, axis=0)
-    amp_per_freq = amp_per_freq[:len(freqs)] # TODO: WTF is going on here?
     amp_per_freq /= np.max(amp_per_freq)
 
     if plot:
@@ -148,7 +147,7 @@ def get_frequency_weights(data: Recording, window_duration=0.2, plot=False):
         fig = go.Figure()
         fig.update_layout(title="Amplitude vs Frequency (Average of all steps)", showlegend=False)
         fig.add_scatter(x=freqs, y=amp_per_freq)
-        fig.show()    
+        fig.show()
     return freqs, amp_per_freq
 
 
@@ -218,11 +217,19 @@ def get_temporal_asymmetry(step_timestamps: List[float]):
     return np.mean(step_durations[1:] / step_durations[:-1]) - 1
 
 
-if __name__ == "__main__":
-    freqs, weights = get_frequency_weights(Recording.from_file('datasets/2023-10-29_18-16-34.yaml'))
-    data = Recording.from_file('datasets/2023-10-29_18-16-34.yaml')
-    # data = Recording.from_file('datasets/2023-10-29_18-20-13.yaml')
-    steps = find_steps(data, amp_threshold=10 * get_noise_floor(data), freq_weights=weights, plot=True)
-    print(get_temporal_asymmetry(steps))
+def get_cadence(step_timestamps: List[float]):
+    """
+    Calculates the cadence of a list of step timestamps. 
+    """
+    step_durations = np.diff(step_timestamps)
+    return 1 / np.mean(step_durations)
 
+
+if __name__ == "__main__":
+    freqs, weights = get_frequency_weights(Recording.from_file('datasets/2023-10-29_18-16-34.yaml'), plot=False)
+    # data = Recording.from_file('datasets/2023-10-29_18-16-34.yaml')
+    data = Recording.from_file('datasets/2023-10-29_18-20-13.yaml')
+    steps = find_steps(data, amp_threshold=5 * get_noise_floor(data), freq_weights=weights, plot=True)
+    print(f"Asymmetry: {get_temporal_asymmetry(steps) * 100:.2f} %")
+    print(f"Steps/s: {get_cadence(steps):.2f}")
     # view_datasets(walk_type='normal')
