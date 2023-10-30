@@ -3,6 +3,7 @@ import numpy as np
 import plotly.graph_objects as go
 from data_types import Recording
 from plotly.subplots import make_subplots
+from typing import List
 
 
 def timestamp_to_index(timestamp: float, fs: float) -> int:
@@ -181,6 +182,7 @@ def find_steps(data: Recording, window_duration=0.2, stride=1, amp_threshold=0.3
     # TODO: Ensure weights correspond to correct frequencies
     if freq_weights is None:
         freq_weights = np.ones_like(freqs)
+    # TODO: Minimum step duration? Ignore steps that are too close together?
     energy = np.average(amps, axis=0, weights=freq_weights)
     de_dt = np.gradient(energy)
     optima = np.diff(np.sign(de_dt), prepend=[0]) != 0
@@ -208,11 +210,19 @@ def find_steps(data: Recording, window_duration=0.2, stride=1, amp_threshold=0.3
     return peak_stamps
 
 
+def get_temporal_asymmetry(step_timestamps: List[float]):
+    """
+    Calculates the temporal asymmetry of a list of step timestamps. 
+    """
+    step_durations = np.diff(step_timestamps)
+    return np.mean(step_durations[1:] / step_durations[:-1]) - 1
+
 
 if __name__ == "__main__":
     freqs, weights = get_frequency_weights(Recording.from_file('datasets/2023-10-29_18-16-34.yaml'))
     data = Recording.from_file('datasets/2023-10-29_18-16-34.yaml')
     # data = Recording.from_file('datasets/2023-10-29_18-20-13.yaml')
-    print("Steps: ", find_steps(data, amp_threshold=10 * get_noise_floor(data), freq_weights=weights, plot=True))
+    steps = find_steps(data, amp_threshold=10 * get_noise_floor(data), freq_weights=weights, plot=True)
+    print(get_temporal_asymmetry(steps))
 
     # view_datasets(walk_type='normal')
