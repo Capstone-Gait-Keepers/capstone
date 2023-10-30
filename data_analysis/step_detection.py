@@ -5,7 +5,7 @@ from data_types import Recording
 from plotly.subplots import make_subplots
 
 
-def rolling_window(a: np.ndarray, window_size: int, overlap: int = 0):
+def rolling_window(a: np.ndarray, window_size: int, stride: int = None):
     """
     Creates a rolling window of a time series
 
@@ -15,15 +15,36 @@ def rolling_window(a: np.ndarray, window_size: int, overlap: int = 0):
         Time series to be windowed
     window_size : int
         Size of the window in samples
-    overlap : int
-        Number of samples to overlap between windows
+    stride : int, optional
+        Number of samples to move the window by. If None, stride is equal to window size
 
     Returns
     -------
     np.ndarray
         Windowed time series
     """
-    return np.asarray([a[i:i + window_size] for i in range(0, len(a) - window_size, window_size - overlap)])
+    if stride is None:
+        stride = window_size
+    return np.asarray([a[i:i + window_size] for i in range(0, len(a) - window_size, stride)])
+
+
+def rolling_window_fft(a: np.ndarray, window_duration: int, stride: int, fs: float):
+    """
+    Creates a rolling window of a time series and computes the FFT of each window
+    """
+    window_size = np.floor(window_duration * fs).astype(int)
+    intervals = rolling_window(a, window_size, stride)
+    # TODO: Better condition for tapering?
+    if stride < window_size:
+        tapering_window = np.vstack([np.blackman(window_size)] * len(intervals))
+        intervals *= tapering_window
+    rolling_fft = np.fft.fft(intervals, axis=-1).T[:window_size//2]
+    timestamps = np.linspace(0, len(a) / fs, len(a))
+    fft_timestamps = timestamps[::stride] + window_duration/2 # Add half window duration to center the window
+    amps = np.abs(rolling_fft)
+    freqs = np.fft.fftfreq(window_size, 1/fs)[:window_size//2] # Ignore negative frequencies
+    return fft_timestamps, freqs, amps
+
 
 
 def view_datasets(dataset_dir: str = "datasets", **filters):
@@ -49,20 +70,55 @@ def view_datasets(dataset_dir: str = "datasets", **filters):
     fig.show()
 
 
-def get_steps(data: Recording, step_duration=0.2):
+def get_steps_from_truth(data: Recording, step_duration=0.35, shift_percent=0.2):
     """
     Uses the source of truth to parse the accelerometer data pertaining to steps
     """
     step_measurements = []
     for event in data.events:
         if event.category == 'step':
-            start = event.timestamp
-            end = start + step_duration
+            start = np.floor((event.timestamp - step_duration * shift_percent) * data.env.fs).astype(int)
+            end = start + np.floor(step_duration * data.env.fs).astype(int)
             step_measurements.append(data.ts[start:end])
     return step_measurements
 
 
-def find_steps(data: Recording, window_duration=0.2, stride=1, amp_threshold=0.3, plot=False) -> int:
+def find_frequency_weighting(data: Recording, window_duration=0.2, plot=False):
+    """
+    Find the dominant frequencies pertaining to steps
+    """
+    DC = np.mean(data.ts, axis=0)
+    step_data = get_steps_from_truth(data)
+    amp_per_step_freq_time = []
+
+    for step in step_data:
+        fft_timestamps, freqs, amps = rolling_window_fft(step - DC, window_duration, 1, data.env.fs)
+        amp_per_step_freq_time.append(amps)
+    amp_per_step_freq_time = np.asarray(amp_per_step_freq_time)
+    amp_per_step_freq = np.mean(amp_per_step_freq_time, axis=0)
+    amp_per_freq = np.mean(amp_per_step_freq, axis=0)
+    amp_per_freq = amp_per_freq[:len(freqs)] # TODO: WTF is going on here?
+    amp_per_freq /= np.max(amp_per_freq)
+
+    if plot:
+        num_rows = int(np.ceil(np.sqrt(len(step_data))))
+        fig = make_subplots(rows=num_rows, cols=num_rows, column_titles=['Step Heat Maps (Freq vs Time)'])
+        for i, amps in enumerate(amp_per_step_freq_time, start=1):
+            fig.add_heatmap(x=fft_timestamps, y=freqs, z=amps, row=(i // num_rows) + 1, col=(i % num_rows) + 1)
+        fig.show()
+        fig = go.Figure()
+        fig.update_layout(title="Amplitude vs Frequency For Each Step", showlegend=False)
+        for step_amp_per_freq in amp_per_step_freq:
+            fig.add_scatter(x=freqs, y=step_amp_per_freq)
+        fig.show()
+        fig = go.Figure()
+        fig.update_layout(title="Amplitude vs Frequency (Average of all steps)", showlegend=False)
+        fig.add_scatter(x=freqs, y=amp_per_freq)
+        fig.show()    
+    return freqs, amp_per_freq
+
+
+def find_steps(data: Recording, window_duration=0.2, stride=1, amp_threshold=0.3, freq_weights=None, plot=False) -> int:
     """
     Counts the number of steps in a time series of accelerometer data
 
@@ -74,40 +130,35 @@ def find_steps(data: Recording, window_duration=0.2, stride=1, amp_threshold=0.3
         Duration of the rolling window in seconds
     stride : int, optional
         Number of samples to move the window by. If None, stride is equal to window duration
+    amp_threshold : float, optional
+        Minimum amplitude of a peak to be considered a step
+    freq_weights : np.ndarray, optional
+        Weights to apply to each frequency when averaging the frequency spectrum
     """
     vibes = data.ts
     fs = data.env.fs
-    window = np.floor(window_duration * fs).astype(int)
     timestamps = np.linspace(0, len(vibes) / fs, len(vibes))
     ### Time series processing
     # TODO: Measure noise floor to determine threshold
     p_vibes = vibes - np.mean(vibes, axis=0) # Subtract DC offset
-    if stride is None:
-        stride = window # Tiny stride to get more data points
-    overlap = window - stride
-    intervals = rolling_window(p_vibes, window, overlap)
-    if overlap: # TODO: Better condition for tapering?
-        tapering_window = np.vstack([np.blackman(window)] * len(intervals))
-        intervals *= tapering_window
+    fft_timestamps, freqs, amps = rolling_window_fft(p_vibes, window_duration, stride, fs)
     ### Frequency domain processing
-    rolling_fft = np.fft.fft(intervals, axis=-1).T[:window//2] # Ignore negative frequencies
-    fft_timestamps = timestamps[::stride] + window_duration/2 # Add half window duration to center the window
-    amps = np.abs(rolling_fft)
-    # TODO: Weight average based on shape of frequency spectrum
-    energy = np.mean(amps, axis=0)
+    # Weight average based on shape of frequency spectrum
+    # TODO: Ensure weights correspond to correct frequencies
+    if freq_weights is None:
+        freq_weights = np.ones_like(freqs)
+    energy = np.average(amps, axis=0, weights=freq_weights)
     de_dt = np.gradient(energy)
     optima = np.diff(np.sign(de_dt), prepend=[0]) != 0
-    peak_indices = np.where((energy > amp_threshold) & optima)[0]
-    peak_indices *= stride # Rescale to original time series
+    peak_indices = np.where((energy > amp_threshold) & optima)[0] * stride # Rescale to original time series
     peak_stamps = fft_timestamps[peak_indices]
     # TODO: Find start of step within confirmed window
 
     if plot:
         titles = ("Raw Timeseries", "Scrolling FFT", "Average Energy")
-        fig = make_subplots(rows=4, cols=1, shared_xaxes=True, subplot_titles=titles)
+        fig = make_subplots(rows=3, cols=1, shared_xaxes=True, subplot_titles=titles)
         fig.add_scatter(x=timestamps, y=vibes, name='vibes', showlegend=False, row=1, col=1)
-        freqs = np.fft.fftfreq(window, 1/fs)[:window//2] # Ignore negative frequencies
-        fig.add_trace(go.Heatmap(x=fft_timestamps, y=freqs, z=amps), row=2, col=1)
+        fig.add_heatmap(x=fft_timestamps, y=freqs, z=amps, row=2, col=1)
         fig.add_scatter(x=fft_timestamps, y=energy, name='energy', showlegend=False, row=3, col=1)
         fig.add_hline(y=amp_threshold, row=3, col=1)
         for event in data.events:
@@ -116,18 +167,19 @@ def find_steps(data: Recording, window_duration=0.2, stride=1, amp_threshold=0.3
         for peak in peak_stamps:
             fig.add_vline(x=peak, line_dash="dash", row=1, col=1)
         # fig.write_html("normal_detection.html")
-        fig.add_scatter(x=fft_timestamps, y=de_dt, name='de_dt', showlegend=False, row=4, col=1)
         fig.show()
 
-    # TODO: Hysterisis: Count small steps if they are between two large steps
+    # TODO: Hysteresis: Count small steps if they are between two large steps
     # TODO: Only count multiple confirmed steps?
     return peak_stamps
 
 
 
 if __name__ == "__main__":
+    freqs, weights = find_frequency_weighting(Recording.from_file('datasets/2023-10-29_18-16-34.yaml'))
     data = Recording.from_file('datasets/2023-10-29_18-16-34.yaml')
     # data = Recording.from_file('datasets/2023-10-29_18-20-13.yaml')
     print("Steps: ", find_steps(data, amp_threshold=0.15, plot=True))
+    print("Steps: ", find_steps(data, amp_threshold=0.15, freq_weights=weights, plot=True))
 
     # view_datasets(walk_type='normal')
