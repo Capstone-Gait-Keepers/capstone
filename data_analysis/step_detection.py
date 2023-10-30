@@ -242,21 +242,21 @@ def get_algorithm_error(measured_step_times: List[float], events: List[Event]):
     if not len(measured_step_times):
         raise ValueError("Algorithm did not find any steps")
     true_step_times = [event.timestamp for event in events if event.category == 'step']
-    errors = []
     missed_steps = 0
-    selected_measurements = []
+    measurement_errors = {}
     for step_stamp in true_step_times:
-        measurement_error = np.abs(measured_step_times - step_stamp)
-        best_measurement = np.argmin(measurement_error)
+        possible_errors = np.abs(measured_step_times - step_stamp)
+        best_measurement = np.argmin(possible_errors)
         # If the measurement is already the best one for another step, it means we missed this step
-        if best_measurement in selected_measurements:
+        if best_measurement in measurement_errors:
             missed_steps += 1
         else:
-            selected_measurements.append(best_measurement)
-            errors.append(measurement_error[best_measurement])
-    incorrect_measurements = len(measured_step_times) - len(selected_measurements)
+            measurement_errors[best_measurement] = possible_errors[best_measurement]
+    incorrect_measurements = len(measured_step_times) - len(measurement_errors)
+    errors = [*measurement_errors.values()]
     return {
         "error": np.mean(errors),
+        "stderr": np.std(errors),
         "incorrect": incorrect_measurements,
         "missed": missed_steps
     }
