@@ -49,7 +49,7 @@ def view_datasets(dataset_dir: str = "datasets", **filters):
     fig.show()
 
 
-def find_steps(data: Recording, window_duration=0.05, amp_threshold=0.3, plot=False) -> int:
+def find_steps(data: Recording, window_duration=0.2, stride=1, amp_threshold=0.3, plot=False) -> int:
     """
     Counts the number of steps in a time series of accelerometer data
 
@@ -59,21 +59,30 @@ def find_steps(data: Recording, window_duration=0.05, amp_threshold=0.3, plot=Fa
         Time series of accelerometer data, plus the environmental data
     window_duration : int, optional
         Duration of the rolling window in seconds
+    stride : int, optional
+        Number of samples to move the window by. If None, stride is equal to window duration
     """
     vibes = data.ts
     fs = data.env.fs
     window = np.floor(window_duration * fs).astype(int)
     timestamps = np.linspace(0, len(vibes) / fs, len(vibes))
     ### Time series processing
+    # TODO: Measure noise floor to determine threshold
     p_vibes = vibes - np.mean(vibes, axis=0) # Subtract DC offset
-    intervals = rolling_window(p_vibes, window)
+    if stride is None:
+        stride = window # Tiny stride to get more data points
+    intervals = rolling_window(p_vibes, window, overlap=window-stride)
+    if stride < window: # TODO: Better condition for tapering?
+        tapering_window = np.vstack([np.blackman(window)] * len(intervals))
+        intervals *= tapering_window
     ### Frequency domain processing
     rolling_fft = np.fft.fft(intervals, axis=-1).T[:window//2] # Ignore negative frequencies
     amps = np.abs(rolling_fft)
     energy = np.mean(amps, axis=0)
     # TODO: Count wide peaks as 1 step
-    peak_indices = np.where(energy > amp_threshold)[0] * window # Rescale to original time series
-    peak_stamps = timestamps[peak_indices]
+    peak_indices = np.where(energy > amp_threshold)[0] * stride # Rescale to original time series
+    fft_timestamps = timestamps[::stride] + window_duration/2
+    peak_stamps = fft_timestamps[peak_indices] # Add half window duration to get center of window
     # TODO: Find start of step within confirmed window
 
     if plot:
@@ -82,14 +91,14 @@ def find_steps(data: Recording, window_duration=0.05, amp_threshold=0.3, plot=Fa
         fig = make_subplots(rows=3, cols=1, shared_xaxes=True, subplot_titles=titles)
         fig.add_trace(go.Scatter(x=timestamps, y=vibes, name='vibes'), row=1, col=1)
         # fig.add_trace(go.Scatter(x=timestamps, y=p_vibes, name='pvibes'), row=2, col=1)
-        fig.add_trace(go.Heatmap(x=timestamps[::window], y=freqs, z=amps), row=2, col=1)
-        fig.add_trace(go.Scatter(x=timestamps[::window], y=energy, name='energy'), row=3, col=1)
+        fig.add_trace(go.Heatmap(x=fft_timestamps, y=freqs, z=amps), row=2, col=1)
+        fig.add_trace(go.Scatter(x=fft_timestamps, y=energy, name='energy'), row=3, col=1)
         fig.add_hline(y=amp_threshold, row=3, col=1)
         for event in data.events:
             fig.add_vline(x=event.timestamp, line_color='green', row=1, col=1)
             fig.add_annotation(x=event.timestamp, y=0, text="Step", xshift=-17, showarrow=False, row=1, col=1)
-        for peak in peak_stamps:
-            fig.add_vline(x=peak, line_dash="dash", row=1, col=1)
+        # for peak in peak_stamps:
+        #     fig.add_vline(x=peak, line_dash="dash", row=1, col=1)
         # fig.write_html("normal_detection.html")
         fig.show()
 
@@ -100,8 +109,8 @@ def find_steps(data: Recording, window_duration=0.05, amp_threshold=0.3, plot=Fa
 
 
 if __name__ == "__main__":
-    data = Recording.from_file('datasets/2023-10-29_18-16-34.yaml')
-    # data = Recording.from_file('datasets/2023-10-29_18-20-13.yaml')
-    print("Steps: ", find_steps(data, plot=True, amp_threshold=0.15))
+    # data = Recording.from_file('datasets/2023-10-29_18-16-34.yaml')
+    data = Recording.from_file('datasets/2023-10-29_18-20-13.yaml')
+    print("Steps: ", find_steps(data, amp_threshold=0.15, plot=True))
 
     # view_datasets(walk_type='normal')
