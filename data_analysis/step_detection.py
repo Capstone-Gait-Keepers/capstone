@@ -5,6 +5,25 @@ from data_types import Recording
 from plotly.subplots import make_subplots
 
 
+def timestamp_to_index(timestamp: float, fs: float) -> int:
+    """
+    Converts a timestamp to an index in a time series
+
+    Parameters
+    ----------
+    timestamp : float
+        Timestamp in seconds
+    fs : float
+        Sampling frequency in Hz
+
+    Returns
+    -------
+    int
+        Index of the timestamp in the time series
+    """
+    return np.floor(timestamp * fs).astype(int)
+
+
 def rolling_window(a: np.ndarray, window_size: int, stride: int = None):
     """
     Creates a rolling window of a time series
@@ -32,7 +51,7 @@ def rolling_window_fft(a: np.ndarray, window_duration: int, stride: int, fs: flo
     """
     Creates a rolling window of a time series and computes the FFT of each window
     """
-    window_size = np.floor(window_duration * fs).astype(int)
+    window_size = timestamp_to_index(window_duration, fs)
     intervals = rolling_window(a, window_size, stride)
     # TODO: Better condition for tapering?
     if stride < window_size:
@@ -77,13 +96,27 @@ def get_steps_from_truth(data: Recording, step_duration=0.35, shift_percent=0.2)
     step_measurements = []
     for event in data.events:
         if event.category == 'step':
-            start = np.floor((event.timestamp - step_duration * shift_percent) * data.env.fs).astype(int)
-            end = start + np.floor(step_duration * data.env.fs).astype(int)
+            start = timestamp_to_index(event.timestamp - step_duration * shift_percent, data.env.fs)
+            end = start + timestamp_to_index(step_duration, data.env.fs)
             step_measurements.append(data.ts[start:end])
     return step_measurements
 
 
-def find_frequency_weighting(data: Recording, window_duration=0.2, plot=False):
+def get_noise_floor(data: Recording):
+    """
+    Find the noise floor of the accelerometer data
+    """
+    first_step = data.events[0].timestamp # TODO: Assumes the first event is a step
+    noisy_starting_data = data.ts[:timestamp_to_index(first_step, data.env.fs)]
+    noisy_starting_data = noisy_starting_data - np.mean(noisy_starting_data)
+    # fig = go.Figure()
+    # fig.add_scatter(x=np.linspace(0, len(noisy_starting_data) / data.env.fs, len(noisy_starting_data)), y=noisy_starting_data)
+    # fig.show()
+    rms = np.sqrt(np.mean(noisy_starting_data**2))
+    return rms
+
+
+def get_frequency_weights(data: Recording, window_duration=0.2, plot=False):
     """
     Find the dominant frequencies pertaining to steps
     """
@@ -120,7 +153,9 @@ def find_frequency_weighting(data: Recording, window_duration=0.2, plot=False):
 
 def find_steps(data: Recording, window_duration=0.2, stride=1, amp_threshold=0.3, freq_weights=None, plot=False) -> int:
     """
-    Counts the number of steps in a time series of accelerometer data
+    Counts the number of steps in a time series of accelerometer data. This function should not use
+    anything from `data.events` except for plotting purposes. This is because it is meant to mimic
+    a blind step detection algorithm.
 
     Parameters
     ----------
@@ -139,7 +174,6 @@ def find_steps(data: Recording, window_duration=0.2, stride=1, amp_threshold=0.3
     fs = data.env.fs
     timestamps = np.linspace(0, len(vibes) / fs, len(vibes))
     ### Time series processing
-    # TODO: Measure noise floor to determine threshold
     p_vibes = vibes - np.mean(vibes, axis=0) # Subtract DC offset
     fft_timestamps, freqs, amps = rolling_window_fft(p_vibes, window_duration, stride, fs)
     ### Frequency domain processing
@@ -152,7 +186,7 @@ def find_steps(data: Recording, window_duration=0.2, stride=1, amp_threshold=0.3
     optima = np.diff(np.sign(de_dt), prepend=[0]) != 0
     peak_indices = np.where((energy > amp_threshold) & optima)[0] * stride # Rescale to original time series
     peak_stamps = fft_timestamps[peak_indices]
-    # TODO: Find start of step within confirmed window
+    # TODO: Find start of step within confirmed window?
 
     if plot:
         titles = ("Raw Timeseries", "Scrolling FFT", "Average Energy")
@@ -176,10 +210,9 @@ def find_steps(data: Recording, window_duration=0.2, stride=1, amp_threshold=0.3
 
 
 if __name__ == "__main__":
-    freqs, weights = find_frequency_weighting(Recording.from_file('datasets/2023-10-29_18-16-34.yaml'))
+    freqs, weights = get_frequency_weights(Recording.from_file('datasets/2023-10-29_18-16-34.yaml'))
     data = Recording.from_file('datasets/2023-10-29_18-16-34.yaml')
     # data = Recording.from_file('datasets/2023-10-29_18-20-13.yaml')
-    print("Steps: ", find_steps(data, amp_threshold=0.15, plot=True))
-    print("Steps: ", find_steps(data, amp_threshold=0.15, freq_weights=weights, plot=True))
+    print("Steps: ", find_steps(data, amp_threshold=10 * get_noise_floor(data), freq_weights=weights, plot=True))
 
     # view_datasets(walk_type='normal')

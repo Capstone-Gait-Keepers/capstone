@@ -1,4 +1,5 @@
 
+import numpy as np
 from copy import deepcopy
 from dataclasses import dataclass, field, asdict
 from pathlib import Path
@@ -61,7 +62,7 @@ class RecordingEnvironment:
 class Recording:
     env: RecordingEnvironment
     events: list[Event] = field(default_factory=list)
-    ts: list[float] = field(default_factory=list)
+    ts: np.ndarray = field(default_factory=np.zeros(0))
 
     @classmethod
     def from_file(cls, filename: str):
@@ -74,7 +75,7 @@ class Recording:
     def from_dict(cls, data: dict):
         env = RecordingEnvironment(**data['env'])
         events = [Event(**event) for event in data['events']]
-        return cls(env, events, data['ts'])
+        return cls(env, events, np.asarray(data['ts']))
 
     def to_yaml(self, filename: str):
         yaml = YAML()
@@ -84,5 +85,5 @@ class Recording:
         return {
             'env': self.env.to_dict(),
             'events': [event.to_dict() for event in self.events],
-            'ts': self.ts
+            'ts': self.ts.tolist()
         }
