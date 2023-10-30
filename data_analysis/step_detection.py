@@ -49,6 +49,19 @@ def view_datasets(dataset_dir: str = "datasets", **filters):
     fig.show()
 
 
+def get_steps(data: Recording, step_duration=0.2):
+    """
+    Uses the source of truth to parse the accelerometer data pertaining to steps
+    """
+    step_measurements = []
+    for event in data.events:
+        if event.category == 'step':
+            start = event.timestamp
+            end = start + step_duration
+            step_measurements.append(data.ts[start:end])
+    return step_measurements
+
+
 def find_steps(data: Recording, window_duration=0.2, stride=1, amp_threshold=0.3, plot=False) -> int:
     """
     Counts the number of steps in a time series of accelerometer data
@@ -78,6 +91,7 @@ def find_steps(data: Recording, window_duration=0.2, stride=1, amp_threshold=0.3
     ### Frequency domain processing
     rolling_fft = np.fft.fft(intervals, axis=-1).T[:window//2] # Ignore negative frequencies
     amps = np.abs(rolling_fft)
+    # TODO: Weight average based on shape of frequency spectrum
     energy = np.mean(amps, axis=0)
     # TODO: Count wide peaks as 1 step
     peak_indices = np.where(energy > amp_threshold)[0] * stride # Rescale to original time series
@@ -109,8 +123,8 @@ def find_steps(data: Recording, window_duration=0.2, stride=1, amp_threshold=0.3
 
 
 if __name__ == "__main__":
-    # data = Recording.from_file('datasets/2023-10-29_18-16-34.yaml')
-    data = Recording.from_file('datasets/2023-10-29_18-20-13.yaml')
+    data = Recording.from_file('datasets/2023-10-29_18-16-34.yaml')
+    # data = Recording.from_file('datasets/2023-10-29_18-20-13.yaml')
     print("Steps: ", find_steps(data, amp_threshold=0.15, plot=True))
 
     # view_datasets(walk_type='normal')
