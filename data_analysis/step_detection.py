@@ -82,9 +82,9 @@ def view_datasets(dataset_dir: str = "datasets", **filters):
     for i, data in enumerate(datasets, start=1):
         timestamps = np.linspace(0, len(data.ts) / data.env.fs, len(data.ts))
         fig.add_trace(go.Scatter(x=timestamps, y=data.ts, name='vibes'), row=i, col=1)
-        # TODO: Better text to identify between datasets. Drop entries that are common to all datasets
+        # TODO: Better text to identify between datasets
         env_vars = data.env.to_dict()
-        env_vars = {key: value for key, value in env_vars.items() if value is not None}
+        env_vars = {key: value for key, value in env_vars.items() if value is not None and key not in filters}
         for y, (key, value) in enumerate(env_vars.items(), start=-len(env_vars) // 2):
             fig.add_annotation(x=timestamps[len(timestamps)//2], y=y/80, text=f"{key} = {value}", xshift=0, showarrow=False, row=i, col=1)
     fig.show()
@@ -201,7 +201,7 @@ def find_steps(data: Recording, window_duration=0.2, stride=1, amp_threshold=0.3
             fig.add_annotation(x=event.timestamp, y=0, xshift=-17, text="Step", showarrow=False, row=1, col=1)
         for peak in peak_stamps:
             fig.add_vline(x=peak, line_dash="dash", row=1, col=1)
-        # fig.write_html("normal_detection.html")
+        fig.write_html("normal_detection.html")
         fig.show()
 
     # TODO: Hysteresis: Count small steps if they are between two large steps
@@ -260,6 +260,12 @@ def get_algorithm_error(measured_step_times: List[float], events: List[Event]):
         "incorrect": incorrect_measurements,
         "missed": missed_steps
     }
+
+
+# TODO
+def get_gait_type(data: Recording):
+    ...
+
 
 if __name__ == "__main__":
     freqs, weights = get_frequency_weights(Recording.from_file('datasets/2023-10-29_18-16-34.yaml'), plot=False)

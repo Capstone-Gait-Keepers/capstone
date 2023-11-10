@@ -67,10 +67,13 @@ class Recording:
 
     @classmethod
     def from_file(cls, filename: str):
-        yaml = YAML()
-        with open(filename) as file:
-            data = yaml.load(file)
-        return cls.from_dict(data)
+        try:
+            yaml = YAML()
+            with open(filename) as file:
+                data = yaml.load(file)
+            return cls.from_dict(data)
+        except Exception as e:
+            raise ValueError(f'Failed to load recording from "{filename}".') from e
 
     @classmethod
     def from_dict(cls, data: dict):
