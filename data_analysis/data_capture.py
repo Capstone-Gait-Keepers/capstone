@@ -35,17 +35,18 @@ def collect_data(seconds: float = None, serial_port = '/dev/cu.usbserial-0001', 
             except ValueError as e:
                 if last_time is not None: # Ignore the first sample being bad
                     raise ValueError('Unable to decode: ' + ser.readline().decode()) from e
-            timestamp = int(timestamp) / 1000
-            if last_time is not None and fs is not None:
-                fs_error = (timestamp - last_time) - expected_period
-                if fs_error >= expected_period * error_threshold:
-                    raise EnvironmentError(f'Expected {expected_period} sampling period, received {timestamp - last_time}')
-            last_time = timestamp
-            vibes.append(float(accel))
-            if start_time is None:
-                start_time = timestamp
-            if event == "BUTTON":
-                events.append(Event('step', timestamp - start_time))
+            else:
+                timestamp = int(timestamp) / 1000
+                if last_time is not None and fs is not None:
+                    fs_error = (timestamp - last_time) - expected_period
+                    if fs_error >= expected_period * error_threshold:
+                        raise EnvironmentError(f'Expected {expected_period} sampling period, received {timestamp - last_time}')
+                last_time = timestamp
+                vibes.append(float(accel))
+                if start_time is None:
+                    start_time = timestamp
+                if event == "BUTTON":
+                    events.append(Event('step', timestamp - start_time))
     except KeyboardInterrupt:
         # Close the serial port and the file when you interrupt the script.
         ser.close()
@@ -53,24 +54,39 @@ def collect_data(seconds: float = None, serial_port = '/dev/cu.usbserial-0001', 
 
 
 if __name__ == "__main__":
+    # close_path = WalkPath(start=1.77, stop=2.16, length=3.65)
+    # middle_path = WalkPath(start=2.69, stop=3.07, length=3.72)
+    # far_path = WalkPath(start=4.28, stop=4.49, length=3.65)
+
+    close_path = WalkPath(start=1.72, stop=1.95, length=3.72)
+    middle_path = WalkPath(start=2.74, stop=2.85, length=3.65)
     # ! Change as needed
     env = RecordingEnvironment(
-        location='Sunview Living Room',
+        location='Aarons Studio',
         fs=100,
-        floor='tile',
-        obstacle_radius=1,
-        wall_radius=1.34,
+        floor='cork',
+        # obstacle_radius=0.04,
+        obstacle_radius=1.38,
+        # wall_radius=0.04,
+        wall_radius=1.89,
         walk_type='normal',
-        user='ron',
+        # walk_type='shuffle',
+        # walk_type='limp',
+        # walk_speed='normal',
+        walk_speed='slow',
+        user='sarah (julia)',
         footwear='socks',
-        path=WalkPath(start=1.5+0.82, stop=1.5+0.48, length=0.6*7),
+        # footwear='slippers',
+        path=close_path,
+        # path=middle_path,
     )
 
-    seconds = input('Input the number of seconds to collect data: ')
-    assert input(f'Is this environment correct? \n{dumps(env.to_dict(), sort_keys=True, indent=2)}\n (y/n) ') == 'y', 'Please update the environment in data_capture.py'
+    # seconds = input('Input the number of seconds to collect data: ')
+    seconds = 100
+    # assert input(f'Is this environment correct? \n{dumps(env.to_dict(), sort_keys=True, indent=2)}\n (y/n) ') == 'y', 'Please update the environment in data_capture.py'
     timestamp = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
     vibes, events = collect_data(int(seconds), fs=env.fs)
 
     rec = Recording(env, events, vibes)
     rec.to_yaml(f'datasets/{timestamp}.yaml')
-    find_steps(rec, plot=True)
+    print(len(find_steps(rec, plot=True)))

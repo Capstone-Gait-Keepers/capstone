@@ -43,12 +43,13 @@ class RecordingEnvironment:
     obstacle_radius: float
     wall_radius: float
     path: WalkPath
+    walk_speed: str = 'normal'
     temperature: Optional[float] = None # in Celsius
     notes: str = ''
 
     def __post_init__(self):
-        valid_walks = ['normal', 'stomp', 'shuffle', 'limp']
-        valid_footwear = ['barefoot', 'shoes', 'socks', 'slides']
+        valid_walks = ['normal', 'stomp', 'shuffle', 'limp', 'griddy']
+        valid_footwear = ['barefoot', 'shoes', 'socks', 'slippers']
         if self.walk_type not in valid_walks:
             raise ValueError(f'Invalid walk type "{self.walk_type}". Valid walks are: {valid_walks}')
         if self.footwear not in valid_footwear:
@@ -85,5 +86,5 @@ class Recording:
         return {
             'env': self.env.to_dict(),
             'events': [event.to_dict() for event in self.events],
-            'ts': self.ts.tolist()
+            'ts': self.ts
         }

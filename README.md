@@ -17,6 +17,7 @@ Required Equipment
 - MCU with sensing element and button
 - Computer with USB to connect to the MCU
 - Tape measure
+- Tape
 - Video recorder (e.g. phone)
 
 Setup
