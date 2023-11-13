@@ -9,26 +9,30 @@
 
 
 ## Data Collection Procedure
-To standardize the procedure, all measurements should be taken in a single, controlled environment.
-For now, this is our living room. In the future we will test in the gait analysis lab. 
+The purpose of data collection is to collect labelled data to develop the step detection algorithm and assess its accuracy. To standardize the procedure, all measurements should be taken in a single, controlled environment.
 
 Required Equipment
 - 2 People (Walker & Observer)
-- MCU with sensing element and button
-- Computer with USB to connect to the MCU
+- Prototype: MCU with sensing element (accelerometer) and button
+- Computer with USB port to connect to the MCU
+- Micro-USB to USB cable (2 meter) (must be capable of data transmission)
 - Tape measure
-- Tape
+- Tape (electrical tape)
 - Video recorder (e.g. phone)
 
-Setup
-1. Tape the sensing element to the floor. Take note of its distance to obstacles, walls, and it's overall surrounding.
-2. Connect the MCU to a computer. Ideally the computer is far away, and on an elevated surface.
-3. Setup the desired environment around the sensor, including any intentionally placed obstacles.
-4. Define the walk type (e.g. shuffle, limp, etc.) and path. Measure the starting and end distance from the sensor, as well as the total length of the walk.
-5. Update `RecordingEnvironment` variable in the `data_capture.py` python script.
 
-Running
-1. Run the fw on the MCU while it is connected to a computer. The computer should start receiving serial data.
+Pre - Setup
+1. Define a testing plan that identified which environmental variables will be controlled and varied.
+    a. The goal of testing will be to collect data for all combinations of variables. This will follow 2^k rule. 
+
+Setup
+1. Setup the desired environment, including any intentionally placed obstacles.
+2. Tape the sensing element to the floor located according to the testing plan. Measure the distance from the sensor to the nearest wall, as well as the nearest obstacle. Update `RecordingEnvironment` variable in the `data_capture.py` python script.
+3. Use small pieces of tape to mark the walking path(s). Assuming a straight walk, tape should mark the start and end of the walk. Measure the distance from each tape marker (start and end) to the sensor, as well as the distance in between the start and end points. Update `RecordingEnvironment` variable in the `data_capture.py` python script.
+4. Connect the MCU to a computer. Ideally the computer is 1-2 meters away, and on an elevated surface (table or chair)
+
+Collecting Data
+1. Upload the firmware to the MCU while it is connected to a computer (using Arduino IDE). The computer should start receiving serial data.
 2. Run the `data_capture.py` python script. Input the desired duration of the recording.
 3. Optionally, record a video of the walk for posterity.
 4. Start walk. Observer should click button at the moment of each heel strike. Currently, each button is hardcoded to be a step.
