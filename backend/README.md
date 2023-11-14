@@ -1,7 +1,6 @@
 heyyyy
 
-Using SQL Alchemy to initiate db connection
+PostgreSQL locally hosted on Docker image.
+Can receive data from POST endpoint and push it to said database.
 
-Getting an error along the lines of "Can't load plugin: sqlalchemy.dialects:postgres" right now
-
-:(
+Yay!
