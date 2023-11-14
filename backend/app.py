@@ -1,7 +1,7 @@
 import os
 from dotenv import load_dotenv
-from flask import Flask, jsonify, request
-from flask_sqlalchemy import SQLAlchemy
+from flask import Flask, jsonify, request, render_template, url_for,redirect,flash
+from flask_sqlalchemy import SQLAlchemy # YOU ARE THE DRAMA
 
 # .env
 load_dotenv()
@@ -10,10 +10,13 @@ app = Flask(__name__)
 
 # database connection
 url = os.getenv("DATABSE_URL") # variable from .env
-app.config['SQLALCHEMY_DATABASE_URI'] = url
+app.config["SQLALCHEMY_DATABASE_URI"] = url
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
+
+print(url)
+
 
 ## DATABASE MODELS
 
@@ -21,19 +24,32 @@ db = SQLAlchemy(app)
 class sensors(db.Model):
     _id = db.Column("id", db.Integer, primary_key=True)
     sampling = db.Column(db.Integer)
-    floor = db.Column(db.String(100))
-    user = db.Column(db.String(100))
-
-    def __init__(self, sampling, floor, user):
-        self.sampling= sampling
-        self.floor = floor
-        self.user = user
-        
-
-db.create_all()
+    floor = db.Column(db.String(255))
+    user = db.Column(db.String(255))
 
 ## ENDPOINTS
 
+# retrieve sensor metadata
+@app.route('/api/sensor_metadata', methods=['POST'])
+def add_data():
+    data = request.json
+
+    try:
+        new_data = sensors(
+            _id=data['sensorid'],
+            sampling=data['sampling'],
+            floor=data['floor'],
+            user=data['user']
+        )
+
+        db.session.add(new_data)
+        db.session.commit()
+
+        return jsonify({"message": "Data added successfully"}), 201
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 500
 
 '''
 Proposed interaction to retrieve sensor data:
@@ -45,38 +61,13 @@ OR
 - seperate sensorId table stores the floor, fs, user, ts data information
 '''
 
-
-# retreive sensor metadata
-@app.route('/sensor_metadata', methods=['POST'])
-def receive_sensor_data():
-    data = request.json 
-    required_fields = ['sensor_id', 'floor', 'fs', 'user']
-    if not all(field in data for field in required_fields):
-        return jsonify({'error': 'Missing required fields'}), 400
-
-    sensor_id = data['sensor_id']
-    floor = data['floor']
-    fs = data['fs']
-    user = data['user']
-
-    new_sensor_data = sensors(
-        sensor_id=data['sensor_id'],
-        floor=data['floor'],
-        fs=data['fs'],
-        user=data['user']
-    )    
-
-    db.session.add(new_sensor_data)
-    db.session.commit()
-
-    return jsonify({'message': 'Sensor data received successfully'}), 200
-
-
-
 # Hello World (Daniel)
 @app.route('/')
 def hello_world():
     return 'Hello, Daniel!'
 
 if __name__ == '__main__':
+    with app.app_context():
+        db.create_all()
+        #db.drop_all() deletes all existing tables
     app.run(debug=True)

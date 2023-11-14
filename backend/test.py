@@ -1,17 +1,17 @@
 import requests
 import json
 
-url = 'http://localhost:5000/api/users' 
+url = 'http://localhost:5000/api/sensor_metadata' 
 #url = 'http://localhost:5000/api/event_collection' 
 
 
 def test_event_collection():
     # test data
     data = {
-        'recordingId': 123,
-        'sensorId': 1,
-        'time': '2023-10-26T14:30:00',
-        'stepTrue': 1
+        'sensorid': 1,
+        'sampling': 100,
+        'floor': 'cork',
+        'user': 'ron'
     }
 
     response = None
@@ -58,7 +58,7 @@ def test_create_user():
     
     return
 
-test_create_user();
+test_event_collection();
 
 
 
