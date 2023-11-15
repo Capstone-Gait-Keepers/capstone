@@ -1,7 +1,7 @@
 import os
 from dotenv import load_dotenv
 from flask import Flask, jsonify, request, render_template, url_for,redirect,flash
-from flask_sqlalchemy import SQLAlchemy # YOU ARE THE DRAMA
+from flask_sqlalchemy import SQLAlchemy
 
 # .env
 load_dotenv()
@@ -15,19 +15,40 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
 
-print(url)
+# print(url)
 
 
-## DATABASE MODELS
 
-# sensors model
+# DATABASE MODELS FOR CONSISTENT DATA STRUCTURE:
+
+# Use a class to define a table structure.
+# Incoming data will be required to fit the class for consistency.
+# When the backend gets run, any non-existing tables 
+# that have a newly defined class will be (*)should be)
+# automatically created in the database.
+
+
+
+
+# sensors model - for sensor metadata
 class sensors(db.Model):
     _id = db.Column("id", db.Integer, primary_key=True)
     sampling = db.Column(db.Integer)
     floor = db.Column(db.String(255))
     user = db.Column(db.String(255))
 
-## ENDPOINTS
+
+
+
+# ENDPOINTS:
+
+# Only existing endpoint right now receives the sensorid,
+# the sampling rate of the sensor, the floor type, and 
+# the user's name.
+
+# This endpoint is for functionality testing purposes.
+# This endpoint works with local deployment.
+
 
 # retrieve sensor metadata
 @app.route('/api/sensor_metadata', methods=['POST'])
@@ -51,15 +72,15 @@ def add_data():
         db.session.rollback()
         return jsonify({"error": str(e)}), 500
 
-'''
-Proposed interaction to retrieve sensor data:
-- sensor posts data as yaml file to backend when it gets a series of steps
-OR
-- sensor sends data extracted from yaml file to backend when it gets a series of steps
-- backend reads the yaml file for sensorId, floor, fs, user, ts data
-- ts data goes in a table with timestamps, ts data at timestamps, and sensorId. 
-- seperate sensorId table stores the floor, fs, user, ts data information
-'''
+
+# Proposed interaction to retrieve sensor data:
+# - sensor posts data as yaml file to backend when it gets a series of steps
+# OR
+# - sensor sends data extracted from yaml file to backend when it gets a series of steps
+# - backend reads the yaml file for sensorId, floor, fs, user, ts data
+# - ts data goes in a table with timestamps, ts data at timestamps, and sensorId. 
+# - seperate sensorId table stores the floor, fs, user, ts data information
+
 
 # Hello World (Daniel)
 @app.route('/')

@@ -1,16 +1,20 @@
 import requests
 import json
 
+
+# FOR TESTING WITH lOCAL DEPLOYMENT
+
+
+#local host url endpoint to hit for test sensor post endpoint
 url = 'http://localhost:5000/api/sensor_metadata' 
-#url = 'http://localhost:5000/api/event_collection' 
 
-
+# defines data to send, sends data
 def test_event_collection():
     # test data
     data = {
-        'sensorid': 1,
+        'sensorid': 2,
         'sampling': 100,
-        'floor': 'cork',
+        'floor': 'tile',
         'user': 'ron'
     }
 
@@ -34,28 +38,6 @@ def test_event_collection():
             print("Response content:")
             print(response.text)
 
-    return
-
-def test_create_user():
-    data = {
-        "name": "Julia"
-    }
-    json_data = json.dumps(data)
-    headers = {'Content-Type': 'application/json'}  
-
-    try:
-        response = requests.post(url, data=json_data, headers=headers)
-    except requests.exceptions.RequestException as e:
-        print(f"Request exception: {e}")
-
-    # response status
-    if response.status_code == 201:
-        print("Success!")
-    elif response.status_code == 400:
-        print("Error: Invalid data format")
-    else:
-        print(f"Unexpected status code: {response.status_code}")
-    
     return
 
 test_event_collection();
