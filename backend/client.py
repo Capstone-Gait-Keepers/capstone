@@ -1,5 +1,5 @@
 import requests
-import json
+from http import HTTPStatus
 
 
 # FOR TESTING WITH lOCAL DEPLOYMENT
@@ -29,7 +29,7 @@ def test_event_collection():
     if response is None:
         print("No response received. The request may have failed.")
     else:
-        if response.status_code == 201:
+        if response.status_code == HTTPStatus.CREATED: #was 201, if this breaks its cus i changed this
             print("POST request was successful!")
             print("Response JSON:")
             print(response.json())

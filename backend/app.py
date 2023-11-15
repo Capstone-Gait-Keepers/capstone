@@ -1,7 +1,8 @@
 import os
 from dotenv import load_dotenv
-from flask import Flask, jsonify, request, render_template, url_for,redirect,flash
+from flask import Flask, jsonify, request
 from flask_sqlalchemy import SQLAlchemy
+from http import HTTPStatus
 
 # .env
 load_dotenv()
@@ -66,11 +67,11 @@ def add_data():
         db.session.add(new_data)
         db.session.commit()
 
-        return jsonify({"message": "Data added successfully"}), 201
+        return jsonify({"message": "Data added successfully"}), HTTPStatus.CREATED
 
     except Exception as e:
         db.session.rollback()
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error": str(e)}), HTTPStatus.INTERNAL_SERVER_ERROR
 
 
 # Proposed interaction to retrieve sensor data:
