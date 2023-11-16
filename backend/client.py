@@ -12,10 +12,10 @@ url = 'http://localhost:5000/api/sensor_metadata'
 def test_event_collection():
     # test data
     data = {
-        'sensorid': 2,
+        'sensorid': 3,
         'sampling': 100,
         'floor': 'tile',
-        'user': 'ron'
+        'user': 'julia'
     }
 
     response = None
