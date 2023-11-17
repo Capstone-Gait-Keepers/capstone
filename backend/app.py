@@ -12,12 +12,12 @@ app = Flask(__name__)
 # database connection
 url = os.getenv("DATABSE_URL") # variable from .env
 
-db = SQLAlchemy(app)
+#db = SQLAlchemy(app)
 
-app.config["SQLALCHEMY_DATABASE_URI"] = url
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+#app.config["SQLALCHEMY_DATABASE_URI"] = url
+#app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-db.init_app(app)
+#db.init_app(app)
 
 
 print(url)
