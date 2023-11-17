@@ -10,14 +10,14 @@ load_dotenv()
 app = Flask(__name__)
 
 # database connection
-#url = os.getenv("DATABSE_URL") # variable from .env
-#app.config["SQLALCHEMY_DATABASE_URI"] = url
-#app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+url = os.getenv("DATABSE_URL") # variable from .env
+app.config["SQLALCHEMY_DATABASE_URI"] = url
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 ## FOR DEPLOYMENT
-# db = SQLAlchemy(app)
+#db = SQLAlchemy(app)
 
-# print(url)
+print(url)
 
 
 
