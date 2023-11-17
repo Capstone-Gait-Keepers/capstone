@@ -15,7 +15,7 @@ app.config["SQLALCHEMY_DATABASE_URI"] = url
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 ## FOR DEPLOYMENT
-#db = SQLAlchemy(app)
+db = SQLAlchemy(app)
 
 print(url)
 
