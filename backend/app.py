@@ -33,11 +33,11 @@ app = Flask(__name__)
 
 
 # sensors model - for sensor metadata
-class sensors(db.Model):
-    _id = db.Column("id", db.Integer, primary_key=True)
-    sampling = db.Column(db.Integer)
-    floor = db.Column(db.String(255))
-    user = db.Column(db.String(255))
+#class sensors(db.Model):
+    #_id = db.Column("id", db.Integer, primary_key=True)
+    #sampling = db.Column(db.Integer)
+    #floor = db.Column(db.String(255))
+    #user = db.Column(db.String(255))
 
 
 
@@ -53,26 +53,26 @@ class sensors(db.Model):
 
 
 # retrieve sensor metadata
-@app.route('/api/sensor_metadata', methods=['POST'])
-def add_data():
-    data = request.json
+#@app.route('/api/sensor_metadata', methods=['POST'])
+#def add_data():
+    #data = request.json
 
-    try:
-        new_data = sensors(
-            _id=data['sensorid'],
-            sampling=data['sampling'],
-            floor=data['floor'],
-            user=data['user']
-        )
+    #try:
+        #new_data = sensors(
+            #_id=data['sensorid'],
+            #sampling=data['sampling'],
+            #floor=data['floor'],
+            #user=data['user']
+        #)
 
         #db.session.add(new_data)
         #db.session.commit()
 
-        return jsonify({"message": "Data added successfully"}), HTTPStatus.CREATED
+        #return jsonify({"message": "Data added successfully"}), HTTPStatus.CREATED
 
-    except Exception as e:
+    #except Exception as e:
         #db.session.rollback()
-        return jsonify({"error": str(e)}), HTTPStatus.INTERNAL_SERVER_ERROR
+        #return jsonify({"error": str(e)}), HTTPStatus.INTERNAL_SERVER_ERROR
 
 
 # Proposed interaction to retrieve sensor data:
@@ -91,6 +91,7 @@ def hello_world():
 
 if __name__ == '__main__':
     with app.app_context():
+        print("yay")
         #db.create_all()
         #db.drop_all() deletes all existing tables
     app.run(debug=True)
