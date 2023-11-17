@@ -11,11 +11,14 @@ app = Flask(__name__)
 
 # database connection
 url = os.getenv("DATABSE_URL") # variable from .env
+
+db = SQLAlchemy(app)
+
 app.config["SQLALCHEMY_DATABASE_URI"] = url
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-## FOR DEPLOYMENT
-db = SQLAlchemy(app)
+db.init_app(app)
+
 
 print(url)
 
