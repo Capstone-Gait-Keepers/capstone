@@ -14,7 +14,8 @@ url = os.getenv("DATABSE_URL") # variable from .env
 app.config["SQLALCHEMY_DATABASE_URI"] = url
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-db = SQLAlchemy(app)
+## FOR DEPLOYMENT
+# db = SQLAlchemy(app)
 
 # print(url)
 
@@ -64,13 +65,13 @@ def add_data():
             user=data['user']
         )
 
-        db.session.add(new_data)
-        db.session.commit()
+        #db.session.add(new_data)
+        #db.session.commit()
 
         return jsonify({"message": "Data added successfully"}), HTTPStatus.CREATED
 
     except Exception as e:
-        db.session.rollback()
+        #db.session.rollback()
         return jsonify({"error": str(e)}), HTTPStatus.INTERNAL_SERVER_ERROR
 
 
@@ -90,6 +91,6 @@ def hello_world():
 
 if __name__ == '__main__':
     with app.app_context():
-        db.create_all()
+        #db.create_all()
         #db.drop_all() deletes all existing tables
     app.run(debug=True)
