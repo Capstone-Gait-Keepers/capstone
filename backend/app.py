@@ -2,25 +2,33 @@ import os
 from dotenv import load_dotenv
 from flask import Flask, jsonify, request
 from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy import create_engine
 from http import HTTPStatus
 
 # .env
 load_dotenv()
 
+db = SQLAlchemy()
+
 app = Flask(__name__)
 
 # database connection
-url = os.getenv("DATABSE_URL") # variable from .env
+# url = os.getenv("DATABSE_URL") 
+prodpass = os.getenv("PRODPASS") 
+prodhost = os.getenv("PRODHOST") 
 
-#db = SQLAlchemy(app)
+SQLALCHEMY_DATABASE_URI = f"postgresql://postgres:{prodpass}@{prodhost}:5432/postgres"
+print(SQLALCHEMY_DATABASE_URI)
 
-#app.config["SQLALCHEMY_DATABASE_URI"] = url
-#app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config["SQLALCHEMY_DATABASE_URI"] = "postgresql://postgres:Ilovecapstone123@db.xonxqraddysvyzkczjjo.supabase.co:5432/postgres"
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-#db.init_app(app)
+engine = create_engine(SQLALCHEMY_DATABASE_URI, pool_pre_ping=True)
+
+db.init_app(app)
 
 
-print(url)
+#print(url)
 
 
 
@@ -36,11 +44,11 @@ print(url)
 
 
 # sensors model - for sensor metadata
-#class sensors(db.Model):
-    #_id = db.Column("id", db.Integer, primary_key=True)
-    #sampling = db.Column(db.Integer)
-    #floor = db.Column(db.String(255))
-    #user = db.Column(db.String(255))
+class sensors(db.Model):
+    _id = db.Column("id", db.Integer, primary_key=True)
+    sampling = db.Column(db.Integer)
+    floor = db.Column(db.String(255))
+    user = db.Column(db.String(255))
 
 
 
@@ -56,26 +64,26 @@ print(url)
 
 
 # retrieve sensor metadata
-#@app.route('/api/sensor_metadata', methods=['POST'])
-#def add_data():
-    #data = request.json
+@app.route('/api/sensor_metadata', methods=['POST'])
+def add_data():
+    data = request.json
 
-    #try:
-        #new_data = sensors(
-            #_id=data['sensorid'],
-            #sampling=data['sampling'],
-            #floor=data['floor'],
-            #user=data['user']
-        #)
+    try:
+        new_data = sensors(
+            _id=data['sensorid'],
+            sampling=data['sampling'],
+            floor=data['floor'],
+            user=data['user']
+        )
 
-        #db.session.add(new_data)
-        #db.session.commit()
+        db.session.add(new_data)
+        db.session.commit()
 
-        #return jsonify({"message": "Data added successfully"}), HTTPStatus.CREATED
+        return jsonify({"message": "Data added successfully"}), HTTPStatus.CREATED
 
-    #except Exception as e:
-        #db.session.rollback()
-        #return jsonify({"error": str(e)}), HTTPStatus.INTERNAL_SERVER_ERROR
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), HTTPStatus.INTERNAL_SERVER_ERROR
 
 
 # Proposed interaction to retrieve sensor data:
@@ -94,7 +102,6 @@ def hello_world():
 
 if __name__ == '__main__':
     with app.app_context():
-        print("yay")
-        #db.create_all()
-        #db.drop_all() deletes all existing tables
+        db.create_all()
+        #db.drop_all() #deletes all existing tables
     app.run(debug=True)
