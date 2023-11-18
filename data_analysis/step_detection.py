@@ -48,12 +48,15 @@ def rolling_window(a: np.ndarray, window_size: int, stride: int = None):
     return np.asarray([a[i:i + window_size] for i in range(0, len(a) - window_size, stride)])
 
 
-def rolling_window_fft(a: np.ndarray, window_duration: int, fs: float, stride: int):
+def rolling_window_fft(a: np.ndarray, window_duration: int, fs: float, stride: int, ignore_dc=False):
     """
     Creates a rolling window of a time series and computes the FFT of each window
     """
     window_size = timestamp_to_index(window_duration, fs)
-    intervals = rolling_window(a, window_size, stride)
+    padded_a = np.pad(a, (window_size // 2, window_size // 2), mode='constant')
+    intervals = rolling_window(padded_a, window_size, stride)
+    if ignore_dc:
+        intervals -= np.mean(intervals, axis=1, keepdims=True)
     # TODO: Better condition for tapering?
     if stride < window_size:
         tapering_window = np.vstack([np.blackman(window_size)] * len(intervals))
@@ -65,12 +68,6 @@ def rolling_window_fft(a: np.ndarray, window_duration: int, fs: float, stride: i
 def get_window_fft_freqs(window_duration, fs):
     window_size = timestamp_to_index(window_duration, fs)
     return np.fft.fftfreq(window_size, 1/fs)[:window_size//2] # Ignore negative frequencies
-
-
-def get_window_timestamps(window_duration, fs, stride=1):
-    window_size = timestamp_to_index(window_duration, fs)
-    timestamps = np.linspace(0, window_size / fs, window_size)
-    return timestamps[::stride] + window_duration/2 # Add half window duration to center the window
 
 
 def get_datasets(dataset_dir: str = "datasets", **filters) -> List[Recording]:
@@ -99,7 +96,7 @@ def view_datasets(dataset_dir: str = "datasets", **filters):
     fig.show()
 
 
-def get_steps_from_truth(data: Recording, step_duration=0.5, shift_percent=0.3, align_peak=True):
+def get_steps_from_truth(data: Recording, step_duration=0.4, shift_percent=0.2, align_peak=True, plot=False):
     """
     Uses the source of truth to parse the accelerometer data pertaining to steps
     """
@@ -120,6 +117,12 @@ def get_steps_from_truth(data: Recording, step_duration=0.5, shift_percent=0.3, 
             if len(step_data) != window_size:
                 raise ValueError(f"Step data is the wrong size: {len(step_data)} != {window_size}")
             step_measurements.append(step_data)
+    if plot:
+        fig = go.Figure()
+        fig.update_layout(title="Step Data", showlegend=False)
+        for step in step_measurements:
+            fig.add_scatter(x=np.linspace(0, step_duration, len(step)), y=step)
+        fig.show()
     return step_measurements
 
 
@@ -128,11 +131,8 @@ def get_noise_floor(data: Recording):
     Find the noise floor of the accelerometer data
     """
     first_event = data.events[0].timestamp
-    noisy_starting_data = data.ts[:timestamp_to_index(first_event, data.env.fs)]
+    noisy_starting_data = np.copy(data.ts[:timestamp_to_index(first_event, data.env.fs)])
     noisy_starting_data -= np.mean(noisy_starting_data)
-    # fig = go.Figure()
-    # fig.add_scatter(x=np.linspace(0, len(noisy_starting_data) / data.env.fs, len(noisy_starting_data)), y=noisy_starting_data)
-    # fig.show()
     rms = np.sqrt(np.mean(noisy_starting_data**2))
     return rms
 
@@ -144,13 +144,22 @@ def get_energy(vibes: np.ndarray, fs, window_duration=0.2, stride=1, weights=Non
     p_vibes = vibes - np.mean(vibes, axis=0) # Subtract DC offset
     amps = rolling_window_fft(p_vibes, window_duration, fs, stride)
     energy = np.average(amps, axis=0, weights=weights)
-    # Prepend half of the window duration with zeroes to center the window
-    padding = int(window_duration * fs / 2)
-    energy = np.pad(energy, (padding, padding), mode='constant')
     if energy.shape != vibes.shape:
         raise ValueError(f"Energy is the wrong shape: {energy.shape} != {vibes.shape}")
     return energy
 
+
+def plot_recording(filepath: str):
+    """Plot a recording from a YAML file"""
+    data = Recording.from_file(filepath)
+    timestamps = np.linspace(0, len(data.ts) / data.env.fs, len(data.ts))
+    fig = go.Figure()
+    fig.update_layout(title=filepath, showlegend=False)
+    fig.add_scatter(x=timestamps, y=data.ts, name='vibes')
+    for event in data.events:
+        fig.add_vline(x=event.timestamp, line_color='green')
+        fig.add_annotation(x=event.timestamp, y=0, xshift=-17, text=event.category, showarrow=False)
+    fig.show()
 
 
 def get_frequency_weights(data: Recording, window_duration=0.2, plot=False):
@@ -171,11 +180,11 @@ def get_frequency_weights(data: Recording, window_duration=0.2, plot=False):
     amp_per_freq /= np.max(amp_per_freq)
 
     if plot:
-        fft_timestamps = get_window_timestamps(window_duration, data.env.fs)
+        timestamps = np.linspace(0, window_duration, len(amp_per_step_freq_time[0]))
         num_rows = int(np.ceil(np.sqrt(len(step_data))))
         fig = make_subplots(rows=num_rows, cols=num_rows, column_titles=['Step Heat Maps (Freq vs Time)'])
         for i, amps in enumerate(amp_per_step_freq_time, start=1):
-            fig.add_heatmap(x=fft_timestamps, y=freqs, z=amps, row=(i // num_rows) + 1, col=(i % num_rows) + 1)
+            fig.add_heatmap(x=timestamps, y=freqs, z=amps, row=(i // num_rows) + 1, col=(i % num_rows) + 1)
         fig.show()
         fig = go.Figure()
         fig.update_layout(title="Amplitude vs Frequency For Each Step", showlegend=False)
@@ -189,21 +198,28 @@ def get_frequency_weights(data: Recording, window_duration=0.2, plot=False):
     return freqs, amp_per_freq
 
 
-def get_step_model(data: Recording, plot=False):
-    """"""
+def get_step_model(data: Recording, plot_model=False, plot_steps=False):
+    """Creates a model of step energy vs time"""
     step_data = get_steps_from_truth(data)
     energy_per_step = []
     window_duration = 0.2
     for step in step_data:
+        # TODO: Use weights from get_frequency_weights
         energy = get_energy(step, data.env.fs, window_duration)
         energy_per_step.append(energy / np.max(energy))
-    if plot:
+    timestamps = np.linspace(0, window_duration, len(energy_per_step[0]))
+    if plot_steps:
         fig = go.Figure()
-        fig.update_layout(title="Average Energy vs Time", showlegend=False)
-        fft_timestamps = get_window_timestamps(window_duration, data.env.fs)
+        fig.update_layout(title="Energy vs Time")
         for energy in energy_per_step:
-            fig.add_scatter(x=fft_timestamps, y=energy)
+            fig.add_scatter(x=timestamps, y=energy)
         fig.show()
+    if plot_model:
+        fig = go.Figure()
+        fig.update_layout(title="Model Step", showlegend=False)
+        fig.add_scatter(x=timestamps, y=np.mean(energy_per_step, axis=0))
+        fig.show()
+    return energy_per_step
 
 
 def find_steps(data: Recording, window_duration=0.2, stride=1, amp_threshold=0.3, freq_weights=None, plot=False) -> int:
@@ -229,9 +245,7 @@ def find_steps(data: Recording, window_duration=0.2, stride=1, amp_threshold=0.3
     fs = data.env.fs
     timestamps = np.linspace(0, len(vibes) / fs, len(vibes))
     ### Time series processing
-    p_vibes = vibes - np.mean(vibes, axis=0) # Subtract DC offset
-    amps = rolling_window_fft(p_vibes, window_duration, fs, stride)
-    fft_timestamps = get_window_timestamps(window_duration, fs, stride)
+    amps = rolling_window_fft(vibes, window_duration, fs, stride, ignore_dc=True)
     ### Frequency domain processing
     # Weight average based on shape of frequency spectrum
     # TODO: Ensure weights correspond to correct frequencies
@@ -240,16 +254,16 @@ def find_steps(data: Recording, window_duration=0.2, stride=1, amp_threshold=0.3
     de_dt = np.gradient(energy)
     optima = np.diff(np.sign(de_dt), prepend=[0]) != 0
     peak_indices = np.where((energy > amp_threshold) & optima)[0] * stride # Rescale to original time series
-    print(len(fft_timestamps), max(peak_indices))
-    peak_stamps = fft_timestamps[peak_indices]
+    peak_stamps = timestamps[peak_indices]
     # TODO: Find start of step within confirmed window?
 
     if plot:
         titles = ("Raw Timeseries", "Scrolling FFT", "Average Energy")
         fig = make_subplots(rows=3, cols=1, shared_xaxes=True, subplot_titles=titles)
         fig.add_scatter(x=timestamps, y=vibes, name='vibes', showlegend=False, row=1, col=1)
-        fig.add_heatmap(x=fft_timestamps, y=freqs, z=amps, row=2, col=1)
-        fig.add_scatter(x=fft_timestamps, y=energy, name='energy', showlegend=False, row=3, col=1)
+        freqs = get_window_fft_freqs(window_duration, fs)
+        fig.add_heatmap(x=timestamps, y=freqs, z=amps, row=2, col=1)
+        fig.add_scatter(x=timestamps, y=energy, name='energy', showlegend=False, row=3, col=1)
         fig.add_hline(y=amp_threshold, row=3, col=1)
         for event in data.events:
             fig.add_vline(x=event.timestamp + 0.05, line_color='green', row=1, col=1)
@@ -323,17 +337,18 @@ def get_gait_type(data: Recording):
 
 
 if __name__ == "__main__":
-    # freqs, weights = get_frequency_weights(Recording.from_file('datasets/2023-10-29_18-16-34.yaml'), plot=False)
+    freqs, weights = get_frequency_weights(Recording.from_file('datasets/2023-10-29_18-16-34.yaml'), plot=False)
     data = Recording.from_file('datasets/2023-10-29_18-16-34.yaml')
     # data = Recording.from_file('datasets/2023-10-29_18-20-13.yaml')
-    # steps = find_steps(data, amp_threshold=10 * get_noise_floor(data), freq_weights=weights, plot=True)
-    # print(f"Asymmetry: {get_temporal_asymmetry(steps) * 100:.2f} %")
-    # print(f"Steps/s: {get_cadence(steps):.2f}")
-    # print(f"Algorithm error: {get_algorithm_error(steps, data.events)}")
+    steps = find_steps(data, amp_threshold=10 * get_noise_floor(data), freq_weights=weights, plot=True)
+    print(f"Asymmetry: {get_temporal_asymmetry(steps) * 100:.2f} %")
+    print(f"Steps/s: {get_cadence(steps):.2f}")
+    print(f"Algorithm error: {get_algorithm_error(steps, data.events)}")
 
     # view_datasets(walk_type='normal', user='ron', walk_speed='normal', footwear='socks')
 
-    # data = get_datasets(walk_type='normal', user='ron', walk_speed='normal', footwear='socks')
-    # steps = find_steps(data[0], amp_threshold=5 * get_noise_floor(data[0]), freq_weights=weights, plot=True)
+    # datasets = get_datasets(walk_type='normal', user='ron', walk_speed='normal', footwear='socks')
+    # for data in datasets:
+    #     steps = find_steps(data, amp_threshold=5 * get_noise_floor(data), freq_weights=weights, plot=True)
 
-    get_step_model(data, plot=True)
+    # get_step_model(data, plot=True)
