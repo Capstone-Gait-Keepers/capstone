@@ -53,7 +53,7 @@ def rolling_window_fft(a: np.ndarray, window_duration: int, fs: float, stride: i
     Creates a rolling window of a time series and computes the FFT of each window
     """
     window_size = timestamp_to_index(window_duration, fs)
-    padded_a = np.pad(a, (window_size // 2, window_size // 2), mode='constant')
+    padded_a = np.pad(a, (window_size // 2, window_size // 2), mode='edge')
     intervals = rolling_window(padded_a, window_size, stride)
     if ignore_dc:
         intervals -= np.mean(intervals, axis=1, keepdims=True)
@@ -207,6 +207,7 @@ def get_step_model(data: Recording, plot_model=False, plot_steps=False):
         # TODO: Use weights from get_frequency_weights
         energy = get_energy(step, data.env.fs, window_duration)
         energy_per_step.append(energy / np.max(energy))
+    step_model = np.mean(energy_per_step, axis=0)
     timestamps = np.linspace(0, window_duration, len(energy_per_step[0]))
     if plot_steps:
         fig = go.Figure()
@@ -217,12 +218,12 @@ def get_step_model(data: Recording, plot_model=False, plot_steps=False):
     if plot_model:
         fig = go.Figure()
         fig.update_layout(title="Model Step", showlegend=False)
-        fig.add_scatter(x=timestamps, y=np.mean(energy_per_step, axis=0))
+        fig.add_scatter(x=timestamps, y=step_model)
         fig.show()
-    return energy_per_step
+    return step_model
 
 
-def find_steps(data: Recording, window_duration=0.2, stride=1, amp_threshold=0.3, freq_weights=None, plot=False) -> int:
+def find_steps(data: Recording, window_duration=0.2, stride=1, amp_threshold=0.3, step_model=None, freq_weights=None, plot=False) -> int:
     """
     Counts the number of steps in a time series of accelerometer data. This function should not use
     anything from `data.events` except for plotting purposes. This is because it is meant to mimic
@@ -251,6 +252,9 @@ def find_steps(data: Recording, window_duration=0.2, stride=1, amp_threshold=0.3
     # TODO: Ensure weights correspond to correct frequencies
     # TODO: Minimum step duration? Ignore steps that are too close together?
     energy = np.average(amps, axis=0, weights=freq_weights)
+    # Cross correlate step model with energy
+    if step_model is not None:
+        energy = np.correlate(energy, step_model, mode='same')
     de_dt = np.gradient(energy)
     optima = np.diff(np.sign(de_dt), prepend=[0]) != 0
     peak_indices = np.where((energy > amp_threshold) & optima)[0] * stride # Rescale to original time series
@@ -270,7 +274,7 @@ def find_steps(data: Recording, window_duration=0.2, stride=1, amp_threshold=0.3
             fig.add_annotation(x=event.timestamp + 0.05, y=0, xshift=-17, text="Step", showarrow=False, row=1, col=1)
         for peak in peak_stamps:
             fig.add_vline(x=peak, line_dash="dash", row=1, col=1)
-        fig.write_html("normal_detection.html")
+        # fig.write_html("normal_detection.html")
         fig.show()
 
     # TODO: Hysteresis: Count small steps if they are between two large steps
@@ -337,10 +341,13 @@ def get_gait_type(data: Recording):
 
 
 if __name__ == "__main__":
-    freqs, weights = get_frequency_weights(Recording.from_file('datasets/2023-10-29_18-16-34.yaml'), plot=False)
-    data = Recording.from_file('datasets/2023-10-29_18-16-34.yaml')
-    # data = Recording.from_file('datasets/2023-10-29_18-20-13.yaml')
-    steps = find_steps(data, amp_threshold=10 * get_noise_floor(data), freq_weights=weights, plot=True)
+    model_data = Recording.from_file('datasets/2023-10-29_18-16-34.yaml')
+    freqs, weights = get_frequency_weights(model_data, plot=False)
+    step_model = get_step_model(model_data)
+
+    # data = Recording.from_file('datasets/2023-10-29_18-16-34.yaml')
+    data = Recording.from_file('datasets/2023-10-29_18-20-13.yaml')
+    steps = find_steps(data, amp_threshold=0.1, freq_weights=weights, plot=True)
     print(f"Asymmetry: {get_temporal_asymmetry(steps) * 100:.2f} %")
     print(f"Steps/s: {get_cadence(steps):.2f}")
     print(f"Algorithm error: {get_algorithm_error(steps, data.events)}")
@@ -351,4 +358,3 @@ if __name__ == "__main__":
     # for data in datasets:
     #     steps = find_steps(data, amp_threshold=5 * get_noise_floor(data), freq_weights=weights, plot=True)
 
-    # get_step_model(data, plot=True)
