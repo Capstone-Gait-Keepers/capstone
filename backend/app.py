@@ -20,7 +20,7 @@ prodhost = os.getenv("PRODHOST")
 SQLALCHEMY_DATABASE_URI = f"postgresql://postgres:{prodpass}@{prodhost}:5432/postgres"
 print(SQLALCHEMY_DATABASE_URI)
 
-app.config["SQLALCHEMY_DATABASE_URI"] = "postgresql://postgres:Ilovecapstone123@db.xonxqraddysvyzkczjjo.supabase.co:5432/postgres"
+app.config["SQLALCHEMY_DATABASE_URI"] = SQLALCHEMY_DATABASE_URI
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 engine = create_engine(SQLALCHEMY_DATABASE_URI, pool_pre_ping=True)
