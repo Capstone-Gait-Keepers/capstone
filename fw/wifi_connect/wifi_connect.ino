@@ -10,7 +10,7 @@
 
 // Replace with your network credentials
 const char* ssid = "DataCity-802 - 2.4GHz";
-const char* password = "6340631697";
+const char* password = "psych";
 
 void setup() {
   Serial.begin(115200);
@@ -50,10 +50,10 @@ void loop() {
       //int httpCode = https.GET();
 
     //send a gift to julia
-    String postData = "data=hellojulia";
+    String postData = "{'sensorid': 12, 'sampling': 100, 'floor': 'cork', 'user': 'sarah'}";
 
     delay(1000);            // See if this prevents the problm with connection refused and deep sleep
-    https.addHeader("Content-Type", "application/x-www-form-urlencoded");    //Specify content-type header
+    https.addHeader("Content-Type", "application/json");    //Specify content-type header
 
     int httpCode = https.POST(postData);   //Send the request
     String payload = https.getString();    //Get the response payload
