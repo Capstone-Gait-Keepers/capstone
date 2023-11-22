@@ -28,11 +28,11 @@ ESP8266Timer i_timer;  // Hardware Timer
 volatile bool start_sampling = false; // Flag to indicate if a new sample should be taken based on timer interrupt
 
 float sensor_data_buffer[START_BUFFER_SAMPLES]; // Circular buffer to store acceleration data
-int buffer_index = 0; // Index of circular buffer
+int start_buffer_index = 0; // Index of circular buffer
 String post_data = ""; // String to store data to be sent to backend server
-bool save_sample = false; // Flag to indicate if a sample should be saved to post_data
+bool save_sample_flag = false; // Flag to indicate if a sample should be saved to post_data
 bool post_data_ready = false; // Flag to indicate if post_data is ready to be sent to backend server
-int bad_data_count = 0; // Counter to logic to stop saving data to post_data if too many bad samples are received
+int end_buffer_length = 0; // Counter to logic to stop saving data to post_data if too many bad samples are received
 bool good_sample = false; // Flag to indicate if a sample is considered "good" (above threshold)
 
 // Displays some basic information on the sensor from the unified sensor API sensor_t type (see Adafruit_Sensor for more information)
@@ -59,6 +59,29 @@ void ICACHE_RAM_ATTR TimerHandler(void)
     Serial.println("ERROR: PREVIOUS SAMPLED WAS NOT FINISHED");
   }
   start_sampling = true;
+}
+
+void update_circular_buffer(float accel_z) {
+  // Update circular buffer
+  sensor_data_buffer[start_buffer_index] = accel_z;
+  good_sample = abs(accel_z) > AMP_THRESHOLD;
+}
+
+void save_starting_buffer() {
+  Serial.println("Begin saving data");
+  for (int i = 0; i < START_BUFFER_SAMPLES; i++) {
+      post_data += String(sensor_data_buffer[i]) + ",";
+  }
+  save_sample_flag = true;
+}
+void save_sample(float accel_z) {
+  post_data += String(accel_z) + ",";
+}
+
+void stop_saving_samples() {
+  save_sample_flag = false;
+  post_data_ready = true;
+  end_buffer_length = 0;
 }
 
 void setup(void)
@@ -94,46 +117,38 @@ void loop(void)
 {
   if (start_sampling) 
   {
-    // Get a new sensor event for linear acceleration
-    sensors_event_t event;
-    bno.getEvent(&event, Adafruit_BNO055::VECTOR_LINEARACCEL);
-    start_sampling = false;
+    start_sampling = false; // Reset flag for interrupt handler
 
-    // Update circular buffer
-    sensor_data_buffer[buffer_index] = event.acceleration.z;
-    good_sample = abs(event.acceleration.z) > AMP_THRESHOLD;
+    sensors_event_t event; 
+    bno.getEvent(&event, Adafruit_BNO055::VECTOR_LINEARACCEL); // Get a new sensor event for linear acceleration
+    float accel_z = event.acceleration.z; // Get z component of acceleration
+
+    update_circular_buffer(accel_z); // Update circular buffer with new sample
 
     // if sample is considered good (above threshold), save buffer to string and start saving data to post_data
-    if (good_sample && !save_sample) {
-      Serial.println("Begin saving data");
-      // save buffer to string
-      for (int i = 0; i < START_BUFFER_SAMPLES; i++) {
-          post_data += String(sensor_data_buffer[i]) + ",";
-      }
-      save_sample = true;
+    if (good_sample && !save_sample_flag) {
+      save_starting_buffer();
     }
-    if (good_sample && save_sample) {
-      // save sample to string
-      post_data += String(event.acceleration.z) + ",";
-      bad_data_count = 0;
+    if (good_sample && save_sample_flag) {
+      save_sample(accel_z);
+      end_buffer_length = 0;
     }
-    if (!good_sample && save_sample) {
-        if (bad_data_count < END_BUFFER_SAMPLES) {
-            post_data += String(event.acceleration.z) + ",";
-            bad_data_count++;
-        } else {
-            // stop saving
-            save_sample = false;
-            post_data_ready = true;
-            bad_data_count = 0;
+    if (!good_sample && save_sample_flag) {
+        if (end_buffer_length < END_BUFFER_SAMPLES) {
+          save_sample(accel_z);
+          end_buffer_length++;
+        } 
+        else {
+          stop_saving_samples(); // Stop saving samples & reset flags if too many samples don't meet threshold
         }
       }
     if (post_data_ready) {
-        Serial.println("POST DATA READY");
+        Serial.println("POST DATA READY");\
+        // TODO: Add code to send post_data to backend server
         // Serial.println(post_data);
         // post_data = "";
         post_data_ready = false;
     }
-    buffer_index = (buffer_index + 1) % START_BUFFER_SAMPLES; // Move to the next index, modulus handle wraparound
+    start_buffer_index = (start_buffer_index + 1) % START_BUFFER_SAMPLES; // Move to the next index, modulus handle wraparound
   }
 }
