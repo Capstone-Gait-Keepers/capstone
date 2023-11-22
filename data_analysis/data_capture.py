@@ -88,5 +88,5 @@ if __name__ == "__main__":
     vibes, events = collect_data(int(seconds), fs=env.fs)
 
     rec = Recording(env, events, vibes)
-    # rec.to_yaml(f'datasets/{timestamp}.yaml')
+    rec.to_yaml(f'datasets/{timestamp}.yaml')
     print(len(find_steps(rec, plot=True)))
