@@ -18,7 +18,7 @@ prodpass = os.getenv("PRODPASS")
 prodhost = os.getenv("PRODHOST") 
 
 SQLALCHEMY_DATABASE_URI = f"postgresql://postgres:{prodpass}@{prodhost}:5432/postgres"
-print(SQLALCHEMY_DATABASE_URI)
+#print(SQLALCHEMY_DATABASE_URI)
 
 app.config["SQLALCHEMY_DATABASE_URI"] = SQLALCHEMY_DATABASE_URI
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
@@ -59,8 +59,42 @@ class sensors(db.Model):
 # the sampling rate of the sensor, the floor type, and 
 # the user's name.
 
-# This endpoint is for functionality testing purposes.
-# This endpoint works with local deployment.
+# These endpoints are for functionality testing purposes.
+# sensor_metadata endpoint works with local deployment.
+
+@app.route('/api/sarah_test1', methods=['POST'])
+def process_string():
+    try:
+        raw_data = request.get_data()
+
+        if not raw_data:
+            raise ValueError("Empty raw data in the request.")
+
+        return jsonify({'raw_data': raw_data.decode('utf-8')})
+
+    except Exception as e:
+
+        error_message = f"Error processing request: {str(e)}"
+        return jsonify({'error': error_message}), HTTPStatus.BAD_REQUEST
+    
+# curl -X POST -H "Content-Type: application/json" -d '{"text": "Hello, World!"}' http://localhost:5000/api/process_string
+@app.route('/api/sarah_test2', methods=['POST'])
+def process_json():
+    try:
+        data = request.get_json()
+
+        if 'text' in data:
+            input_string = data['text']
+            result = f"Received and processed string: {input_string}"
+            return jsonify({'result': result})
+
+        else:
+            raise ValueError("'text' key not found in the request JSON data.")
+
+    except Exception as e:
+        error_message = f"Error processing request: {str(e)}"
+        return jsonify({'error': error_message}), HTTPStatus.BAD_REQUEST
+
 
 
 # retrieve sensor metadata
