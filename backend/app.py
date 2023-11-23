@@ -62,6 +62,7 @@ class sensors(db.Model):
 # These endpoints are for functionality testing purposes.
 # sensor_metadata endpoint works with local deployment.
 
+# curl -X POST -d "hey" https://capstone-backend-f6qu.onrender.com/api/sarah_test1
 @app.route('/api/sarah_test1', methods=['POST'])
 def process_string():
     try:
@@ -77,7 +78,7 @@ def process_string():
         error_message = f"Error processing request: {str(e)}"
         return jsonify({'error': error_message}), HTTPStatus.BAD_REQUEST
     
-# curl -X POST -H "Content-Type: application/json" -d '{"text": "Hello, World!"}' http://localhost:5000/api/process_string
+# curl -X POST -H "Content-Type:application/json" -d "{'text': 'Testing the endpoint with this string.'}" https://capstone-backend-f6qu.onrender.com/api/sarah_test2
 @app.route('/api/sarah_test2', methods=['POST'])
 def process_json():
     try:
@@ -98,9 +99,10 @@ def process_json():
 
 
 # retrieve sensor metadata
+# curl --header "Content-Type: application/json" --request POST --data '{"sensorid": "10", "sampling": 100, "floor": "cork", "user": "daniel"}' https://capstone-backend-f6qu.onrender.com/api/sensor_metadata
 @app.route('/api/sensor_metadata', methods=['POST'])
 def add_data():
-    data = request.json
+    data = request.json()
 
     try:
         new_data = sensors(
