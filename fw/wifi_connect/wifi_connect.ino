@@ -53,13 +53,13 @@ void loop() {
     
     //Initializing an HTTPS communication using the secure client
     Serial.print("[HTTPS] begin...\n");
-    if (https.begin(*client, "https://capstone-backend-f6qu.onrender.com/api/sarah_test1")) {  // https://capstone-backend-f6qu.onrender.com/api/sensor_metadata
+    if (https.begin(*client, "https://capstone-backend-f6qu.onrender.com/api/sarah_test4")) {  // https://capstone-backend-f6qu.onrender.com/api/sensor_metadata
       Serial.print("[HTTPS] GET...\n");
       // start connection and send HTTP header
       //int httpCode = https.GET();
 
     //send a gift to julia
-    String postData = "does she run";
+  String postData = "{\"text1\":\"Hi worldd\",\"text2\":\"Hi juliaa\"}";
    //{"sensorid": "210", "sampling": 100, "floor": "cork", "user": "daniel"}
 
     delay(1000);            // See if this prevents the problm with connection refused and deep sleep
