@@ -3,7 +3,7 @@ import numpy as np
 import plotly.graph_objects as go
 from data_types import Recording, Event
 from plotly.subplots import make_subplots
-from typing import List, Tuple
+from typing import List, Tuple, Optional
 
 
 def timestamp_to_index(timestamp: float, fs: float) -> int:
@@ -147,16 +147,16 @@ def get_energy_thresholds(data: Recording, plot=False, **kwargs) -> Tuple[float,
     noise_energy = get_energy(noise, data.env.fs, **kwargs)
     max_sig = np.max(sig_energy)
     max_noise = np.max(noise_energy)
-    default = np.mean([max_sig, max_noise])
-    lower = np.mean([default, max_noise]) # Weighted average of max signal (1/4) and noise (3/4)
+    confirmed_threshold = np.mean([max_sig, max_noise])
+    uncertain_threshold = np.mean([confirmed_threshold, max_noise]) # Weighted average of max signal (1/4) and noise (3/4)
     if plot:
         fig = go.Figure()
         fig.update_layout(title="Energy", showlegend=False)
         fig.add_scatter(x=np.linspace(0, len(data.ts) / data.env.fs, len(data.ts)), y=sig_energy)
-        fig.add_hline(y=default, line_dash="dash")
-        fig.add_hline(y=lower, line_dash="dash")
+        fig.add_hline(y=confirmed_threshold, line_dash="dash")
+        fig.add_hline(y=uncertain_threshold, line_dash="dash")
         fig.show()
-    return lower, default
+    return uncertain_threshold, confirmed_threshold
 
 
 def get_snr(data: Recording) -> float:
@@ -255,7 +255,16 @@ def get_step_model(data: Recording, plot_model=False, plot_steps=False) -> np.nd
     return step_model
 
 
-def find_steps(data: Recording, amp_thresholds: tuple, window_duration=0.2, stride=1, step_model=None, freq_weights=None, plot=False) -> List[float]:
+def find_steps(
+        data: Recording,
+        confirmed_threshold: float,
+        uncertain_threshold: Optional[float] = None,
+        window_duration=0.2,
+        stride=1,
+        step_model=None,
+        freq_weights=None,
+        plot=False
+    ) -> Tuple[List[float], List[float]]:
     """
     Counts the number of steps in a time series of accelerometer data. This function should not use
     anything from `data.events` except for plotting purposes. This is because it is meant to mimic
@@ -265,9 +274,10 @@ def find_steps(data: Recording, amp_thresholds: tuple, window_duration=0.2, stri
     ----------
     data : Recording
         Time series of accelerometer data, plus the environmental data
-    amp_thresholds : Tuple[float, float]
-        Lower and upper thresholds for the energy of a step. Anything above the upper threshold is a step.
-        Anything below the lower threshold is not a step. Anything in between is a possible step.
+    uncertain_threshold : float
+        Threshold for the energy of a step to be considered uncertain
+    confirmed_threshold : float
+        Threshold for the energy of a step to be considered confirmed
     window_duration : int, optional
         Duration of the rolling window in seconds
     stride : int, optional
@@ -292,10 +302,11 @@ def find_steps(data: Recording, amp_thresholds: tuple, window_duration=0.2, stri
         energy = np.correlate(energy, step_model, mode='same')
         model_autocorr = np.correlate(step_model, step_model, mode='valid')
         energy /= np.max(model_autocorr)
-    de_dt = np.gradient(energy)
-    optima = np.diff(np.sign(de_dt), prepend=[0]) != 0
-    peak_indices = np.where((energy > amp_thresholds[-1]) & optima)[0] * stride # Rescale to original time series
-    peak_stamps = timestamps[peak_indices]
+    confirmed_indices = get_peak_indices(energy, confirmed_threshold)
+    uncertain_indices = get_peak_indices(energy, uncertain_threshold) if uncertain_threshold is not None else []
+    uncertain_indices = np.setdiff1d(uncertain_indices, confirmed_indices)    
+    confirmed_stamps = timestamps[confirmed_indices] * stride # Rescale to original time series
+    uncertain_stamps = timestamps[uncertain_indices] * stride
     # TODO: Find start of step within confirmed window?
 
     if plot:
@@ -305,19 +316,31 @@ def find_steps(data: Recording, amp_thresholds: tuple, window_duration=0.2, stri
         freqs = get_window_fft_freqs(window_duration, fs)
         fig.add_heatmap(x=timestamps, y=freqs, z=amps, row=2, col=1)
         fig.add_scatter(x=timestamps, y=energy, name='energy', showlegend=False, row=3, col=1)
-        for threshold in amp_thresholds:
+        for threshold in (confirmed_threshold, uncertain_threshold):
             fig.add_hline(y=threshold, row=3, col=1)
         for event in data.events:
             fig.add_vline(x=event.timestamp + 0.05, line_color='green', row=1, col=1)
             fig.add_annotation(x=event.timestamp + 0.05, y=0, xshift=-17, text="Step", showarrow=False, row=1, col=1)
-        for peak in peak_stamps:
-            fig.add_vline(x=peak, line_dash="dash", row=1, col=1)
+        for confirmed in confirmed_stamps:
+            fig.add_vline(x=confirmed, line_dash="dash", row=1, col=1)
+            fig.add_annotation(x=confirmed, y=-0.3, xshift=-10, text="C", showarrow=False, row=1, col=1)
+        for uncertain in uncertain_stamps:
+            fig.add_vline(x=uncertain, line_dash="dot", row=1, col=1)
+            fig.add_annotation(x=uncertain, y=-0.3, xshift=-10, text="U", showarrow=False, row=1, col=1)
         # fig.write_html("normal_detection.html")
         fig.show()
 
     # TODO: Hysteresis: Count small steps if they are between two large steps
     # TODO: Only count multiple confirmed steps?
-    return peak_stamps
+    return confirmed_stamps, uncertain_stamps
+
+
+def get_peak_indices(signal: np.ndarray, threshold: float):
+    """Find the indices of the peaks in a time series above a certain threshold"""
+    de_dt = np.gradient(signal)
+    optima = np.diff(np.sign(de_dt), prepend=[0]) != 0
+    indices = np.where((signal > threshold) & optima)[0]
+    return indices
 
 
 # TODO: Include possible steps
@@ -392,15 +415,17 @@ def get_gait_type(data: Recording):
 
 
 if __name__ == "__main__":
-    model_data = Recording.from_file('datasets/2023-10-29_18-16-34.yaml')
+    # model_data = Recording.from_file('datasets/2023-10-29_18-16-34.yaml')
+    model_data = Recording.from_file('datasets/2023-10-29_18-20-13.yaml')
     freqs, weights = get_frequency_weights(model_data, plot=False)
     step_model = get_step_model(model_data, plot_model=False, plot_steps=False)
-    amp_thresholds = get_energy_thresholds(model_data, plot=False)
+    uncertain_threshold, confirmed_threshold = get_energy_thresholds(model_data, plot=False)
 
-    data = Recording.from_file('datasets/2023-10-29_18-16-34.yaml')
-    # data = Recording.from_file('datasets/2023-10-29_18-20-13.yaml')
-    steps = find_steps(data,
-        amp_thresholds=amp_thresholds,
+    # data = Recording.from_file('datasets/2023-10-29_18-16-34.yaml')
+    data = Recording.from_file('datasets/2023-10-29_18-20-13.yaml')
+    steps, uncertain_steps = find_steps(data,
+        confirmed_threshold,
+        uncertain_threshold,
         freq_weights=weights,
         # step_model=step_model,
         plot=True
