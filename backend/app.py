@@ -96,6 +96,27 @@ def process_json():
         error_message = f"Error processing request: {str(e)}"
         return jsonify({'error': error_message}), HTTPStatus.BAD_REQUEST
 
+# curl -X POST -H "Content-Type:application/json" -d "{'text': 'Testing the endpoint with this string.'}" https://capstone-backend-f6qu.onrender.com/api/sarah_test3
+@app.route('/api/sarah_test3', methods=['POST'])
+def process_json2():
+    try:
+        data = request.get_json()
+
+        if 'text1' in data and 'text2' in data:
+            text1 = data['text1']
+            text2 = data['text2']
+
+            result = f"Text1: {text1}, Text2: {text2}"
+
+            return jsonify({'result': result})
+
+        else:
+            raise ValueError("Missing 'text1' or 'text2' key in the request JSON data.")
+
+    except Exception as e:
+        error_message = f"Error processing request: {str(e)}"
+        return jsonify({'error': error_message}), HTTPStatus.BAD_REQUEST  
+
 
 
 # retrieve sensor metadata
