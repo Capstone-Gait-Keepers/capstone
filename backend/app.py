@@ -55,6 +55,19 @@ class test(db.Model):
     text1 = db.Column(db.String(255), primary_key=True)
     text2 = db.Column(db.String(255))
 
+# raw recording data
+class recordings_raw(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    sensor_id = db.Column(db.Integer)
+    #timestamp # send the timestamp for first piece of ts data
+    #samples #array? list?
+
+# sensor metadata
+#class sensor_metadata(db.Model):
+
+# user info
+#class users(db.Model):
+
 
 # ENDPOINTS:
 
@@ -81,6 +94,10 @@ def process_string():
         error_message = f"Error processing request: {str(e)}"
         return jsonify({'error': error_message}), HTTPStatus.BAD_REQUEST
     
+
+# curl --header "Content-Type: application/json" --request POST --data '{"text": "10"}' https://capstone-backend-f6qu.onrender.com/api/sarah_test2
+
+
 # curl -X POST -H "Content-Type:application/json" -d "{'text': 'Testing the endpoint with this string.'}" https://capstone-backend-f6qu.onrender.com/api/sarah_test2
 @app.route('/api/sarah_test2', methods=['POST'])
 def process_json():
@@ -99,7 +116,7 @@ def process_json():
         error_message = f"Error processing request: {str(e)}"
         return jsonify({'error': error_message}), HTTPStatus.BAD_REQUEST
 
-# curl -X POST -H "Content-Type:application/json" -d "{'text': 'Testing the endpoint with this string.'}" https://capstone-backend-f6qu.onrender.com/api/sarah_test3
+# curl --header "Content-Type: application/json" --request POST --data '{"text1": "10", "text2": "100"}' https://capstone-backend-f6qu.onrender.com/api/sarah_test3
 @app.route('/api/sarah_test3', methods=['POST'])
 def process_json2():
     try:
@@ -121,32 +138,32 @@ def process_json2():
         return jsonify({'error': error_message}), HTTPStatus.BAD_REQUEST  
 
 # text1 is a primary key. It will tell you if you made a duplicate entry. Make it something random to avoid that.
-# curl -X POST -H "Content-Type:application/json" -d "{'text': 'Testing the endpoint with this string.'}" https://capstone-backend-f6qu.onrender.com/api/sarah_test4
+# curl --header "Content-Type: application/json" --request POST --data '{"text1": "10", "text2": "100"}' https://capstone-backend-f6qu.onrender.com/api/sarah_test4
 @app.route('/api/sarah_test4', methods=['POST'])
 def process_json2_withdb():
-    data = request.get_json()
+   data = request.get_json()
 
-    try:
-        new_data = test(
-            text1=data['text1'],
-            text2=data['text2'],
-        )
+   try:
+       new_data = test(
+           text1=data['text1'],
+           text2=data['text2'],
+       )
 
-        db.session.add(new_data)
-        db.session.commit()
+       db.session.add(new_data)
+       db.session.commit()
 
-        return jsonify({"message": "Data added successfully"}), HTTPStatus.CREATED
+       return jsonify({"message": "Data added successfully"}), HTTPStatus.CREATED
 
-    except Exception as e:
-        db.session.rollback()
-        error_message = f"Error processing request: {str(e)}"
-        return jsonify({'error': error_message}), HTTPStatus.BAD_REQUEST  
+   except Exception as e:
+       db.session.rollback()
+       error_message = f"Error processing request: {str(e)}"
+       return jsonify({'error': error_message}), HTTPStatus.BAD_REQUEST  
 
 # retrieve sensor metadata
-# curl --header "Content-Type: application/json" --request POST --data '{"sensorid": "10", "sampling": 100, "floor": "cork", "user": "daniel"}' https://capstone-backend-f6qu.onrender.com/api/sensor_metadata
+# curl --header "Content-Type: application/json" --request POST --data '{"sensorid": "111", "sampling": 100, "floor": "cork", "user": "daniel"}' https://capstone-backend-f6qu.onrender.com/api/sensor_metadata
 @app.route('/api/sensor_metadata', methods=['POST'])
 def add_data():
-    data = request.json()
+    data = request.get_json()
 
     try:
         new_data = sensors(
