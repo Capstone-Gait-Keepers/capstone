@@ -50,7 +50,10 @@ class sensors(db.Model):
     floor = db.Column(db.String(255))
     user = db.Column(db.String(255))
 
-
+# test model
+class test(db.Model):
+    text1 = db.Column(db.String(255), primary_key=True)
+    text2 = db.Column(db.String(255))
 
 
 # ENDPOINTS:
@@ -117,7 +120,26 @@ def process_json2():
         error_message = f"Error processing request: {str(e)}"
         return jsonify({'error': error_message}), HTTPStatus.BAD_REQUEST  
 
+# text1 is a primary key. It will tell you if you made a duplicate entry. Make it something random to avoid that.
+# curl -X POST -H "Content-Type:application/json" -d "{'text': 'Testing the endpoint with this string.'}" https://capstone-backend-f6qu.onrender.com/api/sarah_test4
+@app.route('/api/sarah_test4', methods=['POST'])
+def process_json2_withdb():
+    data = request.get_json()
 
+    try:
+        new_data = test(
+            text1=data['text1'],
+            text2=data['text2'],
+        )
+
+        db.session.add(new_data)
+        db.session.commit()
+
+        return jsonify({"message": "Data added successfully"}), HTTPStatus.CREATED
+
+    except Exception as e:
+        error_message = f"Error processing request: {str(e)}"
+        return jsonify({'error': error_message}), HTTPStatus.BAD_REQUEST  
 
 # retrieve sensor metadata
 # curl --header "Content-Type: application/json" --request POST --data '{"sensorid": "10", "sampling": 100, "floor": "cork", "user": "daniel"}' https://capstone-backend-f6qu.onrender.com/api/sensor_metadata
@@ -140,7 +162,7 @@ def add_data():
 
     except Exception as e:
         db.session.rollback()
-        return jsonify({"error": str(e)}), HTTPStatus.INTERNAL_SERVER_ERROR
+        return jsonify({"error": str(e)}), HTTPStatus.BAD_REQUEST
 
 
 # Proposed interaction to retrieve sensor data:
