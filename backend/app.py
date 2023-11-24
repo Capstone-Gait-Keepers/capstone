@@ -138,6 +138,7 @@ def process_json2_withdb():
         return jsonify({"message": "Data added successfully"}), HTTPStatus.CREATED
 
     except Exception as e:
+        db.session.rollback()
         error_message = f"Error processing request: {str(e)}"
         return jsonify({'error': error_message}), HTTPStatus.BAD_REQUEST  
 
