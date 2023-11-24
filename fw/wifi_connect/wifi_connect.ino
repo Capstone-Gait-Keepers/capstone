@@ -10,7 +10,7 @@
 
 // Replace with your network credentials
 const char* ssid = "DataCity-802 - 2.4GHz";
-const char* password = "psych";
+const char* password = "6340631697";
 
 void setup() {
   Serial.begin(115200);
@@ -44,13 +44,14 @@ void loop() {
     
     //Initializing an HTTPS communication using the secure client
     Serial.print("[HTTPS] begin...\n");
-    if (https.begin(*client, "https://capstone-backend-f6qu.onrender.com/api/sensor_metadata")) {  // https://capstone-backend-f6qu.onrender.com/api/sensor_metadata
+    if (https.begin(*client, "https://capstone-backend-f6qu.onrender.com/api/sarah_test1")) {  // https://capstone-backend-f6qu.onrender.com/api/sensor_metadata
       Serial.print("[HTTPS] GET...\n");
       // start connection and send HTTP header
       //int httpCode = https.GET();
 
     //send a gift to julia
-    String postData = "{'sensorid': 12, 'sampling': 100, 'floor': 'cork', 'user': 'sarah'}";
+    String postData = "does she run";
+   //{"sensorid": "210", "sampling": 100, "floor": "cork", "user": "daniel"}
 
     delay(1000);            // See if this prevents the problm with connection refused and deep sleep
     https.addHeader("Content-Type", "application/json");    //Specify content-type header
@@ -68,7 +69,8 @@ void loop() {
           Serial.println(payload);
         }
       } else {
-        Serial.printf("[HTTPS] GET... failed, error: %s\n", https.errorToString(httpCode).c_str());
+        Serial.printf("[HTTPS] GET... failed, error: %s\n", https.errorToString(httpCode).c_str(), "Message:\n");
+        Serial.println(https.getString());
       }
 
       https.end();
