@@ -12,6 +12,12 @@
 const char* ssid = "DataCity-802 - 2.4GHz";
 const char* password = "6340631697";
 
+//stop pinging server repeatedly
+bool sentRequest = false;
+unsigned long lastRequestTime = 0;
+const unsigned long requestInterval = 120000; // Interval between requests in milliseconds (2 minutes)
+
+
 void setup() {
   Serial.begin(115200);
   //Serial.setDebugOutput(true);
@@ -31,6 +37,9 @@ void setup() {
 }
 
 void loop() {
+//declare
+    unsigned long currentTime = millis();
+
   // wait for WiFi connection
   if ((WiFi.status() == WL_CONNECTED)) {
 
@@ -74,10 +83,14 @@ void loop() {
       }
 
       https.end();
+      sentRequest = true;
+      lastRequestTime = currentTime;
     } else {
       Serial.printf("[HTTPS] Unable to connect\n");
     }
-  }
+  } else if (sentRequest && currentTime - lastRequestTime >= requestInterval) {
+      sentRequest = false;
+    }
   Serial.println();
   Serial.println("Waiting 2min before the next round...");
   delay(12000);
