@@ -1,8 +1,3 @@
-/*
-  Complete project details: https://RandomNerdTutorials.com/esp8266-nodemcu-https-requests/ 
-  Based on the BasicHTTPSClient.ino Created on: 20.08.2018 (ESP8266 examples)
-*/
-
 #include <Arduino.h>
 #include <ESP8266WiFi.h>
 #include <ESP8266HTTPClient.h>
@@ -12,13 +7,8 @@
 const char* ssid = "DataCity-802 - 2.4GHz";
 const char* password = "6340631697";
 
-//stop pinging server repeatedly
-/*bool sentRequest = false;
-unsigned long lastRequestTime = 0;
-const unsigned long requestInterval = 120000; // Interval between requests in milliseconds (2 minutes)
-*/
-
 void setup() {
+  // put your setup code here, to run once:
   Serial.begin(115200);
   //Serial.setDebugOutput(true);
 
@@ -34,13 +24,8 @@ void setup() {
     Serial.print('.');
     delay(1000);
   }
-}
 
-void loop() {
-//declare
-    //unsigned long currentTime = millis();
-
-  // wait for WiFi connection
+  //old loop
   if ((WiFi.status() == WL_CONNECTED)) {
 
     std::unique_ptr<BearSSL::WiFiClientSecure>client(new BearSSL::WiFiClientSecure);
@@ -55,11 +40,9 @@ void loop() {
     Serial.print("[HTTPS] begin...\n");
     if (https.begin(*client, "https://capstone-backend-f6qu.onrender.com/api/send_recording")) {  // https://capstone-backend-f6qu.onrender.com/api/sensor_metadata
       Serial.print("[HTTPS] GET...\n");
-      // start connection and send HTTP header
-      //int httpCode = https.GET();
 
     //send a gift to julia
-  String postData = "{\"sensorid\": \"7\",\"timestamp\":\"2023-11-25 03:41:23.295\",\"ts_data\":[1.23, 4.56, 7.89]}";
+  String postData = "{\"sensorid\": \"18\",\"timestamp\":\"2023-11-25 03:41:23.295\",\"ts_data\":[1.23, 4.56, 7.89]}";
 
     delay(1000);            // See if this prevents the problm with connection refused and deep sleep
     https.addHeader("Content-Type", "application/json");    //Specify content-type header
@@ -82,18 +65,21 @@ void loop() {
       }
 
       https.end();
-      /*sentRequest = true;
-      lastRequestTime = currentTime;*/
     } else {
       Serial.printf("[HTTPS] Unable to connect\n");
     }
-    } /* else if (sentRequest && currentTime - lastRequestTime >= requestInterval) {
-      sentRequest = false;
-    }*/
+    } 
   Serial.println();
-  Serial.println("Waiting 2min before the next round...");
-  delay(12000);
+
 }
 
+void loop() {
+  // no looping please and thank you
 
+}
 
+// Function definition
+int addNumbers(int a, int b) {
+  int result = a + b;
+  return result;
+}
