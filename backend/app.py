@@ -44,23 +44,22 @@ db.init_app(app)
 
 
 # sensors model - for sensor metadata
-class sensors(db.Model):
+class Sensors(db.Model):
     _id = db.Column("id", db.Integer, primary_key=True)
     sampling = db.Column(db.Integer)
     floor = db.Column(db.String(255))
     user = db.Column(db.String(255))
 
 # test model
-class test(db.Model):
+class Test(db.Model):
     _text1 = db.Column("text1", db.String(255), primary_key=True)
     text2 = db.Column(db.String(255))
 
 # raw recording data
-class recordings_raw(db.Model):
-    _id = db.Column("id",db.Integer, primary_key=True)
-    sensor_id = db.Column(db.Integer)
-    #timestamp # send the timestamp for first piece of ts data
-    #samples #array? list?
+class Recordings(db.Model):
+    _id = db.Column("sensorid",db.Integer, primary_key=True)
+    timestamp = db.Column(db.DateTime)
+    ts_data = db.Column(db.ARRAY(db.Float))
 
 # sensor metadata
 #class sensor_metadata(db.Model):
@@ -144,7 +143,7 @@ def process_json2_withdb():
    print("Running sarah_test4")
 
    try:
-       new_data = test(
+       new_data = Test(
            text1=data['text1'],
            text2=data['text2'],
        )
@@ -166,7 +165,7 @@ def add_data():
     data = request.get_json()
 
     try:
-        new_data = sensors(
+        new_data = Sensors(
             _id=data['sensorid'],
             sampling=data['sampling'],
             floor=data['floor'],
@@ -181,6 +180,27 @@ def add_data():
     except Exception as e:
         db.session.rollback()
         return jsonify({"error": str(e)}), HTTPStatus.BAD_REQUEST
+    
+# TO DO: curl 
+@app.route('/api/send_recording', methods=['POST'])
+def add_recording():
+    data = request.get_json()
+    try:
+        new_data = Recordings(
+            _id=data['sensorid'],
+            timestamp=data['timestamp'],
+            ts_data=data['ts_data'],
+        )
+
+        db.session.add(new_data)
+        db.session.commit()
+
+        return jsonify({"message": "Data added successfully"}), HTTPStatus.CREATED
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), HTTPStatus.BAD_REQUEST
+        
 
 
 # Hello World (Daniel)
