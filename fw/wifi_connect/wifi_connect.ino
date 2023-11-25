@@ -13,10 +13,10 @@ const char* ssid = "DataCity-802 - 2.4GHz";
 const char* password = "6340631697";
 
 //stop pinging server repeatedly
-bool sentRequest = false;
+/*bool sentRequest = false;
 unsigned long lastRequestTime = 0;
 const unsigned long requestInterval = 120000; // Interval between requests in milliseconds (2 minutes)
-
+*/
 
 void setup() {
   Serial.begin(115200);
@@ -38,7 +38,7 @@ void setup() {
 
 void loop() {
 //declare
-    unsigned long currentTime = millis();
+    //unsigned long currentTime = millis();
 
   // wait for WiFi connection
   if ((WiFi.status() == WL_CONNECTED)) {
@@ -59,8 +59,7 @@ void loop() {
       //int httpCode = https.GET();
 
     //send a gift to julia
-  String postData = "{\"sensorid\": \"4\",\"timestamp\":\"2023-11-25 03:41:23.295\",\"ts_data\":[1.23, 4.56, 7.89]}";
-   //{"sensorid": "210", "sampling": 100, "floor": "cork", "user": "daniel"}
+  String postData = "{\"sensorid\": \"7\",\"timestamp\":\"2023-11-25 03:41:23.295\",\"ts_data\":[1.23, 4.56, 7.89]}";
 
     delay(1000);            // See if this prevents the problm with connection refused and deep sleep
     https.addHeader("Content-Type", "application/json");    //Specify content-type header
@@ -83,14 +82,14 @@ void loop() {
       }
 
       https.end();
-      sentRequest = true;
-      lastRequestTime = currentTime;
+      /*sentRequest = true;
+      lastRequestTime = currentTime;*/
     } else {
       Serial.printf("[HTTPS] Unable to connect\n");
     }
-  } else if (sentRequest && currentTime - lastRequestTime >= requestInterval) {
+    } /* else if (sentRequest && currentTime - lastRequestTime >= requestInterval) {
       sentRequest = false;
-    }
+    }*/
   Serial.println();
   Serial.println("Waiting 2min before the next round...");
   delay(12000);
