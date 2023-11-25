@@ -27,6 +27,8 @@ ESP8266Timer i_timer;  // Hardware Timer
 
 volatile bool start_sampling = false; // Flag to indicate if a new sample should be taken based on timer interrupt
 
+bool calibration_flag = false; // Flag to indicate if the device is in calibration mode
+
 float sensor_data_buffer[START_BUFFER_SAMPLES]; // Circular buffer to store acceleration data
 int start_buffer_index = 0; // Index of circular buffer
 String post_data = ""; // String to store data to be sent to backend server
@@ -84,37 +86,14 @@ void stop_saving_samples() {
   end_buffer_length = 0;
 }
 
-void setup(void)
-{
-  Serial.begin(115200);
-  delay(1000);
-  Serial.println("Orientation Sensor Test\n");
-
-  // Initialise the sensor
-  if(!bno.begin())
-  {
-    /* There was a problem detecting the BNO055 ... check your connections */
-    Serial.print("No BNO055 detected ... Check your wiring or I2C ADDR!");
-    while(1);
-  }
-  
-  delay(1000);
-
-  /* Use external crystal for better accuracy */
-  bno.setExtCrystalUse(true);
-
-  /* Display some basic information on this sensor */
-  displaySensorDetails();
-
-  // Setup Timer
-  Serial.print("Interrupt period: ");
-  Serial.println(INTERRUPT_INTERVAL_US);
-  i_timer.attachInterruptInterval(INTERRUPT_INTERVAL_US, TimerHandler);
-  i_timer.enableTimer();
+void calibration_mode() {
+  serial.println("CALIBRATION MODE");
+  // if (success)
+  calibration_flag = false;
 }
 
-void loop(void)
-{
+
+void running_mode() {
   if (start_sampling) 
   {
     start_sampling = false; // Reset flag for interrupt handler
@@ -150,5 +129,47 @@ void loop(void)
         post_data_ready = false;
     }
     start_buffer_index = (start_buffer_index + 1) % START_BUFFER_SAMPLES; // Move to the next index, modulus handle wraparound
+  }
+}
+
+void setup(void)
+{
+  Serial.begin(115200);
+  delay(1000);
+  Serial.println("Orientation Sensor Test\n");
+
+  // Initialise the sensor
+  if(!bno.begin())
+  {
+    /* There was a problem detecting the BNO055 ... check your connections */
+    Serial.print("No BNO055 detected ... Check your wiring or I2C ADDR!");
+    while(1);
+  }
+  
+  delay(1000);
+
+  /* Use external crystal for better accuracy */
+  bno.setExtCrystalUse(true);
+
+  /* Display some basic information on this sensor */
+  displaySensorDetails();
+
+  // Setup Timer
+  Serial.print("Interrupt period: ");
+  Serial.println(INTERRUPT_INTERVAL_US);
+  i_timer.attachInterruptInterval(INTERRUPT_INTERVAL_US, TimerHandler);
+  i_timer.enableTimer();
+
+  calibration_flag = true;
+
+}
+
+void loop(void)
+{
+  if (calibration_flag) {
+    calibration_mode();
+  }
+  else {
+    running_mode();
   }
 }
