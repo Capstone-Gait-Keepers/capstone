@@ -77,9 +77,3 @@ void loop() {
   // no looping please and thank you
 
 }
-
-// Function definition
-int addNumbers(int a, int b) {
-  int result = a + b;
-  return result;
-}
