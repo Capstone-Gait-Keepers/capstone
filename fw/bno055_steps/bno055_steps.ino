@@ -87,9 +87,13 @@ void stop_saving_samples() {
 }
 
 void calibration_mode() {
-  serial.println("CALIBRATION MODE");
-  // if (success)
-  calibration_flag = false;
+  if (start_sampling) 
+  {
+    start_sampling = false; // Reset flag for interrupt handler
+    serial.println("CALIBRATION MODE");
+    // if (success)
+    calibration_flag = false;
+  }
 }
 
 
