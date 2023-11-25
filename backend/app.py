@@ -13,7 +13,7 @@ db = SQLAlchemy()
 app = Flask(__name__)
 
 # database connection
-# url = os.getenv("DATABSE_URL") 
+#url = os.getenv("DATABSE_URL") 
 prodpass = os.getenv("PRODPASS") 
 prodhost = os.getenv("PRODHOST") 
 
@@ -52,12 +52,12 @@ class sensors(db.Model):
 
 # test model
 class test(db.Model):
-    text1 = db.Column(db.String(255), primary_key=True)
+    _text1 = db.Column("text1", db.String(255), primary_key=True)
     text2 = db.Column(db.String(255))
 
 # raw recording data
 class recordings_raw(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
+    _id = db.Column("id",db.Integer, primary_key=True)
     sensor_id = db.Column(db.Integer)
     #timestamp # send the timestamp for first piece of ts data
     #samples #array? list?
@@ -96,9 +96,6 @@ def process_string():
     
 
 # curl --header "Content-Type: application/json" --request POST --data '{"text": "10"}' https://capstone-backend-f6qu.onrender.com/api/sarah_test2
-
-
-# curl -X POST -H "Content-Type:application/json" -d "{'text': 'Testing the endpoint with this string.'}" https://capstone-backend-f6qu.onrender.com/api/sarah_test2
 @app.route('/api/sarah_test2', methods=['POST'])
 def process_json():
     try:
@@ -138,10 +135,13 @@ def process_json2():
         return jsonify({'error': error_message}), HTTPStatus.BAD_REQUEST  
 
 # text1 is a primary key. It will tell you if you made a duplicate entry. Make it something random to avoid that.
-# curl --header "Content-Type: application/json" --request POST --data '{"text1": "10", "text2": "100"}' https://capstone-backend-f6qu.onrender.com/api/sarah_test4
+# curl --header "Content-Type: application/json" --request POST --data '{"text1": "11", "text2": "100"}' https://capstone-backend-f6qu.onrender.com/api/sarah_test4
+# NEED TO INVESTIGATE how tables get created and schema gets updated
 @app.route('/api/sarah_test4', methods=['POST'])
 def process_json2_withdb():
    data = request.get_json()
+
+   print("Running sarah_test4")
 
    try:
        new_data = test(
@@ -183,15 +183,6 @@ def add_data():
         return jsonify({"error": str(e)}), HTTPStatus.BAD_REQUEST
 
 
-# Proposed interaction to retrieve sensor data:
-# - sensor posts data as yaml file to backend when it gets a series of steps
-# OR
-# - sensor sends data extracted from yaml file to backend when it gets a series of steps
-# - backend reads the yaml file for sensorId, floor, fs, user, ts data
-# - ts data goes in a table with timestamps, ts data at timestamps, and sensorId. 
-# - seperate sensorId table stores the floor, fs, user, ts data information
-
-
 # Hello World (Daniel)
 @app.route('/')
 def hello_world():
@@ -199,6 +190,7 @@ def hello_world():
 
 if __name__ == '__main__':
     with app.app_context():
+        print("YAY")
         db.create_all()
         #db.drop_all() #deletes all existing tables
     app.run(debug=True)
