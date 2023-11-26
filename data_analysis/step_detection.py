@@ -1,5 +1,6 @@
 import os
 import numpy as np
+import pandas as pd
 import plotly.graph_objects as go
 from data_types import Recording, Event
 from plotly.subplots import make_subplots
@@ -147,6 +148,7 @@ def get_energy_thresholds(data: Recording, plot=False, **kwargs) -> Tuple[float,
     noise_energy = get_energy(noise, data.env.fs, **kwargs)
     max_sig = np.max(sig_energy)
     max_noise = np.max(noise_energy)
+    # TODO: Parameterize weights of max_sig, max_noise and np.std(noise) to find optimal thresholds
     confirmed_threshold = np.mean([max_sig, max_noise])
     uncertain_threshold = np.mean([confirmed_threshold, max_noise]) # Weighted average of max signal (1/4) and noise (3/4)
     if plot:
@@ -264,7 +266,7 @@ def find_steps(
         step_model=None,
         freq_weights=None,
         plot=False
-    ) -> Tuple[List[float], List[float]]:
+    ) -> Tuple[np.ndarray, np.ndarray]:
     """
     Counts the number of steps in a time series of accelerometer data. This function should not use
     anything from `data.events` except for plotting purposes. This is because it is meant to mimic
@@ -343,16 +345,49 @@ def get_peak_indices(signal: np.ndarray, threshold: float):
     return indices
 
 
+def resolve_step_sections(confirmed_stamps: np.ndarray, uncertain_stamps: np.ndarray = [], min_step_delta=0.05) -> List[np.ndarray]:
+    """Groups confirmed steps into sections, ignoring unconfirmed steps. Sections must have at least 3 steps."""
+    all_steps = np.concatenate([confirmed_stamps, uncertain_stamps])
+    if len(set(set(all_steps))) != len(all_steps):
+        raise ValueError("All step stamps must be unique")
+    if not np.all(np.diff(confirmed_stamps) > min_step_delta):
+        raise ValueError(f"Confirmed step stamps must be at least {min_step_delta}s apart")
+
+    confirmed = pd.Series([True] * len(confirmed_stamps), index=confirmed_stamps)
+    unconfirmed_steps = pd.Series([False] * len(uncertain_stamps), index=uncertain_stamps)
+    confirmed = pd.concat([confirmed, unconfirmed_steps])
+    confirmed = confirmed.sort_index()
+
+    # Upgrading unconfirmed steps to confirmed steps if there's only one unconfirmed step between two confirmed steps
+    for prev_step, current_step, next_step in zip(confirmed.index[:-2], confirmed.index[1:-1], confirmed.index[2:]):
+        if not confirmed[current_step] and confirmed[prev_step] and confirmed[next_step]:
+            confirmed[current_step] = True
+
+    # Grouping confirmed steps into sections
+    current_section = 0
+    section_indices = [current_section] * len(confirmed)
+    for i, (prev_step, current_step) in enumerate(zip(confirmed.iloc[:-1], confirmed.iloc[1:]), 1):
+        if current_step and not prev_step:
+            current_section += 1
+        section_indices[i] = current_section
+    steps = pd.DataFrame({'confirmed': confirmed, 'section': section_indices}, index=confirmed.index)
+    steps = steps[steps.confirmed] # Ignore unconfirmed steps that were not upgraded
+    steps = steps.groupby('section').filter(lambda x: len(x) >= 3) # Ignore sections with less than 3 steps
+    sections = [group.index.values for _, group in steps.groupby('section')]
+    return sections
+
+
 # TODO: Include possible steps
-def get_temporal_asymmetry(step_timestamps: List[float]):
+def get_temporal_asymmetry(step_timestamps: np.ndarray):
     """
     Calculates the temporal asymmetry of a list of step timestamps. 
     """
     step_durations = np.diff(step_timestamps)
     return np.abs(np.mean(step_durations[1:] / step_durations[:-1]) - 1)
 
+
 # TODO: Include possible steps
-def get_cadence(step_timestamps: List[float]):
+def get_cadence(step_timestamps: np.ndarray):
     """
     Calculates the cadence of a list of step timestamps. 
     """
@@ -360,7 +395,7 @@ def get_cadence(step_timestamps: List[float]):
     return 1 / np.mean(step_durations)
 
 
-def get_algorithm_error(measured_step_times: List[float], events: List[Event]):
+def get_algorithm_error(measured_step_times: np.ndarray, events: List[Event]):
     """
     Calculates the algorithm error of a recording. There are three types of errors:
     - Incorrect measurements: The algorithm found a step when there was none (False Positive)
@@ -369,7 +404,7 @@ def get_algorithm_error(measured_step_times: List[float], events: List[Event]):
 
     Parameters
     ----------
-    measured_step_times : List[float]
+    measured_step_times : np.ndarray
         List of timestamps where the algorithm found steps
     events : List[Event]
         List of events from the source of truth
@@ -396,17 +431,22 @@ def get_algorithm_error(measured_step_times: List[float], events: List[Event]):
         "missed": missed_steps
     }
 
-def get_metric_error(measured_step_times: List[float], events: List[Event]):
-    # Calculate asymmetry and cadence errors as a percentage of the correct value
-    correct_step_times = [event.timestamp for event in events if event.category == 'step']
-    correct_asymmetry = get_temporal_asymmetry(correct_step_times)
-    correct_cadence = get_cadence(correct_step_times)
-    measured_asymmetry = get_temporal_asymmetry(measured_step_times)
-    measured_cadence = get_cadence(measured_step_times)
-    return {
-        "asymmetry": np.abs(measured_asymmetry - correct_asymmetry) / correct_asymmetry,
-        "cadence": np.abs(measured_cadence - correct_cadence) / correct_cadence
+
+def get_metric_error(measured_times: np.ndarray, events: List[Event]):
+    """Calculates the % metric error of a measured timestamp list, given the source of truth."""
+    metrics = {
+        "asymmetry": get_temporal_asymmetry,
+        "cadence": get_cadence,
     }
+    correct_times = [event.timestamp for event in events if event.category == 'step']
+    return {metric: get_func_metric_error(func, correct_times, measured_times) for metric, func in metrics.items()}
+
+
+def get_func_metric_error(func: callable, correct_times: np.ndarray, measured_times: np.ndarray):
+    """Calculates the % error between the two timestamp lists, given a function to compute the metric."""
+    correct_metric = func(correct_times)
+    measured_metric = func(measured_times)
+    return np.abs(measured_metric - correct_metric) / correct_metric
 
 
 # TODO
@@ -430,10 +470,20 @@ if __name__ == "__main__":
         # step_model=step_model,
         plot=True
     )
+    print("Step Stamps:", steps)
     print(f"Asymmetry: {get_temporal_asymmetry(steps) * 100:.2f} %")
     print(f"Steps/s: {get_cadence(steps):.2f}")
     print(f"Algorithmic error: {get_algorithm_error(steps, data.events)}")
     print(f"Metric error: {get_metric_error(steps, data.events)}")
+    step_groups = resolve_step_sections(steps, uncertain_steps)
+    if not len(step_groups):
+        print("No valid step sections found")
+    for steps in step_groups:
+        print("Step Stamps:", steps)
+        print(f"Asymmetry: {get_temporal_asymmetry(steps) * 100:.2f} %")
+        print(f"Steps/s: {get_cadence(steps):.2f}")
+        print(f"Algorithmic error: {get_algorithm_error(steps, data.events)}")
+        print(f"Metric error: {get_metric_error(steps, data.events)}")
 
     # view_datasets(walk_type='normal', user='ron', walk_speed='normal', footwear='socks')
 
