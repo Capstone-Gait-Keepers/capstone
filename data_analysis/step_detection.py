@@ -4,7 +4,7 @@ import pandas as pd
 import plotly.graph_objects as go
 from data_types import Recording, Event
 from plotly.subplots import make_subplots
-from typing import List, Tuple, Optional
+from typing import Dict, List, Tuple, Optional
 
 
 def timestamp_to_index(timestamp: float, fs: float) -> int:
@@ -71,29 +71,42 @@ def get_window_fft_freqs(window_duration, fs) -> np.ndarray:
     return np.fft.fftfreq(window_size, 1/fs)[:window_size//2] # Ignore negative frequencies
 
 
-def get_datasets(dataset_dir: str = "datasets", **filters) -> List[Recording]:
+def get_datasets(dataset_dir: str = "datasets", **filters) -> Dict[str, Recording]:
     """Walk through datasets folder and return all records that match the filters"""
     filepaths = [file for root, dirs, files in os.walk(dataset_dir) for file in files if file.endswith(".yaml")]
     filepaths.remove('example.yaml')
-    datasets = [Recording.from_file(os.path.join(dataset_dir, filename)) for filename in filepaths]
+    datasets = {filename: Recording.from_file(os.path.join(dataset_dir, filename)) for filename in filepaths}
     for key, value in filters.items():
-        datasets = [dataset for dataset in datasets if getattr(dataset.env, key) == value]
+        datasets = {filename: dataset for filename, dataset in datasets.items() if getattr(dataset.env, key) == value}
     return datasets
 
 
 def view_datasets(dataset_dir: str = "datasets", **filters):
     """Walk through datasets folder and plot all recording that match the filters"""
     datasets = get_datasets(dataset_dir, **filters)
-    fig = make_subplots(rows=len(datasets), cols=1, shared_xaxes=True)
+    fig = make_subplots(rows=len(datasets), cols=1, subplot_titles=[*datasets.keys()], shared_xaxes=True)
     fig.update_layout(title=str(filters), showlegend=False)
-    for i, data in enumerate(datasets, start=1):
+    for i, data in enumerate(datasets.values(), start=1):
         timestamps = np.linspace(0, len(data.ts) / data.env.fs, len(data.ts))
         fig.add_trace(go.Scatter(x=timestamps, y=data.ts, name='vibes'), row=i, col=1)
         # TODO: Better text to identify between datasets
-        env_vars = data.env.to_dict()
-        env_vars = {key: value for key, value in env_vars.items() if value is not None and key not in filters}
-        for y, (key, value) in enumerate(env_vars.items(), start=-len(env_vars) // 2):
-            fig.add_annotation(x=timestamps[len(timestamps)//2], y=y/80, text=f"{key} = {value}", xshift=0, showarrow=False, row=i, col=1)
+        # env_vars = data.env.to_dict()
+        # env_vars = {key: value for key, value in env_vars.items() if value is not None and key not in filters}
+        # for y, (key, value) in enumerate(env_vars.items(), start=-len(env_vars) // 2):
+        #     fig.add_annotation(x=timestamps[len(timestamps)//2], y=y/80, text=f"{key} = {value}", xshift=0, showarrow=False, row=i, col=1)
+    fig.show()
+
+
+def plot_recording(filepath: str):
+    """Plot a recording from a YAML file"""
+    data = Recording.from_file(filepath)
+    timestamps = np.linspace(0, len(data.ts) / data.env.fs, len(data.ts))
+    fig = go.Figure()
+    fig.update_layout(title=filepath, showlegend=False)
+    fig.add_scatter(x=timestamps, y=data.ts, name='vibes')
+    for event in data.events:
+        fig.add_vline(x=event.timestamp, line_color='green')
+        fig.add_annotation(x=event.timestamp, y=0, xshift=-17, text=event.category, showarrow=False)
     fig.show()
 
 
@@ -181,19 +194,6 @@ def get_energy(vibes: np.ndarray, fs, window_duration=0.2, stride=1, weights=Non
     if energy.shape != vibes.shape:
         raise ValueError(f"Energy is the wrong shape: {energy.shape} != {vibes.shape}")
     return energy
-
-
-def plot_recording(filepath: str):
-    """Plot a recording from a YAML file"""
-    data = Recording.from_file(filepath)
-    timestamps = np.linspace(0, len(data.ts) / data.env.fs, len(data.ts))
-    fig = go.Figure()
-    fig.update_layout(title=filepath, showlegend=False)
-    fig.add_scatter(x=timestamps, y=data.ts, name='vibes')
-    for event in data.events:
-        fig.add_vline(x=event.timestamp, line_color='green')
-        fig.add_annotation(x=event.timestamp, y=0, xshift=-17, text=event.category, showarrow=False)
-    fig.show()
 
 
 def get_frequency_weights(data: Recording, window_duration=0.2, plot=False) -> Tuple[np.ndarray, np.ndarray]:
@@ -305,6 +305,7 @@ def find_steps(
         model_autocorr = np.correlate(step_model, step_model, mode='valid')
         energy /= np.max(model_autocorr)
     confirmed_indices = get_peak_indices(energy, confirmed_threshold)
+    # TODO: This finds confirmed peaks as well, just slightly off. Fix this
     uncertain_indices = get_peak_indices(energy, uncertain_threshold) if uncertain_threshold is not None else []
     uncertain_indices = np.setdiff1d(uncertain_indices, confirmed_indices)    
     confirmed_stamps = timestamps[confirmed_indices] * stride # Rescale to original time series
@@ -331,9 +332,6 @@ def find_steps(
             fig.add_annotation(x=uncertain, y=-0.3, xshift=-10, text="U", showarrow=False, row=1, col=1)
         # fig.write_html("normal_detection.html")
         fig.show()
-
-    # TODO: Hysteresis: Count small steps if they are between two large steps
-    # TODO: Only count multiple confirmed steps?
     return confirmed_stamps, uncertain_stamps
 
 
@@ -354,8 +352,9 @@ def resolve_step_sections(confirmed_stamps: np.ndarray, uncertain_stamps: np.nda
         raise ValueError(f"Confirmed step stamps must be at least {min_step_delta}s apart")
 
     confirmed = pd.Series([True] * len(confirmed_stamps), index=confirmed_stamps)
-    unconfirmed_steps = pd.Series([False] * len(uncertain_stamps), index=uncertain_stamps)
-    confirmed = pd.concat([confirmed, unconfirmed_steps])
+    if len(uncertain_stamps):
+        unconfirmed_steps = pd.Series([False] * len(uncertain_stamps), index=uncertain_stamps)
+        confirmed = pd.concat([confirmed, unconfirmed_steps])
     confirmed = confirmed.sort_index()
 
     # Upgrading unconfirmed steps to confirmed steps if there's only one unconfirmed step between two confirmed steps
@@ -455,14 +454,12 @@ def get_gait_type(data: Recording):
 
 
 if __name__ == "__main__":
-    # model_data = Recording.from_file('datasets/2023-10-29_18-16-34.yaml')
-    model_data = Recording.from_file('datasets/2023-10-29_18-20-13.yaml')
+    model_data = Recording.from_file('datasets/2023-11-09_18-15-49.yaml')
     freqs, weights = get_frequency_weights(model_data, plot=False)
     step_model = get_step_model(model_data, plot_model=False, plot_steps=False)
-    uncertain_threshold, confirmed_threshold = get_energy_thresholds(model_data, plot=False)
 
-    # data = Recording.from_file('datasets/2023-10-29_18-16-34.yaml')
-    data = Recording.from_file('datasets/2023-10-29_18-20-13.yaml')
+    data = Recording.from_file('datasets/2023-11-09_18-42-33.yaml')
+    uncertain_threshold, confirmed_threshold = get_energy_thresholds(data, plot=False)
     steps, uncertain_steps = find_steps(data,
         confirmed_threshold,
         uncertain_threshold,
