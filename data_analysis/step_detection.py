@@ -429,13 +429,12 @@ class AnalysisController(MetricAnalyzer):
     def analyze_recording(self, data: Recording, **kwargs):
         """Analyzes a recording and returns a dictionary of metrics"""
         step_groups = self._detector.get_step_groups(data.ts, **kwargs)
-        all_measured_steps = np.concatenate(step_groups)
-        if not len(all_measured_steps):
+        if not len(step_groups):
             raise ValueError("No valid step sections found")
         measured = self.get_metrics(step_groups)
         correct_steps = [event.timestamp for event in data.events if event.category == 'step']
-        metric_error = self.get_metric_error(all_measured_steps, correct_steps)
-        algorithm_error = self.get_algorithm_error(all_measured_steps, correct_steps)
+        metric_error = self.get_metric_error(step_groups, correct_steps)
+        algorithm_error = self.get_algorithm_error(np.concatenate(step_groups), correct_steps)
         print("Measured Metrics")
         print(measured)
         print("Correct Metrics")
@@ -443,12 +442,12 @@ class AnalysisController(MetricAnalyzer):
         print("Metric Error")
         print(metric_error)
         print("Algorithm Error")
-        print(algorithm_error)
+        print(', '.join([f'{key}: {value:.3f}' for key, value in algorithm_error.items()]))
 
     @staticmethod
-    def get_metric_error(measured_times: np.ndarray, correct_times: np.ndarray) -> Metrics:
+    def get_metric_error(step_groups: List[np.ndarray], correct_times: np.ndarray) -> Metrics:
         """Analyzes a recording and returns a dictionary of metrics"""
-        measured = AnalysisController.get_metrics([measured_times])
+        measured = AnalysisController.get_metrics(step_groups)
         source_of_truth = AnalysisController.get_metrics([correct_times])
         return measured.error(source_of_truth)
 
@@ -499,10 +498,5 @@ if __name__ == "__main__":
     controller = AnalysisController(model_data)
     data = Recording.from_file('datasets/2023-11-09_18-46-43.yaml')
     controller.analyze_recording(data, plot=False)
-    
 
     # DataHandler().plot(walk_type='normal', user='ron', walk_speed='normal', footwear='socks', wall_radius=1.89)
-
-    # datasets = get_datasets(walk_type='normal', user='ron', walk_speed='normal', footwear='socks')
-    # for data in datasets:
-    #     steps = find_steps(data, amp_threshold=5 * get_noise_variance(data), freq_weights=weights, plot=True)

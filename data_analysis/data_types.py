@@ -143,4 +143,5 @@ class Metrics:
         return error
 
     def __str__(self) -> str:
-        return str(self.__dict__)
+        metrics = [f'{key}: {value:.3f}' for key, value in self.__dict__.items()]
+        return ', '.join(metrics)
