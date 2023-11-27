@@ -155,15 +155,12 @@ def get_noise(data: Recording, plot=False) -> np.ndarray:
     return noise
 
 
-def get_energy_thresholds(data: Recording, plot=False, **kwargs) -> Tuple[float, float]:
+def get_model_thresholds(data: Recording, plot=False, **kwargs) -> Tuple[float, float]:
     noise = get_noise(data)
     sig_energy = get_energy(data.ts, data.env.fs, **kwargs)
     noise_energy = get_energy(noise, data.env.fs, **kwargs)
     max_sig = np.max(sig_energy)
     max_noise = np.max(noise_energy)
-    # TODO: Parameterize weights of max_sig, max_noise and np.std(noise) to find optimal thresholds
-    confirmed_threshold = np.mean([max_sig, max_noise])
-    uncertain_threshold = np.mean([confirmed_threshold, max_noise]) # Weighted average of max signal (1/4) and noise (3/4)
     if plot:
         fig = go.Figure()
         fig.update_layout(title="Energy", showlegend=False)
@@ -171,6 +168,17 @@ def get_energy_thresholds(data: Recording, plot=False, **kwargs) -> Tuple[float,
         fig.add_hline(y=confirmed_threshold, line_dash="dash")
         fig.add_hline(y=uncertain_threshold, line_dash="dash")
         fig.show()
+    return get_energy_thresholds(max_noise, np.std(noise), max_sig)
+
+
+def optimize_treshold_weights(datasets: List[Recording], plot=False, **kwargs) -> Tuple[float, float]:
+    raise NotImplementedError()
+
+
+# TODO: Parameterize weights of max_sig, max_noise and np.std(noise) to find optimal thresholds
+def get_energy_thresholds(noise_max, noise_std, max_sig, c1=.5, c2=.5, c3=0, u1=.2, u2=.8, u3=-1, u4=0):
+    confirmed_threshold = c1*max_sig + c2*noise_max + c3*noise_std
+    uncertain_threshold = u1*max_sig + u2*noise_max + u3*noise_std + u4
     return uncertain_threshold, confirmed_threshold
 
 
@@ -182,6 +190,11 @@ def get_snr(data: Recording) -> float:
     signal_var = np.var(np.concatenate(get_steps_from_truth(data)))
     snr = signal_var / noise_var
     return snr
+
+
+# TODO
+def get_snr_vs_time(data: Recording, plot=False) -> np.ndarray:
+    raise NotImplementedError()
 
 
 def get_energy(vibes: np.ndarray, fs, window_duration=0.2, stride=1, weights=None) -> np.ndarray:
@@ -373,6 +386,8 @@ def resolve_step_sections(confirmed_stamps: np.ndarray, uncertain_stamps: np.nda
     steps = steps[steps.confirmed] # Ignore unconfirmed steps that were not upgraded
     steps = steps.groupby('section').filter(lambda x: len(x) >= 3) # Ignore sections with less than 3 steps
     sections = [group.index.values for _, group in steps.groupby('section')]
+
+    # TODO: Set hard bounds on min/max step delta, cadence and asymmetry and ignore sections that don't meet them
     return sections
 
 
@@ -381,8 +396,10 @@ def get_temporal_asymmetry(step_timestamps: np.ndarray):
     """
     Calculates the temporal asymmetry of a list of step timestamps. 
     """
+    if len(step_timestamps) < 3:
+        return np.nan
     step_durations = np.diff(step_timestamps)
-    return np.abs(np.mean(step_durations[1:] / step_durations[:-1]) - 1)
+    return np.abs(np.mean(step_durations[1:] / step_durations[:-1]) - 1) / np.mean(step_durations)
 
 
 # TODO: Include possible steps
@@ -390,6 +407,8 @@ def get_cadence(step_timestamps: np.ndarray):
     """
     Calculates the cadence of a list of step timestamps. 
     """
+    if len(step_timestamps) < 2:
+        return np.nan
     step_durations = np.diff(step_timestamps)
     return 1 / np.mean(step_durations)
 
@@ -454,12 +473,12 @@ def get_gait_type(data: Recording):
 
 
 if __name__ == "__main__":
-    model_data = Recording.from_file('datasets/2023-11-09_18-15-49.yaml')
+    model_data = Recording.from_file('datasets/2023-11-09_18-42-33.yaml')
     freqs, weights = get_frequency_weights(model_data, plot=False)
     step_model = get_step_model(model_data, plot_model=False, plot_steps=False)
+    uncertain_threshold, confirmed_threshold = get_model_thresholds(model_data, plot=False)
 
-    data = Recording.from_file('datasets/2023-11-09_18-42-33.yaml')
-    uncertain_threshold, confirmed_threshold = get_energy_thresholds(data, plot=False)
+    data = Recording.from_file('datasets/2023-11-09_18-46-43.yaml')
     steps, uncertain_steps = find_steps(data,
         confirmed_threshold,
         uncertain_threshold,
@@ -482,7 +501,7 @@ if __name__ == "__main__":
         print(f"Algorithmic error: {get_algorithm_error(steps, data.events)}")
         print(f"Metric error: {get_metric_error(steps, data.events)}")
 
-    # view_datasets(walk_type='normal', user='ron', walk_speed='normal', footwear='socks')
+    # view_datasets(walk_type='normal', user='ron', walk_speed='normal', footwear='socks', wall_radius=1.89)
 
     # datasets = get_datasets(walk_type='normal', user='ron', walk_speed='normal', footwear='socks')
     # for data in datasets:
