@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from plotly.subplots import make_subplots
 from typing import Dict, List, Tuple
 
-from data_types import Recording
+from data_types import Metrics, Recording
 
 
 class DataHandler:
@@ -176,6 +176,7 @@ class StepDetector(TimeSeriesProcessor):
         confirmed_threshold, uncertain_threshold = self._get_energy_thresholds(np.max(energy))
         confirmed_indices = self.get_peak_indices(energy, confirmed_threshold)
         # TODO: This finds confirmed peaks as well. Fix this
+        # TODO: Add reset threshold (must drop below a certain value before finding another peak)
         uncertain_indices = self.get_peak_indices(energy, uncertain_threshold) if uncertain_threshold is not None else []
         uncertain_indices = np.setdiff1d(uncertain_indices, confirmed_indices)    
         confirmed_stamps = timestamps[confirmed_indices]
@@ -254,44 +255,20 @@ class MetricAnalyzer:
     def __init__(self, step_detector: StepDetector) -> None:
         self._detector = step_detector
 
-    def get_recording_temporal_asymmetry(self, ts: np.ndarray):
+    def analyze(self, *vibes: np.ndarray, **kwargs) -> Metrics:
         """
-        Calculates the temporal asymmetry of a time series. 
+        Analyzes a recording and returns a dictionary of metrics
         """
-        step_timestamps = self._detector.find_steps(ts)
-        return self.get_temporal_asymmetry(step_timestamps)
+        step_groups = []
+        for ts in vibes:
+            step_groups.extend(self._detector.get_step_groups(ts, **kwargs))
+        if not len(step_groups):
+            raise ValueError("No valid step sections found")
+        return self.get_metrics(step_groups)
 
     @staticmethod
-    def get_temporal_asymmetry(step_timestamps: np.ndarray):
-        """
-        Calculates the temporal asymmetry of a list of step timestamps. 
-        """
-        if len(step_timestamps) < 3:
-            return np.nan
-        step_durations = np.diff(step_timestamps)
-        return np.abs(np.mean(step_durations[1:] / step_durations[:-1]) - 1) / np.mean(step_durations)
-    
-    def get_recording_cadence(self, ts: np.ndarray):
-        """
-        Calculates the cadence of a time series. 
-        """
-        step_timestamps = self._detector.find_steps(ts)
-        return self.get_cadence(step_timestamps)
-
-    @staticmethod
-    def get_cadence(step_timestamps: np.ndarray):
-        """
-        Calculates the cadence of a list of step timestamps. 
-        """
-        if len(step_timestamps) < 2:
-            return np.nan
-        step_durations = np.diff(step_timestamps)
-        return 1 / np.mean(step_durations)
-
-    # TODO
-    @staticmethod
-    def get_recording_gait_type(ts: np.ndarray):
-        raise NotImplementedError()
+    def get_metrics(step_groups: List[np.ndarray]) -> Metrics:
+        return np.sum([Metrics(group) for group in step_groups])
 
 
 @dataclass
@@ -434,7 +411,7 @@ class ParsedRecording(Recording):
         return step_model
 
 
-class AnalysisController:
+class AnalysisController(MetricAnalyzer):
     def __init__(self, model: Recording, window_duration=0.2) -> None:
         self.model = ParsedRecording.from_recording(model)
         weights = self.model.get_frequency_weights(window_duration, plot=False)
@@ -447,42 +424,36 @@ class AnalysisController:
             # step_model=step_model,
             freq_weights=weights
         )
-        self._analyzer = MetricAnalyzer(self._detector)
+        super().__init__(self._detector)
 
-    # TODO: Return Metrics object
-    def analyze(self, ts: np.ndarray, **kwargs) -> Dict[str, float]:
-        """
-        Analyzes a recording and returns a dictionary of metrics
-        """
-        step_groups = self._detector.get_step_groups(ts, **kwargs)
-        if not len(step_groups):
+    def analyze_recording(self, data: Recording, **kwargs):
+        """Analyzes a recording and returns a dictionary of metrics"""
+        step_groups = self._detector.get_step_groups(data.ts, **kwargs)
+        all_measured_steps = np.concatenate(step_groups)
+        if not len(all_measured_steps):
             raise ValueError("No valid step sections found")
-        metrics = {
-            "asymmetry": MetricAnalyzer.get_temporal_asymmetry,
-            "cadence": MetricAnalyzer.get_cadence,
-        }
-        return {metric: AnalysisController._get_func_metric(func, step_groups) for metric, func in metrics.items()}
-
-    # TODO: Implement better
-    def analyze_error(self, ts: np.ndarray, **kwargs) -> Dict[str, float]:
-        """
-        Analyzes a recording and returns a dictionary of metrics
-        """
-        step_groups = self._detector.get_step_groups(ts, **kwargs)
-        if not len(step_groups):
-            raise ValueError("No valid step sections found")
-        metrics = {
-            "asymmetry": MetricAnalyzer.get_temporal_asymmetry,
-            "cadence": MetricAnalyzer.get_cadence,
-        }
-        return {metric: AnalysisController._get_func_metric_error(func, ts, self.model.events) for metric, func in metrics.items()}
-    
-    def _get_func_metric(func: callable, step_groups: List[np.ndarray]):
-        """Calculates the % metric of a list of step timestamps, given a function to compute the metric."""
-        return np.mean([func(steps) for steps in step_groups])
+        measured = self.get_metrics(step_groups)
+        correct_steps = [event.timestamp for event in data.events if event.category == 'step']
+        metric_error = self.get_metric_error(all_measured_steps, correct_steps)
+        algorithm_error = self.get_algorithm_error(all_measured_steps, correct_steps)
+        print("Measured Metrics")
+        print(measured)
+        print("Correct Metrics")
+        print(AnalysisController.get_metrics([correct_steps]))
+        print("Metric Error")
+        print(metric_error)
+        print("Algorithm Error")
+        print(algorithm_error)
 
     @staticmethod
-    def get_algorithm_error(measured_times: np.ndarray, correct_stamps: np.ndarray):
+    def get_metric_error(measured_times: np.ndarray, correct_times: np.ndarray) -> Metrics:
+        """Analyzes a recording and returns a dictionary of metrics"""
+        measured = AnalysisController.get_metrics([measured_times])
+        source_of_truth = AnalysisController.get_metrics([correct_times])
+        return measured.error(source_of_truth)
+
+    @staticmethod
+    def get_algorithm_error(measured_times: np.ndarray, correct_times: np.ndarray) -> dict:
         """
         Calculates the algorithm error of a recording. There are three types of errors:
         - Incorrect measurements: The algorithm found a step when there was none (False Positive)
@@ -493,14 +464,14 @@ class AnalysisController:
         ----------
         measured_times : np.ndarray
             List of timestamps where the algorithm found steps
-        correct_stamps : np.ndarray
+        correct_times : np.ndarray
             List of step timestamps from the source of truth
         """
         if not len(measured_times):
             raise ValueError("Algorithm did not find any steps")
         missed_steps = 0
         measurement_errors = {}
-        for step_stamp in correct_stamps:
+        for step_stamp in correct_times:
             possible_errors = np.abs(measured_times - step_stamp)
             best_measurement = np.argmin(possible_errors)
             # If the measurement is already the best one for another step, it means we missed this step
@@ -518,23 +489,7 @@ class AnalysisController:
         }
 
     @staticmethod
-    def get_metric_error(measured_stamps: np.ndarray, correct_stamps: np.ndarray):
-        """Calculates the % metric error of a measured timestamp list, given the source of truth."""
-        metrics = {
-            "asymmetry": MetricAnalyzer.get_temporal_asymmetry,
-            "cadence": MetricAnalyzer.get_cadence,
-        }
-        return {metric: AnalysisController._get_func_metric_error(func, measured_stamps, correct_stamps) for metric, func in metrics.items()}
-
-    @staticmethod
-    def _get_func_metric_error(func: callable, measured_stamps: np.ndarray, correct_stamps: np.ndarray):
-        """Calculates the % error between the two timestamp lists, given a function to compute the metric."""
-        correct_metric = func(correct_stamps)
-        measured_metric = func(measured_stamps)
-        return np.abs(measured_metric - correct_metric) / correct_metric
-
-    @staticmethod
-    def optimize_treshold_weights(datasets: List[Recording], plot=False, **kwargs) -> Tuple[float, float]:
+    def optimize_threshold_weights(datasets: List[Recording], plot=False, **kwargs) -> Tuple[float, float]:
         raise NotImplementedError()
 
 
@@ -543,7 +498,7 @@ if __name__ == "__main__":
     model_data = Recording.from_file('datasets/2023-11-09_18-42-33.yaml')
     controller = AnalysisController(model_data)
     data = Recording.from_file('datasets/2023-11-09_18-46-43.yaml')
-    print(controller.analyze(model_data.ts, plot=False))
+    controller.analyze_recording(data, plot=False)
     
 
     # DataHandler().plot(walk_type='normal', user='ron', walk_speed='normal', footwear='socks', wall_radius=1.89)

@@ -94,3 +94,53 @@ class Recording:
             'events': [event.to_dict() for event in self.events],
             'ts': self.ts
         }
+
+
+class Metrics:
+    def __init__(self, timestamps: np.ndarray):
+        self.sections = 1
+        self.step_count = len(timestamps)
+        self.temporal_asymmetry = self._get_temporal_asymmetry(timestamps)
+        self.cadence = self._get_cadence(timestamps)
+        # self.gait_type = self._get_gait_type(timestamps)
+
+    def _get_temporal_asymmetry(self, timestamps: np.ndarray):
+        if len(timestamps) < 3:
+            return np.nan
+        step_durations = np.diff(timestamps)
+        return np.abs(np.mean(step_durations[1:] / step_durations[:-1]) - 1) / np.mean(step_durations)
+
+    def _get_cadence(self, timestamps: np.ndarray):
+        if len(timestamps) < 2:
+            return np.nan
+        return 1 / np.mean(np.diff(timestamps))
+
+    def _get_gait_type(self, timestamps: np.ndarray):
+        raise NotImplementedError()
+
+    def __add__(self, other: 'Metrics'):
+        """Combines two Metrics objects by averaging their values."""
+        if not isinstance(other, Metrics):
+            raise ValueError('Can only add Metrics to Metrics.')
+        for key in self.__dict__.keys():
+            if key == 'step_count':
+                self.__dict__[key] += other.__dict__[key]
+            else:
+                self.__dict__[key] = np.nanmean([self.__dict__[key], other.__dict__[key]])
+        self.sections += 1
+        return self
+
+    def error(self, truth: 'Metrics') -> 'Metrics':
+        """Returns the % error between two Metrics objects."""
+        if not isinstance(truth, Metrics):
+            raise ValueError('Can only compare Metrics to Metrics.')
+        error = Metrics(np.zeros(0))
+        for key in self.__dict__.keys():
+            if key == 'step_count':
+                error.__dict__[key] = np.abs(self.__dict__[key] - truth.__dict__[key])
+            else:
+                error.__dict__[key] = np.abs(self.__dict__[key] - truth.__dict__[key]) / truth.__dict__[key]
+        return error
+
+    def __str__(self) -> str:
+        return str(self.__dict__)
