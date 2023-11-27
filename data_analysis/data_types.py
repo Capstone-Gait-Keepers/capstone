@@ -64,6 +64,7 @@ class Recording:
     env: RecordingEnvironment
     events: list[Event] = field(default_factory=list)
     ts: np.ndarray = field(default_factory=np.zeros(0))
+    filepath: Optional[str] = None
 
     @classmethod
     def from_file(cls, filename: str):
@@ -71,7 +72,9 @@ class Recording:
             yaml = YAML()
             with open(filename) as file:
                 data = yaml.load(file)
-            return cls.from_dict(data)
+            rec = cls.from_dict(data)
+            rec.filepath = filename
+            return rec
         except Exception as e:
             raise ValueError(f'Failed to load recording from "{filename}".') from e
 
