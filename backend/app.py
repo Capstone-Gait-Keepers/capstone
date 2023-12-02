@@ -1,4 +1,5 @@
 import os
+import time
 from dotenv import load_dotenv
 from flask import Flask, jsonify, request
 from flask_sqlalchemy import SQLAlchemy
@@ -13,7 +14,7 @@ db = SQLAlchemy()
 app = Flask(__name__)
 
 # database connection
-#url = os.getenv("DATABSE_URL") 
+url = os.getenv("DATABSE_URL") 
 prodpass = os.getenv("PRODPASS") 
 prodhost = os.getenv("PRODHOST") 
 
@@ -52,14 +53,25 @@ class Sensors(db.Model):
 
 # test model
 class Test(db.Model):
-    _text1 = db.Column("text1", db.String(255), primary_key=True)
+    text1 = db.Column(db.String(255), primary_key=True)
     text2 = db.Column(db.String(255))
 
 # raw recording data
 class Recordings(db.Model):
-    _id = db.Column("sensorid",db.Integer, primary_key=True)
+    _id = db.Column("recordingid",db.Integer, primary_key=True)
+    sensorid = db.Column(db.Integer)
     timestamp = db.Column(db.DateTime)
     ts_data = db.Column(db.ARRAY(db.Float))
+
+class NewSensor(db.Model):
+    _id = db.Column("sensorid", db.Integer, primary_key=True)
+    model = db.Column(db.String(255))
+    fs = db.Column(db.Float)
+    userid = db.Column(db.Integer)
+    floor = db.Column(db.String)
+    wall_radius = db.Column(db.Float)
+    obstacle_radius = db.Column(db.Float)
+
 
 # sensor metadata
 #class sensor_metadata(db.Model):
@@ -187,7 +199,8 @@ def add_recording():
     data = request.get_json()
     try:
         new_data = Recordings(
-            _id=data['sensorid'],
+            _id=generate_unique_id(),
+            sensorid=data['sensorid'],
             timestamp=data['timestamp'],
             ts_data=data['ts_data'],
         )
@@ -201,6 +214,24 @@ def add_recording():
         db.session.rollback()
         return jsonify({"error": str(e)}), HTTPStatus.BAD_REQUEST
         
+
+
+
+# for setting up a new sensor
+@app.route('/api/add_sensorconfig', methods=['POST'])
+def add_sensorconfig():
+    data = request.get_json()
+
+
+
+
+# FUNCTION DEFINITIONS
+
+# generate a unique id to attribute to a recording or to a sensor
+def generate_unique_id():
+    timestamp = int(time.time() * 1000) 
+    unique_id = timestamp % 1000000 #id will be 6 digits long
+    return unique_id
 
 
 # Hello World (Daniel)
