@@ -13,7 +13,7 @@ import serial
 import time
 from json import dumps
 from datetime import datetime
-from step_detection import find_steps
+from step_detection import AnalysisController
 
 from data_types import Recording, RecordingEnvironment, Event, WalkPath
 
@@ -62,9 +62,9 @@ if __name__ == "__main__":
     middle_path = WalkPath(start=2.74, stop=2.85, length=3.65)
     # ! Change as needed
     env = RecordingEnvironment(
-        location='Aarons Studio',
+        location='Living Room Table',
         fs=100,
-        floor='cork',
+        floor='table',
         # obstacle_radius=0.04,
         obstacle_radius=1.38,
         # wall_radius=0.04,
@@ -74,7 +74,7 @@ if __name__ == "__main__":
         # walk_type='limp',
         # walk_speed='normal',
         walk_speed='slow',
-        user='sarah (julia)',
+        user='hand',
         footwear='socks',
         # footwear='slippers',
         path=close_path,
@@ -88,5 +88,7 @@ if __name__ == "__main__":
     vibes, events = collect_data(int(seconds), fs=env.fs)
 
     rec = Recording(env, events, vibes)
-    rec.to_yaml(f'datasets/{timestamp}.yaml')
-    print(len(find_steps(rec, plot=True)))
+    # rec.to_yaml(f'datasets/{timestamp}.yaml')
+    model_data = Recording.from_file('datasets/2023-11-09_18-42-33.yaml')
+    controller = AnalysisController(model_data)
+    controller.analyze_recording(rec)

@@ -13,6 +13,12 @@ Refer to https://docs.google.com/document/d/1Wm_FNKl8EB9JSIcI2R2lFsQD-1NN7LGn7f8
 ### Event Categories
 - `step`: Initial heel contact with floor (user, pet, etc.)
 
+## Firmware Setup
+1. Add `https://arduino.esp8266.com/stable/package_esp8266com_index.json` as an additional board manager URL (in preferences)
+2. Install `esp8266timerinterrupt` library
+3. Select NodeMCU 1.0 as the board type
+4. Compile and run :)
+
 ## Backend
 ### Necessary Tools:
 - PostgreSQL https://www.postgresql.org/download/
