@@ -4,7 +4,7 @@ import pandas as pd
 import plotly.graph_objects as go
 from dataclasses import dataclass
 from plotly.subplots import make_subplots
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, Optional
 
 from data_types import Metrics, Recording
 
@@ -22,14 +22,21 @@ class DataHandler:
             datasets = {filename: dataset for filename, dataset in datasets.items() if getattr(dataset.env, key) == value}
         return datasets
 
-    def plot(self, **filters):
+    def plot(self, clip=False, truth=True, **filters):
         """Walk through datasets folder and plot all recording that match the filters"""
         datasets = self.get(**filters)
         fig = make_subplots(rows=len(datasets), cols=1, subplot_titles=[*datasets.keys()], shared_xaxes=True)
         fig.update_layout(title=str(filters), showlegend=False)
+        len_shortest = min([len(data.ts) for data in datasets.values()])
         for i, data in enumerate(datasets.values(), start=1):
+            if clip:
+                data.ts = data.ts[:len_shortest]
             timestamps = np.linspace(0, len(data.ts) / data.env.fs, len(data.ts))
             fig.add_trace(go.Scatter(x=timestamps, y=data.ts, name='vibes'), row=i, col=1)
+            if truth:
+                for event in data.events:
+                    fig.add_vline(x=event.timestamp, line_color='green', row=i, col=1)
+                    fig.add_annotation(x=event.timestamp, y=0, xshift=-17, yshift=15, text=event.category, showarrow=False, row=i, col=1)
             # TODO: Better text to identify between datasets
             # env_vars = data.env.to_dict()
             # env_vars = {key: value for key, value in env_vars.items() if value is not None and key not in filters}
@@ -402,11 +409,15 @@ class ParsedRecording(Recording):
             fig.update_layout(title="Energy vs Time")
             for energy in energy_per_step:
                 fig.add_scatter(x=timestamps, y=energy)
+            fig.update_xaxes(title_text="Time (s)")
+            fig.update_yaxes(title_text="Energy")
             fig.show()
         if plot_model:
             fig = go.Figure()
             fig.update_layout(title="Model Step", showlegend=False)
             fig.add_scatter(x=timestamps, y=step_model)
+            fig.update_xaxes(title_text="Time (s)")
+            fig.update_yaxes(title_text="Energy")
             fig.show()
         return step_model
 
@@ -431,10 +442,10 @@ class AnalysisController(MetricAnalyzer):
         step_groups = self._detector.get_step_groups(data.ts, **kwargs)
         if not len(step_groups):
             raise ValueError("No valid step sections found")
+        correct_steps = self._get_step_timestamps(data)
         measured = self.get_metrics(step_groups)
-        correct_steps = [event.timestamp for event in data.events if event.category == 'step']
-        metric_error = self.get_metric_error(step_groups, correct_steps)
-        algorithm_error = self.get_algorithm_error(np.concatenate(step_groups), correct_steps)
+        metric_error = self._get_metric_error(step_groups, [correct_steps])
+        algorithm_error = self._get_algorithm_error(np.concatenate(step_groups), correct_steps)
         print("Measured Metrics")
         print(measured)
         print("Correct Metrics")
@@ -445,14 +456,31 @@ class AnalysisController(MetricAnalyzer):
         print(', '.join([f'{key}: {value:.3f}' for key, value in algorithm_error.items()]))
 
     @staticmethod
-    def get_metric_error(step_groups: List[np.ndarray], correct_times: np.ndarray) -> Metrics:
+    def _get_step_timestamps(data: Recording) -> List[float]:
+        return [event.timestamp for event in data.events if event.category == 'step']
+
+    def get_metric_error(self, *datasets: Recording, **kwargs) -> Optional[Metrics]:
+        """Analyzes a recording and returns a dictionary of metrics"""
+        measured_step_groups = []
+        correct_step_groups = []
+        for data in datasets:
+            measured_step_groups.extend(self._detector.get_step_groups(data.ts, **kwargs))
+            correct_step_groups.append(self._get_step_timestamps(data))
+        if not len(measured_step_groups):
+            return None
+        return self._get_metric_error(measured_step_groups, correct_step_groups)
+
+    @staticmethod
+    def _get_metric_error(step_groups: List[np.ndarray], correct_times: List[np.ndarray]) -> Metrics:
         """Analyzes a recording and returns a dictionary of metrics"""
         measured = AnalysisController.get_metrics(step_groups)
-        source_of_truth = AnalysisController.get_metrics([correct_times])
+        source_of_truth = AnalysisController.get_metrics(correct_times)
+        print(measured)
+        print(source_of_truth)
         return measured.error(source_of_truth)
 
     @staticmethod
-    def get_algorithm_error(measured_times: np.ndarray, correct_times: np.ndarray) -> dict:
+    def _get_algorithm_error(measured_times: np.ndarray, correct_times: np.ndarray) -> dict:
         """
         Calculates the algorithm error of a recording. There are three types of errors:
         - Incorrect measurements: The algorithm found a step when there was none (False Positive)
@@ -496,7 +524,12 @@ class AnalysisController(MetricAnalyzer):
 if __name__ == "__main__":
     model_data = Recording.from_file('datasets/2023-11-09_18-42-33.yaml')
     controller = AnalysisController(model_data)
-    data = Recording.from_file('datasets/2023-11-09_18-46-43.yaml')
-    controller.analyze_recording(data, plot=False)
+    # data = Recording.from_file('datasets/2023-11-09_18-46-43.yaml')
+    # controller.get_metric_error(data, plot=True)
 
-    # DataHandler().plot(walk_type='normal', user='ron', walk_speed='normal', footwear='socks', wall_radius=1.89)
+    # DataHandler().plot(walk_speed='normal', user='ron', footwear='socks', wall_radius=1.89)
+
+    # Get average metric error
+    # walk_type='normal', user='ron', wall_radius=1.89 -> 5.6% cadence, fucked STGA
+    datasets = DataHandler().get(walk_type='shuffle', user='ron', wall_radius=1.89)
+    print(controller.get_metric_error(*datasets.values()))

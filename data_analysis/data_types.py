@@ -97,17 +97,21 @@ class Recording:
 
 
 class Metrics:
-    def __init__(self, timestamps: np.ndarray):
+    _metric_names = ['STGA', 'cadence']
+
+    def __init__(self, timestamps = []):
         self.sections = 1
         self.step_count = len(timestamps)
-        self.temporal_asymmetry = self._get_temporal_asymmetry(timestamps)
+        self.STGA = self._get_STGA(timestamps)
         self.cadence = self._get_cadence(timestamps)
         # self.gait_type = self._get_gait_type(timestamps)
 
-    def _get_temporal_asymmetry(self, timestamps: np.ndarray):
+    def _get_STGA(self, timestamps: np.ndarray):
         if len(timestamps) < 3:
             return np.nan
         step_durations = np.diff(timestamps)
+        # TODO: Does this match literature?
+        # https://citeseerx.ist.psu.edu/document?repid=rep1&type=pdf&doi=aeee9316f2a72d0f89e59f3c5144bf69a695730b
         return np.abs(np.mean(step_durations[1:] / step_durations[:-1]) - 1) / np.mean(step_durations)
 
     def _get_cadence(self, timestamps: np.ndarray):
@@ -123,25 +127,36 @@ class Metrics:
         if not isinstance(other, Metrics):
             raise ValueError('Can only add Metrics to Metrics.')
         for key in self.__dict__.keys():
-            if key == 'step_count':
-                self.__dict__[key] += other.__dict__[key]
+            if key in self._metric_names:
+                if self.__dict__[key] == np.nan:
+                    self.__dict__[key] = other.__dict__[key]
+                elif other.__dict__[key] != np.nan:
+                    self.__dict__[key] = np.average([self.__dict__[key], other.__dict__[key]], weights=[self.step_count, other.step_count])
             else:
-                self.__dict__[key] = np.nanmean([self.__dict__[key], other.__dict__[key]])
+                self.__dict__[key] += other.__dict__[key]
         self.sections += 1
         return self
 
-    def error(self, truth: 'Metrics') -> 'Metrics':
+    def error(self, truth: 'Metrics') -> 'MetricsError':
         """Returns the % error between two Metrics objects."""
         if not isinstance(truth, Metrics):
             raise ValueError('Can only compare Metrics to Metrics.')
-        error = Metrics(np.zeros(0))
+        error = Metrics()
         for key in self.__dict__.keys():
-            if key == 'step_count':
-                error.__dict__[key] = np.abs(self.__dict__[key] - truth.__dict__[key])
-            else:
+            if key in self._metric_names:
                 error.__dict__[key] = np.abs(self.__dict__[key] - truth.__dict__[key]) / truth.__dict__[key]
+            else:
+                error.__dict__[key] = np.abs(self.__dict__[key] - truth.__dict__[key])
         return error
 
     def __str__(self) -> str:
         metrics = [f'{key}: {value:.3f}' for key, value in self.__dict__.items()]
         return ', '.join(metrics)
+
+# TODO: Convert to a panda dataframe, not a unique class
+class MetricsError(Metrics):
+    def error(self, truth: Metrics):
+        raise NotImplementedError('Cannot compare MetricsError to MetricsError.')
+    
+    def __add__(self, other: Metrics):
+        raise NotImplementedError('Cannot add MetricsError to MetricsError.')
