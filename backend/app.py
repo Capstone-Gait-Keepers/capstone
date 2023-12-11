@@ -170,28 +170,28 @@ def process_json2_withdb():
        error_message = f"Error processing request: {str(e)}"
        return jsonify({'error': error_message}), HTTPStatus.BAD_REQUEST  
 
-# retrieve sensor metadata
+# NO LONGER BEING USED I THINK, commented out for now while I confirm
 # curl --header "Content-Type: application/json" --request POST --data '{"sensorid": "111", "sampling": 100, "floor": "cork", "user": "daniel"}' https://capstone-backend-f6qu.onrender.com/api/sensor_metadata
-@app.route('/api/sensor_metadata', methods=['POST'])
-def add_data():
-    data = request.get_json()
+# @app.route('/api/sensor_metadata', methods=['POST'])
+# def add_data():
+#     data = request.get_json()
 
-    try:
-        new_data = Sensors(
-            _id=data['sensorid'],
-            sampling=data['sampling'],
-            floor=data['floor'],
-            user=data['user']
-        )
+#     try:
+#         new_data = Sensors(
+#             _id=int(data['sensorid']),
+#             sampling=data['sampling'],
+#             floor=data['floor'],
+#             user=data['user']
+#         )
 
-        db.session.add(new_data)
-        db.session.commit()
+#         db.session.add(new_data)
+#         db.session.commit()
 
-        return jsonify({"message": "Data added successfully"}), HTTPStatus.CREATED
+#         return jsonify({"message": "Data added successfully"}), HTTPStatus.CREATED
 
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({"error": str(e)}), HTTPStatus.BAD_REQUEST
+#     except Exception as e:
+#         db.session.rollback()
+#         return jsonify({"error": str(e)}), HTTPStatus.BAD_REQUEST
     
 # TO DO: curl 
 @app.route('/api/send_recording', methods=['POST'])
@@ -199,28 +199,48 @@ def add_recording():
     data = request.get_json()
     try:
         new_data = Recordings(
-            _id=generate_unique_id(),
-            sensorid=data['sensorid'],
-            timestamp=data['timestamp'],
-            ts_data=data['ts_data'],
+            _id=generate_unique_id(), # calls function, populates with value
+            sensorid=int(data['sensorid']), # sensor property
+            timestamp=data['timestamp'], # datatime
+            ts_data=data['ts_data'], # float 8 array
         )
 
         db.session.add(new_data)
-        db.session.commit()
+        db.session.commit() # add to database
 
         return jsonify({"message": "Data added successfully"}), HTTPStatus.CREATED
 
     except Exception as e:
         db.session.rollback()
         return jsonify({"error": str(e)}), HTTPStatus.BAD_REQUEST
-        
-
 
 
 # for setting up a new sensor
 @app.route('/api/add_sensorconfig', methods=['POST'])
 def add_sensorconfig():
     data = request.get_json()
+    print(type(data['obstacle_radius']))
+    new_sensor_id = generate_unique_id()
+    
+    try:
+        new_data = NewSensor(
+            _id=new_sensor_id,
+            model = str(data['model']),
+            fs = float(data['fs']),
+            userid = int(data['userid']),
+            floor = str(data['floor']),
+            wall_radius = float(data['wall_radius']),
+            obstacle_radius = float(data['obstacle_radius'])
+        )
+
+        db.session.add(new_data)
+        db.session.commit() # add to database
+
+        return jsonify({"message": "Sensor record created","sensorid": new_sensor_id})
+    
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), HTTPStatus.BAD_REQUEST
 
 
 
