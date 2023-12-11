@@ -1,10 +1,11 @@
 import os
 import time
 from dotenv import load_dotenv
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, render_template
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import create_engine
 from http import HTTPStatus
+from flask_basicauth import BasicAuth
 
 # .env
 load_dotenv()
@@ -29,9 +30,14 @@ engine = create_engine(SQLALCHEMY_DATABASE_URI, pool_pre_ping=True)
 db.init_app(app)
 
 
-#print(url)
 
+# BasicAuth configuration
+app.config['BASIC_AUTH_USERNAME'] = os.getenv("DOC_USER")
+app.config['BASIC_AUTH_PASSWORD'] = os.getenv("DOC_PASS")
+basic_auth = BasicAuth(app)
 
+# for documentation 
+# will only document the routes explicitly decorated with @auto.doc()
 
 # DATABASE MODELS FOR CONSISTENT DATA STRUCTURE:
 
@@ -258,6 +264,15 @@ def generate_unique_id():
 @app.route('/')
 def hello_world():
     return 'Hello, Daniel!'
+
+
+# auto documentation
+# protected by username and password
+@app.route('/documentation')
+@basic_auth.required
+def documentation():
+    return render_template('documentation.html')
+
 
 if __name__ == '__main__':
     with app.app_context():
