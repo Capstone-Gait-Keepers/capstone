@@ -128,10 +128,21 @@ void running_mode() {
       }
     if (post_data_ready) {
         Serial.println("POST DATA READY");\
+        i_timer.disableTimer();
         // TODO: Add code to send post_data to backend server
-        // Serial.println(post_data);
+        Serial.println(post_data);
         // post_data = "";
+        String fun_data = "{\"sensorid\": \"18\",\"timestamp\":\"2023-11-25 03:41:23.295\",\"ts_data\":[1.23, 4.56, 7.89]}";
+        Serial.println(fun_data);
+        // remove last comma if it exists
+        if (post_data.endsWith(",")) {
+          post_data = post_data.substring(0, post_data.length() - 1);
+        }
+        String post_data_formatted = "{\"sensorid\": \"18\",\"timestamp\":\"2023-11-25 03:41:23.295\",\"ts_data\":[" + post_data + "]}";
+        Serial.println(post_data_formatted);
+        send_data(post_data_formatted);
         post_data_ready = false;
+        i_timer.enableTimer();
     }
     start_buffer_index = (start_buffer_index + 1) % START_BUFFER_SAMPLES; // Move to the next index, modulus handle wraparound
   }
