@@ -36,9 +36,6 @@ app.config['BASIC_AUTH_USERNAME'] = os.getenv("DOC_USER")
 app.config['BASIC_AUTH_PASSWORD'] = os.getenv("DOC_PASS")
 basic_auth = BasicAuth(app)
 
-# for documentation 
-# will only document the routes explicitly decorated with @auto.doc()
-
 # DATABASE MODELS FOR CONSISTENT DATA STRUCTURE:
 
 # Use a class to define a table structure.
@@ -46,8 +43,6 @@ basic_auth = BasicAuth(app)
 # When the backend gets run, any non-existing tables 
 # that have a newly defined class will be (*)should be)
 # automatically created in the database.
-
-
 
 
 # sensors model - for sensor metadata
@@ -77,23 +72,6 @@ class NewSensor(db.Model):
     floor = db.Column(db.String)
     wall_radius = db.Column(db.Float)
     obstacle_radius = db.Column(db.Float)
-
-
-# sensor metadata
-#class sensor_metadata(db.Model):
-
-# user info
-#class users(db.Model):
-
-
-# ENDPOINTS:
-
-# Only existing endpoint right now receives the sensorid,
-# the sampling rate of the sensor, the floor type, and 
-# the user's name.
-
-# These endpoints are for functionality testing purposes.
-# sensor_metadata endpoint works with local deployment.
 
 # curl -X POST -d "hey" https://capstone-backend-f6qu.onrender.com/api/sarah_test1
 @app.route('/api/sarah_test1', methods=['POST'])
@@ -272,6 +250,19 @@ def hello_world():
 @basic_auth.required
 def documentation():
     return render_template('documentation.html')
+
+# shows status of each sensor
+@app.route('/status')
+def sensor_page():
+    sensors = [
+        {'id': 1, 'last_timestamp': '2023-01-01 12:00:00', 'num_recordings': 10},
+        {'id': 2, 'last_timestamp': '2023-01-01 12:15:00', 'num_recordings': 8},
+        {'id': 3, 'last_timestamp': '2023-01-01 12:30:00', 'num_recordings': 6},
+        {'id': 4, 'last_timestamp': '2023-01-01 12:45:00', 'num_recordings': 4},
+        {'id': 5, 'last_timestamp': '2023-01-01 13:00:00', 'num_recordings': 2},
+    ]
+
+    return render_template('status.html', sensors=sensors)
 
 
 if __name__ == '__main__':
