@@ -11,5 +11,9 @@
             "src": "/(.*)",
             "dest": "/"
         }
-    ]
+    ],
+    "env": {
+        "FLASK_ENV": "production"
+      },
+      "build": {}
 }
