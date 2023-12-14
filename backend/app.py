@@ -241,7 +241,7 @@ def generate_unique_id():
 # Hello World (Daniel)
 @app.route('/')
 def hello_world():
-    return 'Hello, Daniel!'
+    return render_template('hello.html')
 
 
 # auto documentation
