@@ -28,6 +28,7 @@ ESP8266Timer i_timer;  // Hardware Timer
 volatile bool start_sampling = false; // Flag to indicate if a new sample should be taken based on timer interrupt
 
 bool calibration_flag = false; // Flag to indicate if the device is in calibration mode
+bool wifi_status = false; // Flag to indicate if the device is connected to wifi
 
 float sensor_data_buffer[START_BUFFER_SAMPLES]; // Circular buffer to store acceleration data
 int start_buffer_index = 0; // Index of circular buffer
@@ -90,12 +91,12 @@ void calibration_mode() {
   if (start_sampling) 
   {
     start_sampling = false; // Reset flag for interrupt handler
-    serial.println("CALIBRATION MODE");
+    Serial.println("CALIBRATION MODE");
+    
     // if (success)
     calibration_flag = false;
   }
 }
-
 
 void running_mode() {
   if (start_sampling) 
@@ -136,6 +137,25 @@ void running_mode() {
   }
 }
 
+void sos_mode() {
+  i_timer.disableTimer();
+  while (true) {
+    // blink LED to indicate no wifi connection (SOS in morse code). Use a loop for ech letter to make it easier to read
+    for (int i = 0; i < 3; i++) {
+      digitalWrite(LED_BUILTIN, LOW);
+      delay(100);
+      digitalWrite(LED_BUILTIN, HIGH);  
+      delay(100);                      
+    }
+    for (int i = 0; i < 3; i++) {
+      digitalWrite(LED_BUILTIN, LOW);
+      delay(1000);
+      digitalWrite(LED_BUILTIN, HIGH); 
+      delay(100);
+    }
+  }
+}
+
 void setup(void)
 {
   Serial.begin(115200);
@@ -158,6 +178,9 @@ void setup(void)
   /* Display some basic information on this sensor */
   displaySensorDetails();
 
+  pinMode(LED_BUILTIN, OUTPUT);     // Initialize the LED_BUILTIN pin as an output
+  wifi_status = initialize_wifi();
+
   // Setup Timer
   Serial.print("Interrupt period: ");
   Serial.println(INTERRUPT_INTERVAL_US);
@@ -165,11 +188,13 @@ void setup(void)
   i_timer.enableTimer();
 
   calibration_flag = true;
-
 }
 
 void loop(void)
 {
+  if (!wifi_status) {
+    sos_mode();
+  }
   if (calibration_flag) {
     calibration_mode();
   }
