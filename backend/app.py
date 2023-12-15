@@ -4,12 +4,14 @@ from dotenv import load_dotenv
 from flask import Flask, jsonify, request, render_template
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
 from http import HTTPStatus
 from flask_basicauth import BasicAuth
 
 # .env
 load_dotenv()
 
+# init
 db = SQLAlchemy()
 
 app = Flask(__name__)
@@ -18,20 +20,21 @@ app = Flask(__name__)
 url = os.getenv("DATABSE_URL") 
 prodpass = os.getenv("PRODPASS") 
 prodhost = os.getenv("PRODHOST") 
-
 SQLALCHEMY_DATABASE_URI = f"postgresql://postgres:{prodpass}@{prodhost}:5432/postgres"
 #print(SQLALCHEMY_DATABASE_URI)
-
 app.config["SQLALCHEMY_DATABASE_URI"] = SQLALCHEMY_DATABASE_URI
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-engine = create_engine(SQLALCHEMY_DATABASE_URI, pool_pre_ping=True)
+engine = create_engine(SQLALCHEMY_DATABASE_URI)
+connection = engine.connect() 
+Session = sessionmaker(bind=engine)
+session = Session()
+
 
 db.init_app(app)
 
-
-
 # BasicAuth configuration
+# for documentation page
 app.config['BASIC_AUTH_USERNAME'] = os.getenv("DOC_USER")
 app.config['BASIC_AUTH_PASSWORD'] = os.getenv("DOC_PASS")
 basic_auth = BasicAuth(app)
@@ -154,28 +157,6 @@ def process_json2_withdb():
        error_message = f"Error processing request: {str(e)}"
        return jsonify({'error': error_message}), HTTPStatus.BAD_REQUEST  
 
-# NO LONGER BEING USED I THINK, commented out for now while I confirm
-# curl --header "Content-Type: application/json" --request POST --data '{"sensorid": "111", "sampling": 100, "floor": "cork", "user": "daniel"}' https://capstone-backend-f6qu.onrender.com/api/sensor_metadata
-# @app.route('/api/sensor_metadata', methods=['POST'])
-# def add_data():
-#     data = request.get_json()
-
-#     try:
-#         new_data = Sensors(
-#             _id=int(data['sensorid']),
-#             sampling=data['sampling'],
-#             floor=data['floor'],
-#             user=data['user']
-#         )
-
-#         db.session.add(new_data)
-#         db.session.commit()
-
-#         return jsonify({"message": "Data added successfully"}), HTTPStatus.CREATED
-
-#     except Exception as e:
-#         db.session.rollback()
-#         return jsonify({"error": str(e)}), HTTPStatus.BAD_REQUEST
     
 # TO DO: curl 
 @app.route('/api/send_recording', methods=['POST'])
@@ -237,14 +218,17 @@ def generate_unique_id():
     unique_id = timestamp % 1000000 #id will be 6 digits long
     return unique_id
 
+def query_sensors():
+    query = session.query(NewSensor).all()
+    ids = [result._id for result in query]
+    #print(ids)
+    return ids
 
 # Hello World (Daniel)
 @app.route('/')
 def hello_world():
     return render_template('hello.html')
 
-
-# auto documentation
 # protected by username and password
 @app.route('/documentation')
 @basic_auth.required
@@ -254,20 +238,31 @@ def documentation():
 # shows status of each sensor
 @app.route('/status')
 def sensor_page():
-    sensors = [
-        {'id': 1, 'last_timestamp': '2023-01-01 12:00:00', 'num_recordings': 10},
-        {'id': 2, 'last_timestamp': '2023-01-01 12:15:00', 'num_recordings': 8},
-        {'id': 3, 'last_timestamp': '2023-01-01 12:30:00', 'num_recordings': 6},
-        {'id': 4, 'last_timestamp': '2023-01-01 12:45:00', 'num_recordings': 4},
-        {'id': 5, 'last_timestamp': '2023-01-01 13:00:00', 'num_recordings': 2},
-    ]
+    sensors_query = session.query(NewSensor).all()
+
+    print("HELLLOO I DONT BELIEVE YOU JULIA (WELL, NOT CONFIDENT)")
+
+    sensors = [{'id': new_sensor._id, 'userid': new_sensor.userid, 'model': new_sensor.model, 'floor': new_sensor.floor, 'last_timestamp': '2023-01-01 12:00:00', 'num_recordings': 10} for new_sensor in sensors_query]
+    sensor_ids = [sensor._id for sensor in sensors_query]
+
+    #sensors_query = session.query(Recordings).where(f"sensor_id in {sensor_ids}")
+
+    # sensors = [
+    #     {'id': 1, 'userid': 1, 'last_timestamp': '2023-01-01 12:00:00', 'num_recordings': 10},
+    #     {'id': 2, 'last_timestamp': '2023-01-01 12:15:00', 'num_recordings': 8},
+    #     {'id': 3, 'last_timestamp': '2023-01-01 12:30:00', 'num_recordings': 6},
+    #     {'id': 4, 'last_timestamp': '2023-01-01 12:45:00', 'num_recordings': 4},
+    #     {'id': 5, 'last_timestamp': '2023-01-01 13:00:00', 'num_recordings': 2},
+    # ]
 
     return render_template('status.html', sensors=sensors)
 
 
 if __name__ == '__main__':
     with app.app_context():
-        print("YAY")
+        #print("YAY")
         db.create_all()
+        print("Here's the query!")
+        print(query_sensors())
         #db.drop_all() #deletes all existing tables
     app.run(debug=True)
