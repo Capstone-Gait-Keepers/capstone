@@ -21,16 +21,17 @@ Refer to https://docs.google.com/document/d/1Wm_FNKl8EB9JSIcI2R2lFsQD-1NN7LGn7f8
 
 ## Backend
 ### Necessary Tools:
+- Python 3.11.6
 - PostgreSQL https://www.postgresql.org/download/
-    - install with default settings
+    - install with default settings 
 - Docker https://docs.docker.com/desktop/install/windows-install/
     - PostgreSQL image 
-        - run 'docker pull postgres' to download the image
+        - run 'docker pull postgres' to download the image 
         - Documentation: https://hub.docker.com/_/postgres
-- Install dependencies in backend_requirements.txt
+- Install dependencies in backend_requirements.txt 
 - DBeaver https://dbeaver.io/download/
-    - or other DB IDE of choice, setup instructions may vary
-    - pgAdmin4 comes with the PostgreSQL installation but I found creating a connection confusing
+    - or other DB IDE of choice, setup instructions may vary 
+    - pgAdmin4 comes with the PostgreSQL installation but I found creating a connection confusing 
 
 ### Setup:
 #### DOCKER
