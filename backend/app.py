@@ -78,9 +78,9 @@ class NewSensor(db.Model):
     model = db.Column(db.String(255))
     fs = db.Column(db.Float)
     userid = db.Column(db.Integer)
-    floor = db.Column(db.String)
-    wall_radius = db.Column(db.Float)
-    obstacle_radius = db.Column(db.Float)
+    floor = db.Column(db.String, nullable=True)
+    wall_radius = db.Column(db.Float, nullable=True)
+    obstacle_radius = db.Column(db.Float, nullable=True)
     recordings = relationship('Recordings', back_populates='new_sensor')
 
 # curl -X POST -d "hey" https://capstone-backend-f6qu.onrender.com/api/sarah_test1
