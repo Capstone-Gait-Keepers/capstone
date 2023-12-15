@@ -42,9 +42,9 @@ void setup() {
       Serial.print("[HTTPS] GET...\n");
 
     //send a gift to julia
-  String postData = "{\"sensorid\": \"18\",\"timestamp\":\"2023-11-25 03:41:23.295\",\"ts_data\":[1.23, 4.56, 7.89]}";
+  String postData = "{\"sensorid\": \"18\",\"timestamp\":\"2023-11-25 03:41:23.295\",\"ts_data\":[1.23, -0.0200,-0.0500,-0.0400,-0.0500,-0.0100]}";
 
-    delay(1000);            // See if this prevents the problm with connection refused and deep sleep
+    // delay(1000);            // See if this prevents the problm with connection refused and deep sleep
     https.addHeader("Content-Type", "application/json");    //Specify content-type header
 
     int httpCode = https.POST(postData);   //Send the request

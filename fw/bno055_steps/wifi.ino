@@ -42,7 +42,6 @@ void send_data(String post_data) {
     
     Serial.print("[HTTPS] begin...\n");     //Initializing an HTTPS communication using the secure client
     if (https.begin(*client, "https://capstone-backend-f6qu.onrender.com/api/send_recording")) {
-        Serial.print("[HTTPS] GET...\n");
         delay(1000);            // See if this prevents the problm with connection refused and deep sleep
         https.addHeader("Content-Type", "application/json");    //Specify content-type header
         int httpCode = https.POST(post_data);   //Send the request
@@ -51,11 +50,11 @@ void send_data(String post_data) {
         // httpCode will be negative on error
         if (httpCode > 0) {
             // HTTP header has been send and Server response header has been handled
-            Serial.printf("[HTTPS] GET... code: %d\n", httpCode);
+            Serial.printf("[HTTPS] POST... code: %d\n", httpCode);
             // file found at server
             Serial.println(payload);
         } else {
-            Serial.printf("[HTTPS] GET... failed, error: %s\n", https.errorToString(httpCode).c_str(), "Message:\n");
+            Serial.printf("[HTTPS] POST... failed, error: %s\n", https.errorToString(httpCode).c_str(), "Message:\n");
             Serial.println(https.getString());
         }
         https.end();
