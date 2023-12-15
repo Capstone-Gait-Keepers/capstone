@@ -3,10 +3,11 @@ import time
 from dotenv import load_dotenv
 from flask import Flask, jsonify, request, render_template
 from flask_sqlalchemy import SQLAlchemy
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy import create_engine, func, ForeignKey
+from sqlalchemy.orm import sessionmaker, relationship
 from http import HTTPStatus
 from flask_basicauth import BasicAuth
+from datetime import datetime
 
 # .env
 load_dotenv()
@@ -50,7 +51,6 @@ app.config['MAX_CONTENT_LENGTH'] = 64 * 1024 * 1024
 # that have a newly defined class will be (*)should be)
 # automatically created in the database.
 
-
 # sensors model - for sensor metadata
 class Sensors(db.Model):
     _id = db.Column("id", db.Integer, primary_key=True)
@@ -65,12 +65,15 @@ class Test(db.Model):
 
 # raw recording data
 class Recordings(db.Model):
+    __tablename__ = 'recordings'
     _id = db.Column("recordingid",db.Integer, primary_key=True)
-    sensorid = db.Column(db.Integer)
+    sensorid = db.Column(db.Integer, ForeignKey('new_sensor.sensorid'))
     timestamp = db.Column(db.DateTime)
     ts_data = db.Column(db.ARRAY(db.Float))
+    new_sensor = relationship('NewSensor', back_populates='recordings')
 
 class NewSensor(db.Model):
+    __tablename__ = 'new_sensor'
     _id = db.Column("sensorid", db.Integer, primary_key=True)
     model = db.Column(db.String(255))
     fs = db.Column(db.Float)
@@ -78,6 +81,7 @@ class NewSensor(db.Model):
     floor = db.Column(db.String)
     wall_radius = db.Column(db.Float)
     obstacle_radius = db.Column(db.Float)
+    recordings = relationship('Recordings', back_populates='new_sensor')
 
 # curl -X POST -d "hey" https://capstone-backend-f6qu.onrender.com/api/sarah_test1
 @app.route('/api/sarah_test1', methods=['POST'])
@@ -169,7 +173,7 @@ def add_recording():
         new_data = Recordings(
             _id=generate_unique_id(), # calls function, populates with value
             sensorid=int(data['sensorid']), # sensor property
-            timestamp=data['timestamp'], # datatime
+            timestamp=datetime.utcnow().isoformat(), # datatime
             ts_data=data['ts_data'], # float 8 array
         )
 
@@ -242,21 +246,25 @@ def documentation():
 @app.route('/status')
 def sensor_page():
     sensors_query = session.query(NewSensor).all()
+    ambitious_query = (
+        session.query(
+            NewSensor._id,
+            NewSensor.userid,
+            NewSensor.model,
+            NewSensor.floor,
+            func.count(Recordings.sensorid).label('record_count'),
+            func.max(Recordings.timestamp).label('latest_timestamp')
+        )
+        .outerjoin(Recordings, NewSensor._id == Recordings.sensorid)
+        .group_by(NewSensor._id, NewSensor.userid, NewSensor.model, NewSensor.floor)
+    )
 
-    print("HELLLOO I DONT BELIEVE YOU JULIA (WELL, NOT CONFIDENT)")
+    #result = ambitious_query.all()
+    #print(result)
 
-    sensors = [{'id': new_sensor._id, 'userid': new_sensor.userid, 'model': new_sensor.model, 'floor': new_sensor.floor, 'last_timestamp': '2023-01-01 12:00:00', 'num_recordings': 10} for new_sensor in sensors_query]
-    sensor_ids = [sensor._id for sensor in sensors_query]
+    #print("HELLLOO I DONT BELIEVE YOU JULIA (WELL, NOT CONFIDENT)")
 
-    #sensors_query = session.query(Recordings).where(f"sensor_id in {sensor_ids}")
-
-    # sensors = [
-    #     {'id': 1, 'userid': 1, 'last_timestamp': '2023-01-01 12:00:00', 'num_recordings': 10},
-    #     {'id': 2, 'last_timestamp': '2023-01-01 12:15:00', 'num_recordings': 8},
-    #     {'id': 3, 'last_timestamp': '2023-01-01 12:30:00', 'num_recordings': 6},
-    #     {'id': 4, 'last_timestamp': '2023-01-01 12:45:00', 'num_recordings': 4},
-    #     {'id': 5, 'last_timestamp': '2023-01-01 13:00:00', 'num_recordings': 2},
-    # ]
+    sensors = [{'id': new_sensor._id, 'userid': new_sensor.userid, 'model': new_sensor.model, 'floor': new_sensor.floor, 'last_timestamp': new_sensor.latest_timestamp, 'num_recordings': new_sensor.record_count} for new_sensor in ambitious_query]
 
     return render_template('status.html', sensors=sensors)
 
@@ -266,6 +274,6 @@ if __name__ == '__main__':
         #print("YAY")
         db.create_all()
         print("Here's the query!")
-        print(query_sensors())
+        #print(query_sensors())
         #db.drop_all() #deletes all existing tables
     app.run(debug=True)
