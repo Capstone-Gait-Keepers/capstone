@@ -39,6 +39,9 @@ app.config['BASIC_AUTH_USERNAME'] = os.getenv("DOC_USER")
 app.config['BASIC_AUTH_PASSWORD'] = os.getenv("DOC_PASS")
 basic_auth = BasicAuth(app)
 
+# max payload size
+app.config['MAX_CONTENT_LENGTH'] = 64 * 1024 * 1024
+
 # DATABASE MODELS FOR CONSISTENT DATA STRUCTURE:
 
 # Use a class to define a table structure.
