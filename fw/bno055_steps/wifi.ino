@@ -56,11 +56,13 @@ void send_data(String post_data) {
         } else {
             Serial.printf("[HTTPS] POST... failed, error: %s\n", https.errorToString(httpCode).c_str(), "Message:\n");
             Serial.println(https.getString());
+            sos_mode();
         }
         https.end();
     }
     else {
       Serial.printf("[HTTPS] Unable to connect\n");
+      sos_mode();
     }
 
 }

@@ -5,9 +5,11 @@
 #include <utility/imumaths.h>
 #include "ESP8266TimerInterrupt.h"              //https://github.com/khoih-prog/ESP8266TimerInterrupt
 
-#define FAILED_THRESHOLD_AMP 0.1
+#define FAILED_THRESHOLD_AMP 0.1    // Minimum amplitude to consider calibration successful
+#define NOISE_AMP 0.05    // Assumed noise amplitude
+#define MAX_AMP_RATIO 0.5   // Ratio of max amplitude to set as threshold
+
 float max_amp = 0;
-float noise_amp = 0.05;
 int calibration_index = 0;
 
 void calibration_mode() {
@@ -23,24 +25,25 @@ void calibration_mode() {
         else if (calibration_index % 100 == 50) {
             led_off();
         }
-        // Run calibration for 10 seconds. Gather data and set the thresholds for good samples to half the max amplitude
+        // Run calibration. Gather data and set the thresholds for good samples based on the max amplitude
         if (calibration_index < CALIBRATION_TIME * SAMPLE_RATE) {
             sensors_event_t event; 
             bno.getEvent(&event, Adafruit_BNO055::VECTOR_LINEARACCEL); // Get a new sensor event for linear acceleration
             float accel_z = event.acceleration.z; // Get z component of acceleration
-            if (abs(accel_z) > max_amp) {
+            if (abs(accel_z) > max_amp) { // Update max amplitude
                 max_amp = abs(accel_z);
             }
             calibration_index++;
         }
-        if ((calibration_index == CALIBRATION_TIME * SAMPLE_RATE - 1) && (max_amp - noise_amp >= FAILED_THRESHOLD_AMP)) {
-            amp_threshold = (max_amp + noise_amp) / 2;
+        if ((calibration_index == CALIBRATION_TIME * SAMPLE_RATE - 1) && (max_amp - NOISE_AMP >= FAILED_THRESHOLD_AMP)) {
+            amp_threshold = (max_amp + NOISE_AMP) * MAX_AMP_RATIO;
             Serial.println("Calibration finished. Max amplitude: " + String(max_amp) + " Threshold: " + String(amp_threshold));
             calibration_flag = false;
         }
-        else if ((calibration_index == CALIBRATION_TIME * SAMPLE_RATE - 1) && (max_amp - noise_amp < FAILED_THRESHOLD_AMP)) {
+        else if ((calibration_index == CALIBRATION_TIME * SAMPLE_RATE - 1) && (max_amp - NOISE_AMP < FAILED_THRESHOLD_AMP)) {
             Serial.println("Calibration failed. Max amplitude: " + String(max_amp) + " Threshold: " + String(amp_threshold));
             calibration_flag = false;
+            sos_mode(); // If calibration fails, go to SOS mode
         }
     }
 }

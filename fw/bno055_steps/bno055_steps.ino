@@ -104,6 +104,7 @@ void running_mode() {
     // if sample is considered good (above threshold), save buffer to string and start saving data to post_data
     if (good_sample && !save_sample_flag) {
       save_starting_buffer();
+      led_on();
     }
     if (good_sample && save_sample_flag) {
       save_sample(accel_z);
@@ -121,7 +122,7 @@ void running_mode() {
     if (post_data_ready) {
         Serial.println("POST DATA READY");\
         i_timer.disableTimer();
-        // TODO: Add code to send post_data to backend server
+        led_off();
         Serial.println(post_data);
         // post_data = "";
         String fun_data = "{\"sensorid\": \"18\",\"timestamp\":\"2023-11-25 03:41:23.295\",\"ts_data\":[1.23, 4.56, 7.89, -0.81,0.00]}";
@@ -137,25 +138,6 @@ void running_mode() {
         i_timer.enableTimer();
     }
     start_buffer_index = (start_buffer_index + 1) % START_BUFFER_SAMPLES; // Move to the next index, modulus handle wraparound
-  }
-}
-
-void sos_mode() {
-  i_timer.disableTimer();
-  while (true) {
-    // blink LED to indicate no wifi connection (SOS in morse code). Use a loop for ech letter to make it easier to read
-    for (int i = 0; i < 3; i++) {
-      led_on();
-      delay(100);
-      led_off(); 
-      delay(100);                      
-    }
-    for (int i = 0; i < 3; i++) {
-      led_on();
-      delay(1000);
-      led_off();
-      delay(100);
-    }
   }
 }
 
