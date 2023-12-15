@@ -145,15 +145,15 @@ void sos_mode() {
   while (true) {
     // blink LED to indicate no wifi connection (SOS in morse code). Use a loop for ech letter to make it easier to read
     for (int i = 0; i < 3; i++) {
-      digitalWrite(LED_BUILTIN, HIGH);
+      led_on();
       delay(100);
-      digitalWrite(LED_BUILTIN, LOW);  
+      led_off(); 
       delay(100);                      
     }
     for (int i = 0; i < 3; i++) {
-      digitalWrite(LED_BUILTIN, HIGH);
+      led_on();
       delay(1000);
-      digitalWrite(LED_BUILTIN, LOW); 
+      led_off();
       delay(100);
     }
   }
