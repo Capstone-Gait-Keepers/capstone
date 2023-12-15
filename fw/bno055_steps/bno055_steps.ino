@@ -23,9 +23,15 @@ ESP8266Timer i_timer;  // Hardware Timer
 #define END_BUFFER_TIME 2 // Size of buffer to store acceleration data after last step (in seconds)
 #define START_BUFFER_SAMPLES START_BUFFER_TIME * SAMPLE_RATE  // In samples
 #define END_BUFFER_SAMPLES END_BUFFER_TIME * SAMPLE_RATE // Number of bad samples to save before stopping saving data
-#define AMP_THRESHOLD 0.5 // Threshold for amplitude of acceleration data to be considered "good" (in m/s^2)
+#define CALIBRATION_TIME 10 // Time to run calibration for (in seconds)
+
+// #define AMP_THRESHOLD 0.5 // Threshold for amplitude of acceleration data to be considered "good" (in m/s^2)
+float amp_threshold = 0.5; // Threshold for amplitude of acceleration data to be considered "good" (in m/s^2)
 
 volatile bool start_sampling = false; // Flag to indicate if a new sample should be taken based on timer interrupt
+
+bool calibration_flag = false; // Flag to indicate if the device is in calibration mode
+bool wifi_status = false; // Flag to indicate if the device is connected to wifi
 
 float sensor_data_buffer[START_BUFFER_SAMPLES]; // Circular buffer to store acceleration data
 int start_buffer_index = 0; // Index of circular buffer
@@ -64,7 +70,7 @@ void ICACHE_RAM_ATTR TimerHandler(void)
 void update_circular_buffer(float accel_z) {
   // Update circular buffer
   sensor_data_buffer[start_buffer_index] = accel_z;
-  good_sample = abs(accel_z) > AMP_THRESHOLD;
+  good_sample = abs(accel_z) > amp_threshold;
 }
 
 void save_starting_buffer() {
@@ -82,6 +88,57 @@ void stop_saving_samples() {
   save_sample_flag = false;
   post_data_ready = true;
   end_buffer_length = 0;
+}
+
+void running_mode() {
+  if (start_sampling) 
+  {
+    start_sampling = false; // Reset flag for interrupt handler
+
+    sensors_event_t event; 
+    bno.getEvent(&event, Adafruit_BNO055::VECTOR_LINEARACCEL); // Get a new sensor event for linear acceleration
+    float accel_z = event.acceleration.z; // Get z component of acceleration
+
+    update_circular_buffer(accel_z); // Update circular buffer with new sample
+
+    // if sample is considered good (above threshold), save buffer to string and start saving data to post_data
+    if (good_sample && !save_sample_flag) {
+      save_starting_buffer();
+      led_on();
+    }
+    if (good_sample && save_sample_flag) {
+      save_sample(accel_z);
+      end_buffer_length = 0;
+    }
+    if (!good_sample && save_sample_flag) {
+        if (end_buffer_length < END_BUFFER_SAMPLES) {
+          save_sample(accel_z);
+          end_buffer_length++;
+        } 
+        else {
+          stop_saving_samples(); // Stop saving samples & reset flags if too many samples don't meet threshold
+        }
+      }
+    if (post_data_ready) {
+        Serial.println("POST DATA READY");\
+        i_timer.disableTimer();
+        led_off();
+        Serial.println(post_data);
+        // post_data = "";
+        String fun_data = "{\"sensorid\": \"18\",\"timestamp\":\"2023-11-25 03:41:23.295\",\"ts_data\":[1.23, 4.56, 7.89, -0.81,0.00]}";
+        Serial.println(fun_data);
+        // remove last comma if it exists
+        if (post_data.endsWith(",")) {
+          post_data = post_data.substring(0, post_data.length() - 1);
+        }
+        String post_data_formatted = "{\"sensorid\": \"18\",\"timestamp\":\"2023-11-25 03:41:23.295\",\"ts_data\":[" + post_data + "]}";
+        Serial.println(post_data_formatted);
+        send_data(fun_data);
+        post_data_ready = false;
+        i_timer.enableTimer();
+    }
+    start_buffer_index = (start_buffer_index + 1) % START_BUFFER_SAMPLES; // Move to the next index, modulus handle wraparound
+  }
 }
 
 void setup(void)
@@ -106,49 +163,28 @@ void setup(void)
   /* Display some basic information on this sensor */
   displaySensorDetails();
 
+  pinMode(LED_BUILTIN, OUTPUT);     // Initialize the LED_BUILTIN pin as an output
+  digitalWrite(LED_BUILTIN, HIGH);   // Turn the LED on by making the voltage LOW
+  wifi_status = initialize_wifi();
+
   // Setup Timer
   Serial.print("Interrupt period: ");
   Serial.println(INTERRUPT_INTERVAL_US);
   i_timer.attachInterruptInterval(INTERRUPT_INTERVAL_US, TimerHandler);
   i_timer.enableTimer();
+
+  calibration_flag = true;
 }
 
 void loop(void)
 {
-  if (start_sampling) 
-  {
-    start_sampling = false; // Reset flag for interrupt handler
-
-    sensors_event_t event; 
-    bno.getEvent(&event, Adafruit_BNO055::VECTOR_LINEARACCEL); // Get a new sensor event for linear acceleration
-    float accel_z = event.acceleration.z; // Get z component of acceleration
-
-    update_circular_buffer(accel_z); // Update circular buffer with new sample
-
-    // if sample is considered good (above threshold), save buffer to string and start saving data to post_data
-    if (good_sample && !save_sample_flag) {
-      save_starting_buffer();
-    }
-    if (good_sample && save_sample_flag) {
-      save_sample(accel_z);
-      end_buffer_length = 0;
-    }
-    if (!good_sample && save_sample_flag) {
-        if (end_buffer_length < END_BUFFER_SAMPLES) {
-          save_sample(accel_z);
-          end_buffer_length++;
-        } 
-        else {
-          stop_saving_samples(); // Stop saving samples & reset flags if too many samples don't meet threshold
-        }
-      }
-    if (post_data_ready) {
-        Serial.println("POST DATA READY");\
-        // TODO: Add code to send post_data to backend server
-        // Serial.println(post_data);
-        // post_data = "";
-        post_data_ready = false;
-    }
-    start_buffer_index = (start_buffer_index + 1) % START_BUFFER_SAMPLES; // Move to the next index, modulus handle wraparound
+  if (!wifi_status) {
+    sos_mode();
+  }
+  if (calibration_flag) {
+    calibration_mode();
+  }
+  else {
+    running_mode();
   }
 }
