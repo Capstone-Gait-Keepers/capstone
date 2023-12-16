@@ -32,7 +32,7 @@
 #include <limits.h>
 #include <math.h>
 
-#include "Adafruit_BNO055.h"
+#include "BNO055_accel.h"
 
 /*!
  *  @brief  Instantiates a new Adafruit_BNO055 class

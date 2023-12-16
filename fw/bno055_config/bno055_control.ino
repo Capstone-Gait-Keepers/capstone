@@ -1,11 +1,7 @@
-#include <Adafruit_Sensor.h>
-#include <Adafruit_BNO055.h>
-
-
-
 /*
 #include <Adafruit_Sensor.h>
-#include <Adafruit_BNO055.h>
+
+#include "BNO055_accel/BNO055_accel.h"
 
 // Datasheet: https://cdn-shop.adafruit.com/datasheets/BST_BNO055_DS000_12.pdf
 

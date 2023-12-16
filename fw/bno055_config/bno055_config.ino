@@ -1,7 +1,7 @@
 #include <Wire.h>
 #include <Adafruit_Sensor.h>
 
-#include "Adafruit_BNO055/Adafruit_BNO055.h"
+#include "BNO055_accel.h"
 
 
 // Check I2C device address and correct line below (by default address is 0x28)
