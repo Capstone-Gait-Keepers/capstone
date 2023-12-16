@@ -245,26 +245,28 @@ def documentation():
 # shows status of each sensor
 @app.route('/status')
 def sensor_page():
-    sensors_query = session.query(NewSensor).all()
-    ambitious_query = (
-        session.query(
-            NewSensor._id,
-            NewSensor.userid,
-            NewSensor.model,
-            NewSensor.floor,
-            func.count(Recordings.sensorid).label('record_count'),
-            func.max(Recordings.timestamp).label('latest_timestamp')
+    try:
+        sensors_query = session.query(NewSensor).all()
+        ambitious_query = (
+            session.query(
+                NewSensor._id,
+                NewSensor.userid,
+                NewSensor.model,
+                NewSensor.floor,
+                func.count(Recordings.sensorid).label('record_count'),
+                func.max(Recordings.timestamp).label('latest_timestamp')
+            )
+            .outerjoin(Recordings, NewSensor._id == Recordings.sensorid)
+            .group_by(NewSensor._id, NewSensor.userid, NewSensor.model, NewSensor.floor)
         )
-        .outerjoin(Recordings, NewSensor._id == Recordings.sensorid)
-        .group_by(NewSensor._id, NewSensor.userid, NewSensor.model, NewSensor.floor)
-    )
 
-    #result = ambitious_query.all()
-    #print(result)
+        sensors = [{'id': new_sensor._id, 'userid': new_sensor.userid, 'model': new_sensor.model, 'floor': new_sensor.floor, 'last_timestamp': new_sensor.latest_timestamp, 'num_recordings': new_sensor.record_count} for new_sensor in ambitious_query]
 
-    #print("HELLLOO I DONT BELIEVE YOU JULIA (WELL, NOT CONFIDENT)")
-
-    sensors = [{'id': new_sensor._id, 'userid': new_sensor.userid, 'model': new_sensor.model, 'floor': new_sensor.floor, 'last_timestamp': new_sensor.latest_timestamp, 'num_recordings': new_sensor.record_count} for new_sensor in ambitious_query]
+    except Exception as e:
+    #exception occurs, rollback the transaction
+        db.session.rollback()
+        print(f"Error: {str(e)}")
+        return "Error occurred, transaction rolled back"    
 
     return render_template('status.html', sensors=sensors)
 
