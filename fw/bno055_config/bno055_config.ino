@@ -36,11 +36,22 @@ void setup(void) {
   // Use external crystal for better accuracy
   bno.setExtCrystalUse(true);
   // displaySensorDetails();
+
+  Serial.print("Accelerometer Config:");
+  Serial.println(bno.read8(BNO055_accel::BNO055_ACC_CONFIG_ADDR));
 }
 
 void loop(void) {
-  print_sample();
-  delay(100);
+  // print_sample();
+
+  bno.update_range(BNO055_accel::G8);
+  Serial.print("Accelerometer Config:");
+  Serial.println(bno.read8(BNO055_accel::BNO055_ACC_CONFIG_ADDR));
+
+  bno.update_range(BNO055_accel::G2);
+  Serial.print("Accelerometer Config:");
+  Serial.println(bno.read8(BNO055_accel::BNO055_ACC_CONFIG_ADDR));
+  delay(3000);
 }
 
 void print_sample() {

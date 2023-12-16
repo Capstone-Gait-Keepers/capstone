@@ -226,8 +226,12 @@ public:
     ACCEL_RADIUS_LSB_ADDR = 0X67,
     ACCEL_RADIUS_MSB_ADDR = 0X68,
     MAG_RADIUS_LSB_ADDR = 0X69,
-    MAG_RADIUS_MSB_ADDR = 0X6A
-  } BNO055_accel_reg_t;
+    MAG_RADIUS_MSB_ADDR = 0X6A,
+
+    /* PAGE1 REGISTER DEFINITION START*/
+    BNO055_ACC_CONFIG_ADDR = 0X10D,
+
+  } BNO055_reg_t;
 
   /** BNO055 power settings */
   typedef enum {
@@ -259,6 +263,27 @@ public:
     REMAP_SIGN_P6 = 0x07,
     REMAP_SIGN_P7 = 0x05
   } BNO055_accel_axis_remap_sign_t;
+
+  // Accelerometer Range Settings
+  typedef enum {
+    G2 = 0b00,
+    G4 = 0b01,
+    G8 = 0b10,
+    G16 = 0b11
+  } BNO055_accel_range_t;
+
+  // Accelerometer Bandwidth Settings
+  typedef enum {
+    Hz7_81 = 0b000,
+    Hz15_63 = 0b001,
+    Hz31_25 = 0b010,
+    Hz62_5 = 0b011,
+    Hz125 = 0b100,
+    Hz250 = 0b101,
+    Hz500 = 0b110,
+    Hz1000 = 0b111
+  } BNO055_accel_bw_t;
+
 
   /** A structure to represent revisions **/
   typedef struct {
@@ -294,6 +319,11 @@ public:
   void getCalibration(uint8_t *system, uint8_t *gyro, uint8_t *accel,
                       uint8_t *mag);
 
+  // Accelerometer Settings
+  void update_range(BNO055_accel_range_t value);
+  void update_bandwidth(BNO055_accel_bw_t value);
+  void update_units(bool use_mg);
+
   imu::Vector<3> getVector(adafruit_vector_type_t vector_type);
   imu::Quaternion getQuat();
   int8_t getTemp();
@@ -314,10 +344,12 @@ public:
   void enterSuspendMode();
   void enterNormalMode();
 
-private:
-  byte read8(BNO055_accel_reg_t);
-  bool readLen(BNO055_accel_reg_t, byte *buffer, uint8_t len);
-  bool write8(BNO055_accel_reg_t, byte value);
+// private:
+  byte read8(BNO055_reg_t);
+  void update_bits(BNO055_reg_t addr, byte value, byte mask);
+  void write_config(BNO055_reg_t addr, byte value);
+  bool readLen(BNO055_reg_t, byte *buffer, uint8_t len);
+  bool write8(BNO055_reg_t, byte value);
 
   Adafruit_I2CDevice *i2c_dev = NULL; ///< Pointer to I2C bus interface
 

@@ -407,7 +407,7 @@ imu::Vector<3> BNO055_accel::getVector(adafruit_vector_type_t vector_type) {
   x = y = z = 0;
 
   /* Read vector data (6 bytes) */
-  readLen((BNO055_accel_reg_t)vector_type, buffer, 6);
+  readLen((BNO055_reg_t)vector_type, buffer, 6);
 
   x = ((int16_t)buffer[0]) | (((int16_t)buffer[1]) << 8);
   y = ((int16_t)buffer[2]) | (((int16_t)buffer[3]) << 8);
@@ -843,15 +843,15 @@ void BNO055_accel::enterNormalMode() {
 /*!
  *  @brief  Writes an 8 bit value over I2C
  */
-bool BNO055_accel::write8(BNO055_accel_reg_t reg, byte value) {
-  uint8_t buffer[2] = {(uint8_t)reg, (uint8_t)value};
+bool BNO055_accel::write8(BNO055_reg_t reg, byte value) {
+  uint8_t buffer[2] = {(uint8_t)reg & 0xFF, (uint8_t)value};
   return i2c_dev->write(buffer, 2);
 }
 
 /*!
  *  @brief  Reads an 8 bit value over I2C
  */
-byte BNO055_accel::read8(BNO055_accel_reg_t reg) {
+byte BNO055_accel::read8(BNO055_reg_t reg) {
   uint8_t buffer[1] = {reg};
   i2c_dev->write_then_read(buffer, 1, buffer, 1);
   return (byte)buffer[0];
@@ -860,8 +860,43 @@ byte BNO055_accel::read8(BNO055_accel_reg_t reg) {
 /*!
  *  @brief  Reads the specified number of bytes over I2C
  */
-bool BNO055_accel::readLen(BNO055_accel_reg_t reg, byte *buffer,
+bool BNO055_accel::readLen(BNO055_reg_t reg, byte *buffer,
                               uint8_t len) {
   uint8_t reg_buf[1] = {(uint8_t)reg};
   return i2c_dev->write_then_read(reg_buf, 1, buffer, len);
+}
+
+
+
+void BNO055_accel::update_range(BNO055_accel_range_t value) {
+  update_bits(BNO055_ACC_CONFIG_ADDR, value, 0b11);
+}
+
+void BNO055_accel::update_bandwidth(BNO055_accel_bw_t value) {
+  update_bits(BNO055_ACC_CONFIG_ADDR, value << 2, 0b111 << 2);
+}
+
+void BNO055_accel::update_bits(BNO055_reg_t addr, byte value, byte mask) {
+  byte old_value = read8(addr);
+  byte new_value = (old_value & ~mask) | (value & mask);
+  write_config(BNO055_ACC_CONFIG_ADDR, new_value);
+}
+
+void BNO055_accel::update_units(bool use_mg) {
+  update_bits(BNO055_UNIT_SEL_ADDR, use_mg, 0b1);
+}
+
+void BNO055_accel::write_config(BNO055_reg_t addr, byte value) {
+  
+  BNO055_accel_opmode_t modeback = _mode;
+  setMode(OPERATION_MODE_CONFIG);
+  delay(25);
+  // uint8_t savePageID = read8(BNO055_PAGE_ID_ADDR); // Page 53 in datasheet
+  uint8_t pageID = (addr >> 8) & 0b1;
+  write8(BNO055_PAGE_ID_ADDR, pageID);
+  write8(addr, value);
+  delay(10);
+  // write8(BNO055_PAGE_ID_ADDR, savePageID);
+  setMode(modeback);
+  delay(20);
 }
