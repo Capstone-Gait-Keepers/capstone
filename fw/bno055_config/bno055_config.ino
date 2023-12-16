@@ -6,7 +6,7 @@
 
 // Check I2C device address and correct line below (by default address is 0x28)
 //                                   id, address
-Adafruit_BNO055 bno = Adafruit_BNO055(55, 0x28);
+BNO055_accel bno = BNO055_accel(55, 0x28);
 
 
 // Displays some basic information on the sensor from the unified sensor API sensor_t type (see Adafruit_Sensor for more information)
@@ -45,6 +45,6 @@ void loop(void) {
 
 void print_sample() {
   sensors_event_t event;
-  bno.getEvent(&event, Adafruit_BNO055::VECTOR_LINEARACCEL);
+  bno.getEvent(&event, BNO055_accel::VECTOR_LINEARACCEL);
   Serial.println(event.acceleration.z);
 }

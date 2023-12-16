@@ -6,14 +6,14 @@
 // Datasheet: https://cdn-shop.adafruit.com/datasheets/BST_BNO055_DS000_12.pdf
 
 
-class Adafruit_BNO055_ext : public Adafruit_BNO055 {   
+class BNO055_accel_ext : public BNO055_accel {   
   // Page 27
   typedef enum {
     G2 = 0b00,
     G4 = 0b01,
     G8 = 0b10,
     G16 = 0b11
-  } adafruit_bno055_acc_range_t;
+  } BNO055_accel_acc_range_t;
 
   typedef enum {
     Hz7_81 = 0b000,
@@ -24,22 +24,22 @@ class Adafruit_BNO055_ext : public Adafruit_BNO055 {
     Hz250 = 0b101,
     Hz500 = 0b110,
     Hz1000 = 0b111
-  } adafruit_bno055_acc_bw_t;
+  } BNO055_accel_acc_bw_t;
 
 
-  void update_range(adafruit_bno055_acc_range_t value) {
+  void update_range(BNO055_accel_acc_range_t value) {
     if (value > 0b11) {
       return -1;
     }
     write_config(BNO055_ACC_CONFIG_ADDR, value, 0b11);
   }
 
-  void update_bandwidth(adafruit_bno055_acc_bw_t value) {
+  void update_bandwidth(BNO055_accel_acc_bw_t value) {
     update_bits(BNO055_ACC_CONFIG_ADDR, value << 2, 0b111 << 2);
   }
 
 
-  void update_bits(adafruit_bno055_reg_t addr, byte value, byte mask) {
+  void update_bits(BNO055_accel_reg_t addr, byte value, byte mask) {
     byte old_value = read8(addr);
     byte new_value = (old_value & ~mask) | (value & mask);
     write_config(BNO055_ACC_CONFIG_ADDR, new_value);
@@ -49,9 +49,9 @@ class Adafruit_BNO055_ext : public Adafruit_BNO055 {
     update_bits(BNO055_UNIT_SEL_ADDR, use_mg);
   }
 
-  void write_config(adafruit_bno055_reg_t addr, byte value)
+  void write_config(BNO055_accel_reg_t addr, byte value)
   {
-    adafruit_bno055_opmode_t modeback = _mode;
+    BNO055_accel_opmode_t modeback = _mode;
 
     // Switch to config mode (just in case since this is the default)
     setMode(OPERATION_MODE_CONFIG);

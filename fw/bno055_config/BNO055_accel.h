@@ -1,5 +1,5 @@
 /*!
- *  @file Adafruit_BNO055.h
+ *  @file BNO055_accel.h
  *
  *  This is a library for the BNO055 orientation sensor
  *
@@ -19,8 +19,8 @@
  *  MIT license, all text above must be included in any redistribution
  */
 
-#ifndef __ADAFRUIT_BNO055_H__
-#define __ADAFRUIT_BNO055_H__
+#ifndef __BNO055_accel_H__
+#define __BNO055_accel_H__
 
 #include "Arduino.h"
 
@@ -55,7 +55,7 @@ typedef struct {
   int16_t accel_radius; /**< acceleration radius */
 
   int16_t mag_radius; /**< magnetometer radius */
-} adafruit_bno055_offsets_t;
+} BNO055_accel_offsets_t;
 
 /** Operation mode settings **/
 typedef enum {
@@ -72,13 +72,13 @@ typedef enum {
   OPERATION_MODE_M4G = 0X0A,
   OPERATION_MODE_NDOF_FMC_OFF = 0X0B,
   OPERATION_MODE_NDOF = 0X0C
-} adafruit_bno055_opmode_t;
+} BNO055_accel_opmode_t;
 
 /*!
  *  @brief  Class that stores state and functions for interacting with
  *          BNO055 Sensor
  */
-class Adafruit_BNO055 : public Adafruit_Sensor {
+class BNO055_accel : public Adafruit_Sensor {
 public:
   /** BNO055 Registers **/
   typedef enum {
@@ -227,14 +227,14 @@ public:
     ACCEL_RADIUS_MSB_ADDR = 0X68,
     MAG_RADIUS_LSB_ADDR = 0X69,
     MAG_RADIUS_MSB_ADDR = 0X6A
-  } adafruit_bno055_reg_t;
+  } BNO055_accel_reg_t;
 
   /** BNO055 power settings */
   typedef enum {
     POWER_MODE_NORMAL = 0X00,
     POWER_MODE_LOWPOWER = 0X01,
     POWER_MODE_SUSPEND = 0X02
-  } adafruit_bno055_powermode_t;
+  } BNO055_accel_powermode_t;
 
   /** Remap settings **/
   typedef enum {
@@ -246,7 +246,7 @@ public:
     REMAP_CONFIG_P5 = 0x21,
     REMAP_CONFIG_P6 = 0x21,
     REMAP_CONFIG_P7 = 0x24
-  } adafruit_bno055_axis_remap_config_t;
+  } BNO055_accel_axis_remap_config_t;
 
   /** Remap Signs **/
   typedef enum {
@@ -258,7 +258,7 @@ public:
     REMAP_SIGN_P5 = 0x01,
     REMAP_SIGN_P6 = 0x07,
     REMAP_SIGN_P7 = 0x05
-  } adafruit_bno055_axis_remap_sign_t;
+  } BNO055_accel_axis_remap_sign_t;
 
   /** A structure to represent revisions **/
   typedef struct {
@@ -267,7 +267,7 @@ public:
     uint8_t gyro_rev;  /**< gyroscrope rev */
     uint16_t sw_rev;   /**< SW rev */
     uint8_t bl_rev;    /**< bootloader rev */
-  } adafruit_bno055_rev_info_t;
+  } BNO055_accel_rev_info_t;
 
   /** Vector Mappings **/
   typedef enum {
@@ -279,15 +279,15 @@ public:
     VECTOR_GRAVITY = BNO055_GRAVITY_DATA_X_LSB_ADDR
   } adafruit_vector_type_t;
 
-  Adafruit_BNO055(int32_t sensorID = -1, uint8_t address = BNO055_ADDRESS_A,
+  BNO055_accel(int32_t sensorID = -1, uint8_t address = BNO055_ADDRESS_A,
                   TwoWire *theWire = &Wire);
 
-  bool begin(adafruit_bno055_opmode_t mode = OPERATION_MODE_NDOF);
-  void setMode(adafruit_bno055_opmode_t mode);
-  adafruit_bno055_opmode_t getMode();
-  void setAxisRemap(adafruit_bno055_axis_remap_config_t remapcode);
-  void setAxisSign(adafruit_bno055_axis_remap_sign_t remapsign);
-  void getRevInfo(adafruit_bno055_rev_info_t *);
+  bool begin(BNO055_accel_opmode_t mode = OPERATION_MODE_NDOF);
+  void setMode(BNO055_accel_opmode_t mode);
+  BNO055_accel_opmode_t getMode();
+  void setAxisRemap(BNO055_accel_axis_remap_config_t remapcode);
+  void setAxisSign(BNO055_accel_axis_remap_sign_t remapsign);
+  void getRevInfo(BNO055_accel_rev_info_t *);
   void setExtCrystalUse(boolean usextal);
   void getSystemStatus(uint8_t *system_status, uint8_t *self_test_result,
                        uint8_t *system_error);
@@ -305,9 +305,9 @@ public:
 
   /* Functions to deal with raw calibration data */
   bool getSensorOffsets(uint8_t *calibData);
-  bool getSensorOffsets(adafruit_bno055_offsets_t &offsets_type);
+  bool getSensorOffsets(BNO055_accel_offsets_t &offsets_type);
   void setSensorOffsets(const uint8_t *calibData);
-  void setSensorOffsets(const adafruit_bno055_offsets_t &offsets_type);
+  void setSensorOffsets(const BNO055_accel_offsets_t &offsets_type);
   bool isFullyCalibrated();
 
   /* Power managments functions */
@@ -315,14 +315,14 @@ public:
   void enterNormalMode();
 
 private:
-  byte read8(adafruit_bno055_reg_t);
-  bool readLen(adafruit_bno055_reg_t, byte *buffer, uint8_t len);
-  bool write8(adafruit_bno055_reg_t, byte value);
+  byte read8(BNO055_accel_reg_t);
+  bool readLen(BNO055_accel_reg_t, byte *buffer, uint8_t len);
+  bool write8(BNO055_accel_reg_t, byte value);
 
   Adafruit_I2CDevice *i2c_dev = NULL; ///< Pointer to I2C bus interface
 
   int32_t _sensorID;
-  adafruit_bno055_opmode_t _mode;
+  BNO055_accel_opmode_t _mode;
 };
 
 #endif

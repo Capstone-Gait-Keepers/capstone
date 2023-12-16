@@ -1,5 +1,5 @@
 /*!
- * @file Adafruit_BNO055.cpp
+ * @file BNO055_accel.cpp
  *
  *  @mainpage Adafruit BNO055 Orientation Sensor
  *
@@ -35,7 +35,7 @@
 #include "BNO055_accel.h"
 
 /*!
- *  @brief  Instantiates a new Adafruit_BNO055 class
+ *  @brief  Instantiates a new BNO055_accel class
  *  @param  sensorID
  *          sensor ID
  *  @param  address
@@ -43,7 +43,7 @@
  *  @param  theWire
  *          Wire object
  */
-Adafruit_BNO055::Adafruit_BNO055(int32_t sensorID, uint8_t address,
+BNO055_accel::BNO055_accel(int32_t sensorID, uint8_t address,
                                  TwoWire *theWire) {
 // BNO055 clock stretches for 500us or more!
 #ifdef ESP8266
@@ -73,7 +73,7 @@ Adafruit_BNO055::Adafruit_BNO055(int32_t sensorID, uint8_t address,
  *            OPERATION_MODE_NDOF]
  *  @return true if process is successful
  */
-bool Adafruit_BNO055::begin(adafruit_bno055_opmode_t mode) {
+bool BNO055_accel::begin(BNO055_accel_opmode_t mode) {
   // Start without a detection
   i2c_dev->begin(false);
 
@@ -168,7 +168,7 @@ bool Adafruit_BNO055::begin(adafruit_bno055_opmode_t mode) {
  *            OPERATION_MODE_NDOF_FMC_OFF,
  *            OPERATION_MODE_NDOF]
  */
-void Adafruit_BNO055::setMode(adafruit_bno055_opmode_t mode) {
+void BNO055_accel::setMode(BNO055_accel_opmode_t mode) {
   _mode = mode;
   write8(BNO055_OPR_MODE_ADDR, _mode);
   delay(30);
@@ -179,8 +179,8 @@ void Adafruit_BNO055::setMode(adafruit_bno055_opmode_t mode) {
  *  @return  operating_mode in integer which can be mapped in Section 3.3
  *           for example: a return of 12 (0X0C) => NDOF
  */
-adafruit_bno055_opmode_t Adafruit_BNO055::getMode() {
-  return (adafruit_bno055_opmode_t)read8(BNO055_OPR_MODE_ADDR);
+BNO055_accel_opmode_t BNO055_accel::getMode() {
+  return (BNO055_accel_opmode_t)read8(BNO055_OPR_MODE_ADDR);
 }
 
 /*!
@@ -196,9 +196,9 @@ adafruit_bno055_opmode_t Adafruit_BNO055::getMode() {
  *           REMAP_CONFIG_P6
  *           REMAP_CONFIG_P7]
  */
-void Adafruit_BNO055::setAxisRemap(
-    adafruit_bno055_axis_remap_config_t remapcode) {
-  adafruit_bno055_opmode_t modeback = _mode;
+void BNO055_accel::setAxisRemap(
+    BNO055_accel_axis_remap_config_t remapcode) {
+  BNO055_accel_opmode_t modeback = _mode;
 
   setMode(OPERATION_MODE_CONFIG);
   delay(25);
@@ -222,8 +222,8 @@ void Adafruit_BNO055::setAxisRemap(
  *           REMAP_SIGN_P6
  *           REMAP_SIGN_P7]
  */
-void Adafruit_BNO055::setAxisSign(adafruit_bno055_axis_remap_sign_t remapsign) {
-  adafruit_bno055_opmode_t modeback = _mode;
+void BNO055_accel::setAxisSign(BNO055_accel_axis_remap_sign_t remapsign) {
+  BNO055_accel_opmode_t modeback = _mode;
 
   setMode(OPERATION_MODE_CONFIG);
   delay(25);
@@ -239,8 +239,8 @@ void Adafruit_BNO055::setAxisSign(adafruit_bno055_axis_remap_sign_t remapsign) {
  *  @param  usextal
  *          use external crystal boolean
  */
-void Adafruit_BNO055::setExtCrystalUse(boolean usextal) {
-  adafruit_bno055_opmode_t modeback = _mode;
+void BNO055_accel::setExtCrystalUse(boolean usextal) {
+  BNO055_accel_opmode_t modeback = _mode;
 
   /* Switch to config mode (just in case since this is the default) */
   setMode(OPERATION_MODE_CONFIG);
@@ -266,7 +266,7 @@ void Adafruit_BNO055::setExtCrystalUse(boolean usextal) {
  *   @param  system_error
  *           system error info
  */
-void Adafruit_BNO055::getSystemStatus(uint8_t *system_status,
+void BNO055_accel::getSystemStatus(uint8_t *system_status,
                                       uint8_t *self_test_result,
                                       uint8_t *system_error) {
   write8(BNO055_PAGE_ID_ADDR, 0);
@@ -323,10 +323,10 @@ void Adafruit_BNO055::getSystemStatus(uint8_t *system_status,
  *  @param  info
  *          revision info
  */
-void Adafruit_BNO055::getRevInfo(adafruit_bno055_rev_info_t *info) {
+void BNO055_accel::getRevInfo(BNO055_accel_rev_info_t *info) {
   uint8_t a, b;
 
-  memset(info, 0, sizeof(adafruit_bno055_rev_info_t));
+  memset(info, 0, sizeof(BNO055_accel_rev_info_t));
 
   /* Check the accelerometer revision */
   info->accel_rev = read8(BNO055_ACCEL_REV_ID_ADDR);
@@ -360,7 +360,7 @@ void Adafruit_BNO055::getRevInfo(adafruit_bno055_rev_info_t *info) {
  *  @param  mag
  *          Current calibration status of Magnetometer, read-only
  */
-void Adafruit_BNO055::getCalibration(uint8_t *sys, uint8_t *gyro,
+void BNO055_accel::getCalibration(uint8_t *sys, uint8_t *gyro,
                                      uint8_t *accel, uint8_t *mag) {
   uint8_t calData = read8(BNO055_CALIB_STAT_ADDR);
   if (sys != NULL) {
@@ -381,7 +381,7 @@ void Adafruit_BNO055::getCalibration(uint8_t *sys, uint8_t *gyro,
  *  @brief  Gets the temperature in degrees celsius
  *  @return temperature in degrees celsius
  */
-int8_t Adafruit_BNO055::getTemp() {
+int8_t BNO055_accel::getTemp() {
   int8_t temp = (int8_t)(read8(BNO055_TEMP_ADDR));
   return temp;
 }
@@ -398,7 +398,7 @@ int8_t Adafruit_BNO055::getTemp() {
  *            VECTOR_GRAVITY]
  *  @return  vector from specified source
  */
-imu::Vector<3> Adafruit_BNO055::getVector(adafruit_vector_type_t vector_type) {
+imu::Vector<3> BNO055_accel::getVector(adafruit_vector_type_t vector_type) {
   imu::Vector<3> xyz;
   uint8_t buffer[6];
   memset(buffer, 0, 6);
@@ -407,7 +407,7 @@ imu::Vector<3> Adafruit_BNO055::getVector(adafruit_vector_type_t vector_type) {
   x = y = z = 0;
 
   /* Read vector data (6 bytes) */
-  readLen((adafruit_bno055_reg_t)vector_type, buffer, 6);
+  readLen((BNO055_accel_reg_t)vector_type, buffer, 6);
 
   x = ((int16_t)buffer[0]) | (((int16_t)buffer[1]) << 8);
   y = ((int16_t)buffer[2]) | (((int16_t)buffer[3]) << 8);
@@ -463,7 +463,7 @@ imu::Vector<3> Adafruit_BNO055::getVector(adafruit_vector_type_t vector_type) {
  *  @brief  Gets a quaternion reading from the specified source
  *  @return quaternion reading
  */
-imu::Quaternion Adafruit_BNO055::getQuat() {
+imu::Quaternion BNO055_accel::getQuat() {
   uint8_t buffer[8];
   memset(buffer, 0, 8);
 
@@ -493,7 +493,7 @@ imu::Quaternion Adafruit_BNO055::getQuat() {
  *  @param  sensor
  *          Sensor description
  */
-void Adafruit_BNO055::getSensor(sensor_t *sensor) {
+void BNO055_accel::getSensor(sensor_t *sensor) {
   /* Clear the sensor_t object */
   memset(sensor, 0, sizeof(sensor_t));
 
@@ -515,7 +515,7 @@ void Adafruit_BNO055::getSensor(sensor_t *sensor) {
  *          Event description
  *  @return always returns true
  */
-bool Adafruit_BNO055::getEvent(sensors_event_t *event) {
+bool BNO055_accel::getEvent(sensors_event_t *event) {
   /* Clear the event */
   memset(event, 0, sizeof(sensors_event_t));
 
@@ -525,7 +525,7 @@ bool Adafruit_BNO055::getEvent(sensors_event_t *event) {
   event->timestamp = millis();
 
   /* Get a Euler angle sample for orientation */
-  imu::Vector<3> euler = getVector(Adafruit_BNO055::VECTOR_EULER);
+  imu::Vector<3> euler = getVector(BNO055_accel::VECTOR_EULER);
   event->orientation.x = euler.x();
   event->orientation.y = euler.y();
   event->orientation.z = euler.z();
@@ -541,7 +541,7 @@ bool Adafruit_BNO055::getEvent(sensors_event_t *event) {
  *          specify the type of reading
  *  @return always returns true
  */
-bool Adafruit_BNO055::getEvent(sensors_event_t *event,
+bool BNO055_accel::getEvent(sensors_event_t *event,
                                adafruit_vector_type_t vec_type) {
   /* Clear the event */
   memset(event, 0, sizeof(sensors_event_t));
@@ -552,44 +552,44 @@ bool Adafruit_BNO055::getEvent(sensors_event_t *event,
 
   // read the data according to vec_type
   imu::Vector<3> vec;
-  if (vec_type == Adafruit_BNO055::VECTOR_LINEARACCEL) {
+  if (vec_type == BNO055_accel::VECTOR_LINEARACCEL) {
     event->type = SENSOR_TYPE_LINEAR_ACCELERATION;
-    vec = getVector(Adafruit_BNO055::VECTOR_LINEARACCEL);
+    vec = getVector(BNO055_accel::VECTOR_LINEARACCEL);
 
     event->acceleration.x = vec.x();
     event->acceleration.y = vec.y();
     event->acceleration.z = vec.z();
-  } else if (vec_type == Adafruit_BNO055::VECTOR_ACCELEROMETER) {
+  } else if (vec_type == BNO055_accel::VECTOR_ACCELEROMETER) {
     event->type = SENSOR_TYPE_ACCELEROMETER;
-    vec = getVector(Adafruit_BNO055::VECTOR_ACCELEROMETER);
+    vec = getVector(BNO055_accel::VECTOR_ACCELEROMETER);
 
     event->acceleration.x = vec.x();
     event->acceleration.y = vec.y();
     event->acceleration.z = vec.z();
-  } else if (vec_type == Adafruit_BNO055::VECTOR_GRAVITY) {
+  } else if (vec_type == BNO055_accel::VECTOR_GRAVITY) {
     event->type = SENSOR_TYPE_GRAVITY;
-    vec = getVector(Adafruit_BNO055::VECTOR_GRAVITY);
+    vec = getVector(BNO055_accel::VECTOR_GRAVITY);
 
     event->acceleration.x = vec.x();
     event->acceleration.y = vec.y();
     event->acceleration.z = vec.z();
-  } else if (vec_type == Adafruit_BNO055::VECTOR_EULER) {
+  } else if (vec_type == BNO055_accel::VECTOR_EULER) {
     event->type = SENSOR_TYPE_ORIENTATION;
-    vec = getVector(Adafruit_BNO055::VECTOR_EULER);
+    vec = getVector(BNO055_accel::VECTOR_EULER);
 
     event->orientation.x = vec.x();
     event->orientation.y = vec.y();
     event->orientation.z = vec.z();
-  } else if (vec_type == Adafruit_BNO055::VECTOR_GYROSCOPE) {
+  } else if (vec_type == BNO055_accel::VECTOR_GYROSCOPE) {
     event->type = SENSOR_TYPE_GYROSCOPE;
-    vec = getVector(Adafruit_BNO055::VECTOR_GYROSCOPE);
+    vec = getVector(BNO055_accel::VECTOR_GYROSCOPE);
 
     event->gyro.x = vec.x() * SENSORS_DPS_TO_RADS;
     event->gyro.y = vec.y() * SENSORS_DPS_TO_RADS;
     event->gyro.z = vec.z() * SENSORS_DPS_TO_RADS;
-  } else if (vec_type == Adafruit_BNO055::VECTOR_MAGNETOMETER) {
+  } else if (vec_type == BNO055_accel::VECTOR_MAGNETOMETER) {
     event->type = SENSOR_TYPE_MAGNETIC_FIELD;
-    vec = getVector(Adafruit_BNO055::VECTOR_MAGNETOMETER);
+    vec = getVector(BNO055_accel::VECTOR_MAGNETOMETER);
 
     event->magnetic.x = vec.x();
     event->magnetic.y = vec.y();
@@ -605,9 +605,9 @@ bool Adafruit_BNO055::getEvent(sensors_event_t *event,
  *          Calibration offset (buffer size should be 22)
  *  @return true if read is successful
  */
-bool Adafruit_BNO055::getSensorOffsets(uint8_t *calibData) {
+bool BNO055_accel::getSensorOffsets(uint8_t *calibData) {
   if (isFullyCalibrated()) {
-    adafruit_bno055_opmode_t lastMode = _mode;
+    BNO055_accel_opmode_t lastMode = _mode;
     setMode(OPERATION_MODE_CONFIG);
 
     readLen(ACCEL_OFFSET_X_LSB_ADDR, calibData, NUM_BNO055_OFFSET_REGISTERS);
@@ -624,10 +624,10 @@ bool Adafruit_BNO055::getSensorOffsets(uint8_t *calibData) {
  *          type of offsets
  *  @return true if read is successful
  */
-bool Adafruit_BNO055::getSensorOffsets(
-    adafruit_bno055_offsets_t &offsets_type) {
+bool BNO055_accel::getSensorOffsets(
+    BNO055_accel_offsets_t &offsets_type) {
   if (isFullyCalibrated()) {
-    adafruit_bno055_opmode_t lastMode = _mode;
+    BNO055_accel_opmode_t lastMode = _mode;
     setMode(OPERATION_MODE_CONFIG);
     delay(25);
 
@@ -684,8 +684,8 @@ bool Adafruit_BNO055::getSensorOffsets(
  *  @param  calibData
  *          calibration data
  */
-void Adafruit_BNO055::setSensorOffsets(const uint8_t *calibData) {
-  adafruit_bno055_opmode_t lastMode = _mode;
+void BNO055_accel::setSensorOffsets(const uint8_t *calibData) {
+  BNO055_accel_opmode_t lastMode = _mode;
   setMode(OPERATION_MODE_CONFIG);
   delay(25);
 
@@ -740,9 +740,9 @@ void Adafruit_BNO055::setSensorOffsets(const uint8_t *calibData) {
  *          gyro_offset_y  = gyroscrope offset y
  *          gyro_offset_z  = gyroscrope offset z
  */
-void Adafruit_BNO055::setSensorOffsets(
-    const adafruit_bno055_offsets_t &offsets_type) {
-  adafruit_bno055_opmode_t lastMode = _mode;
+void BNO055_accel::setSensorOffsets(
+    const BNO055_accel_offsets_t &offsets_type) {
+  BNO055_accel_opmode_t lastMode = _mode;
   setMode(OPERATION_MODE_CONFIG);
   delay(25);
 
@@ -785,7 +785,7 @@ void Adafruit_BNO055::setSensorOffsets(
  *  @brief  Checks of all cal status values are set to 3 (fully calibrated)
  *  @return status of calibration
  */
-bool Adafruit_BNO055::isFullyCalibrated() {
+bool BNO055_accel::isFullyCalibrated() {
   uint8_t system, gyro, accel, mag;
   getCalibration(&system, &gyro, &accel, &mag);
 
@@ -813,8 +813,8 @@ bool Adafruit_BNO055::isFullyCalibrated() {
 /*!
  *  @brief  Enter Suspend mode (i.e., sleep)
  */
-void Adafruit_BNO055::enterSuspendMode() {
-  adafruit_bno055_opmode_t modeback = _mode;
+void BNO055_accel::enterSuspendMode() {
+  BNO055_accel_opmode_t modeback = _mode;
 
   /* Switch to config mode (just in case since this is the default) */
   setMode(OPERATION_MODE_CONFIG);
@@ -828,8 +828,8 @@ void Adafruit_BNO055::enterSuspendMode() {
 /*!
  *  @brief  Enter Normal mode (i.e., wake)
  */
-void Adafruit_BNO055::enterNormalMode() {
-  adafruit_bno055_opmode_t modeback = _mode;
+void BNO055_accel::enterNormalMode() {
+  BNO055_accel_opmode_t modeback = _mode;
 
   /* Switch to config mode (just in case since this is the default) */
   setMode(OPERATION_MODE_CONFIG);
@@ -843,7 +843,7 @@ void Adafruit_BNO055::enterNormalMode() {
 /*!
  *  @brief  Writes an 8 bit value over I2C
  */
-bool Adafruit_BNO055::write8(adafruit_bno055_reg_t reg, byte value) {
+bool BNO055_accel::write8(BNO055_accel_reg_t reg, byte value) {
   uint8_t buffer[2] = {(uint8_t)reg, (uint8_t)value};
   return i2c_dev->write(buffer, 2);
 }
@@ -851,7 +851,7 @@ bool Adafruit_BNO055::write8(adafruit_bno055_reg_t reg, byte value) {
 /*!
  *  @brief  Reads an 8 bit value over I2C
  */
-byte Adafruit_BNO055::read8(adafruit_bno055_reg_t reg) {
+byte BNO055_accel::read8(BNO055_accel_reg_t reg) {
   uint8_t buffer[1] = {reg};
   i2c_dev->write_then_read(buffer, 1, buffer, 1);
   return (byte)buffer[0];
@@ -860,7 +860,7 @@ byte Adafruit_BNO055::read8(adafruit_bno055_reg_t reg) {
 /*!
  *  @brief  Reads the specified number of bytes over I2C
  */
-bool Adafruit_BNO055::readLen(adafruit_bno055_reg_t reg, byte *buffer,
+bool BNO055_accel::readLen(BNO055_accel_reg_t reg, byte *buffer,
                               uint8_t len) {
   uint8_t reg_buf[1] = {(uint8_t)reg};
   return i2c_dev->write_then_read(reg_buf, 1, buffer, len);
