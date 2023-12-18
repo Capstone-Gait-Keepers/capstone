@@ -73,7 +73,7 @@ BNO055_accel::BNO055_accel(int32_t sensorID, uint8_t address,
  *            OPERATION_MODE_NDOF]
  *  @return true if process is successful
  */
-bool BNO055_accel::begin(BNO055_accel_opmode_t mode) {
+bool BNO055_accel::begin() {
   // Start without a detection
   i2c_dev->begin(false);
 
@@ -124,14 +124,17 @@ bool BNO055_accel::begin(BNO055_accel_opmode_t mode) {
   write8(BNO055_PAGE_ID_ADDR, 0);
 
   /* Set the output units */
-  /*
   uint8_t unitsel = (0 << 7) | // Orientation = Android
                     (0 << 4) | // Temperature = Celsius
                     (0 << 2) | // Euler = Degrees
                     (1 << 1) | // Gyro = Rads
-                    (0 << 0);  // Accelerometer = m/s^2
+                    (1 << 0);  // Accelerometer = mg
   write8(BNO055_UNIT_SEL_ADDR, unitsel);
-  */
+
+  // uint8_t config = (0     << 5) | // Operation = Normal
+  //                  (0b101 << 2) | // Bandwidth = 250Hz
+  //                  (0     << 0);  // Range = 2G
+  // write8(BNO055_ACC_CONFIG_ADDR, config);
 
   /* Configure axis mapping (see section 3.4) */
   /*
@@ -144,7 +147,7 @@ bool BNO055_accel::begin(BNO055_accel_opmode_t mode) {
   write8(BNO055_SYS_TRIGGER_ADDR, 0x0);
   delay(10);
   /* Set the requested operating mode (see section 3.3) */
-  setMode(mode);
+  setMode(OPERATION_MODE_GYRONLY);
   delay(20);
 
   return true;
@@ -196,8 +199,7 @@ BNO055_accel_opmode_t BNO055_accel::getMode() {
  *           REMAP_CONFIG_P6
  *           REMAP_CONFIG_P7]
  */
-void BNO055_accel::setAxisRemap(
-    BNO055_accel_axis_remap_config_t remapcode) {
+void BNO055_accel::setAxisRemap(BNO055_accel_axis_remap_config_t remapcode) {
   BNO055_accel_opmode_t modeback = _mode;
 
   setMode(OPERATION_MODE_CONFIG);
@@ -413,49 +415,10 @@ imu::Vector<3> BNO055_accel::getVector(adafruit_vector_type_t vector_type) {
   y = ((int16_t)buffer[2]) | (((int16_t)buffer[3]) << 8);
   z = ((int16_t)buffer[4]) | (((int16_t)buffer[5]) << 8);
 
-  /*!
-   * Convert the value to an appropriate range (section 3.6.4)
-   * and assign the value to the Vector type
-   */
-  switch (vector_type) {
-  case VECTOR_MAGNETOMETER:
-    /* 1uT = 16 LSB */
-    xyz[0] = ((double)x) / 16.0;
-    xyz[1] = ((double)y) / 16.0;
-    xyz[2] = ((double)z) / 16.0;
-    break;
-  case VECTOR_GYROSCOPE:
-    /* 1dps = 16 LSB */
-    xyz[0] = ((double)x) / 16.0;
-    xyz[1] = ((double)y) / 16.0;
-    xyz[2] = ((double)z) / 16.0;
-    break;
-  case VECTOR_EULER:
-    /* 1 degree = 16 LSB */
-    xyz[0] = ((double)x) / 16.0;
-    xyz[1] = ((double)y) / 16.0;
-    xyz[2] = ((double)z) / 16.0;
-    break;
-  case VECTOR_ACCELEROMETER:
-    /* 1m/s^2 = 100 LSB */
-    xyz[0] = ((double)x) / 100.0;
-    xyz[1] = ((double)y) / 100.0;
-    xyz[2] = ((double)z) / 100.0;
-    break;
-  case VECTOR_LINEARACCEL:
-    /* 1m/s^2 = 100 LSB */
-    xyz[0] = ((double)x) / 100.0;
-    xyz[1] = ((double)y) / 100.0;
-    xyz[2] = ((double)z) / 100.0;
-    break;
-  case VECTOR_GRAVITY:
-    /* 1m/s^2 = 100 LSB */
-    xyz[0] = ((double)x) / 100.0;
-    xyz[1] = ((double)y) / 100.0;
-    xyz[2] = ((double)z) / 100.0;
-    break;
-  }
-
+  /* 1m/s^2 = 100 LSB */
+  xyz[0] = ((double)x) / 100.0;
+  xyz[1] = ((double)y) / 100.0;
+  xyz[2] = ((double)z) / 100.0;
   return xyz;
 }
 
@@ -521,80 +484,64 @@ bool BNO055_accel::getEvent(sensors_event_t *event) {
 
   event->version = sizeof(sensors_event_t);
   event->sensor_id = _sensorID;
-  event->type = SENSOR_TYPE_ORIENTATION;
-  event->timestamp = millis();
-
-  /* Get a Euler angle sample for orientation */
-  imu::Vector<3> euler = getVector(BNO055_accel::VECTOR_EULER);
-  event->orientation.x = euler.x();
-  event->orientation.y = euler.y();
-  event->orientation.z = euler.z();
-
-  return true;
-}
-
-/*!
- *  @brief  Reads the sensor and returns the data as a sensors_event_t
- *  @param  event
- *          Event description
- *  @param  vec_type
- *          specify the type of reading
- *  @return always returns true
- */
-bool BNO055_accel::getEvent(sensors_event_t *event,
-                               adafruit_vector_type_t vec_type) {
-  /* Clear the event */
-  memset(event, 0, sizeof(sensors_event_t));
-
-  event->version = sizeof(sensors_event_t);
-  event->sensor_id = _sensorID;
   event->timestamp = millis();
 
   // read the data according to vec_type
   imu::Vector<3> vec;
-  if (vec_type == BNO055_accel::VECTOR_LINEARACCEL) {
-    event->type = SENSOR_TYPE_LINEAR_ACCELERATION;
-    vec = getVector(BNO055_accel::VECTOR_LINEARACCEL);
+  event->type = SENSOR_TYPE_ACCELEROMETER;
+  vec = getVector(VECTOR_ACCELEROMETER);
+  event->acceleration.x = vec.x();
+  event->acceleration.y = vec.y();
+  event->acceleration.z = vec.z();
+  return true;
+}
 
-    event->acceleration.x = vec.x();
-    event->acceleration.y = vec.y();
-    event->acceleration.z = vec.z();
-  } else if (vec_type == BNO055_accel::VECTOR_ACCELEROMETER) {
-    event->type = SENSOR_TYPE_ACCELEROMETER;
-    vec = getVector(BNO055_accel::VECTOR_ACCELEROMETER);
+/*!
+ *  @brief  Reads the sensor's offset registers into a byte array
+ *  @param  calibData
+ *          Calibration offset (buffer size should be 22)
+ *  @return true if read is successful
+ */
+bool BNO055_accel::getAll(BNO055_sensed_t *event) {
+  /* Clear the event */
+  memset(event, 0, sizeof(BNO055_sensed_t));
 
-    event->acceleration.x = vec.x();
-    event->acceleration.y = vec.y();
-    event->acceleration.z = vec.z();
-  } else if (vec_type == BNO055_accel::VECTOR_GRAVITY) {
-    event->type = SENSOR_TYPE_GRAVITY;
-    vec = getVector(BNO055_accel::VECTOR_GRAVITY);
+  imu::Vector<3> xyz;
+  uint8_t buffer[44];
+  memset(buffer, 0, 44);
 
-    event->acceleration.x = vec.x();
-    event->acceleration.y = vec.y();
-    event->acceleration.z = vec.z();
-  } else if (vec_type == BNO055_accel::VECTOR_EULER) {
-    event->type = SENSOR_TYPE_ORIENTATION;
-    vec = getVector(BNO055_accel::VECTOR_EULER);
+  /* Read vector data (6 bytes) */
+  readLen((BNO055_reg_t)VECTOR_ACCELEROMETER, buffer, 44);
 
-    event->orientation.x = vec.x();
-    event->orientation.y = vec.y();
-    event->orientation.z = vec.z();
-  } else if (vec_type == BNO055_accel::VECTOR_GYROSCOPE) {
-    event->type = SENSOR_TYPE_GYROSCOPE;
-    vec = getVector(BNO055_accel::VECTOR_GYROSCOPE);
-
-    event->gyro.x = vec.x() * SENSORS_DPS_TO_RADS;
-    event->gyro.y = vec.y() * SENSORS_DPS_TO_RADS;
-    event->gyro.z = vec.z() * SENSORS_DPS_TO_RADS;
-  } else if (vec_type == BNO055_accel::VECTOR_MAGNETOMETER) {
-    event->type = SENSOR_TYPE_MAGNETIC_FIELD;
-    vec = getVector(BNO055_accel::VECTOR_MAGNETOMETER);
-
-    event->magnetic.x = vec.x();
-    event->magnetic.y = vec.y();
-    event->magnetic.z = vec.z();
-  }
+  // Accel
+  event->acc_x = ((int16_t)buffer[0]) | (((int16_t)buffer[1]) << 8);
+  event->acc_y = ((int16_t)buffer[2]) | (((int16_t)buffer[3]) << 8);
+  event->acc_z = ((int16_t)buffer[4]) | (((int16_t)buffer[5]) << 8);
+  // Mag data
+  event->mag_x = ((int16_t)buffer[6]) | (((int16_t)buffer[7]) << 8);
+  event->mag_y = ((int16_t)buffer[8]) | (((int16_t)buffer[9]) << 8);
+  event->mag_z = ((int16_t)buffer[10]) | (((int16_t)buffer[11]) << 8);
+  // Gyro data
+  event->gyr_x = ((int16_t)buffer[12]) | (((int16_t)buffer[13]) << 8);
+  event->gyr_y = ((int16_t)buffer[14]) | (((int16_t)buffer[15]) << 8);
+  event->gyr_z = ((int16_t)buffer[16]) | (((int16_t)buffer[17]) << 8);
+  // Euler data
+  event->eul_x = ((int16_t)buffer[18]) | (((int16_t)buffer[19]) << 8);
+  event->eul_y = ((int16_t)buffer[20]) | (((int16_t)buffer[21]) << 8);
+  event->eul_z = ((int16_t)buffer[22]) | (((int16_t)buffer[23]) << 8);
+  // Quaternion data
+  event->qua_w = ((int16_t)buffer[24]) | (((int16_t)buffer[25]) << 8);
+  event->qua_x = ((int16_t)buffer[26]) | (((int16_t)buffer[27]) << 8);
+  event->qua_y = ((int16_t)buffer[28]) | (((int16_t)buffer[29]) << 8);
+  event->qua_z = ((int16_t)buffer[30]) | (((int16_t)buffer[31]) << 8);
+  // Linear acceleration
+  event->lin_x = ((int16_t)buffer[32]) | (((int16_t)buffer[33]) << 8);
+  event->lin_y = ((int16_t)buffer[34]) | (((int16_t)buffer[35]) << 8);
+  event->lin_z = ((int16_t)buffer[36]) | (((int16_t)buffer[37]) << 8);
+  // Gravity data
+  event->grv_x = ((int16_t)buffer[38]) | (((int16_t)buffer[39]) << 8);
+  event->grv_y = ((int16_t)buffer[40]) | (((int16_t)buffer[41]) << 8);
+  event->grv_z = ((int16_t)buffer[42]) | (((int16_t)buffer[43]) << 8);
 
   return true;
 }
@@ -870,6 +817,7 @@ bool BNO055_accel::readLen(BNO055_reg_t reg, byte *buffer,
 
 void BNO055_accel::update_range(BNO055_accel_range_t value) {
   update_bits(BNO055_ACC_CONFIG_ADDR, value, 0b11);
+  _range = value;
 }
 
 void BNO055_accel::update_bandwidth(BNO055_accel_bw_t value) {
@@ -887,16 +835,13 @@ void BNO055_accel::update_units(bool use_mg) {
 }
 
 void BNO055_accel::write_config(BNO055_reg_t addr, byte value) {
-  
   BNO055_accel_opmode_t modeback = _mode;
   setMode(OPERATION_MODE_CONFIG);
   delay(25);
-  // uint8_t savePageID = read8(BNO055_PAGE_ID_ADDR); // Page 53 in datasheet
   uint8_t pageID = (addr >> 8) & 0b1;
   write8(BNO055_PAGE_ID_ADDR, pageID);
   write8(addr, value);
   delay(10);
-  // write8(BNO055_PAGE_ID_ADDR, savePageID);
   setMode(modeback);
   delay(20);
 }

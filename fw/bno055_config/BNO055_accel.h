@@ -294,6 +294,32 @@ public:
     uint8_t bl_rev;    /**< bootloader rev */
   } BNO055_accel_rev_info_t;
 
+  typedef struct {
+    int16_t acc_x;
+    int16_t acc_y;
+    int16_t acc_z;
+    int16_t mag_x;
+    int16_t mag_y;
+    int16_t mag_z;
+    int16_t gyr_x;
+    int16_t gyr_y;
+    int16_t gyr_z;
+    int16_t eul_x;
+    int16_t eul_y;
+    int16_t eul_z;
+    int16_t qua_w;
+    int16_t qua_x;
+    int16_t qua_y;
+    int16_t qua_z;
+    int16_t lin_x;
+    int16_t lin_y;
+    int16_t lin_z;
+    int16_t grv_x;
+    int16_t grv_y;
+    int16_t grv_z;
+  } BNO055_sensed_t;
+
+
   /** Vector Mappings **/
   typedef enum {
     VECTOR_ACCELEROMETER = BNO055_ACCEL_DATA_X_LSB_ADDR,
@@ -307,7 +333,7 @@ public:
   BNO055_accel(int32_t sensorID = -1, uint8_t address = BNO055_ADDRESS_A,
                   TwoWire *theWire = &Wire);
 
-  bool begin(BNO055_accel_opmode_t mode = OPERATION_MODE_NDOF);
+  bool begin();
   void setMode(BNO055_accel_opmode_t mode);
   BNO055_accel_opmode_t getMode();
   void setAxisRemap(BNO055_accel_axis_remap_config_t remapcode);
@@ -331,6 +357,7 @@ public:
   /* Adafruit_Sensor implementation */
   bool getEvent(sensors_event_t *);
   bool getEvent(sensors_event_t *, adafruit_vector_type_t);
+  bool getAll(BNO055_sensed_t *);
   void getSensor(sensor_t *);
 
   /* Functions to deal with raw calibration data */
@@ -355,6 +382,7 @@ public:
 
   int32_t _sensorID;
   BNO055_accel_opmode_t _mode;
+  BNO055_accel_range_t _range = G4;
 };
 
 #endif
