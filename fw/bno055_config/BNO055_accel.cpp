@@ -424,35 +424,6 @@ imu::Vector<3> BNO055_accel::getVector(adafruit_vector_type_t vector_type) {
 }
 
 /*!
- *  @brief  Gets a quaternion reading from the specified source
- *  @return quaternion reading
- */
-imu::Quaternion BNO055_accel::getQuat() {
-  uint8_t buffer[8];
-  memset(buffer, 0, 8);
-
-  int16_t x, y, z, w;
-  x = y = z = w = 0;
-
-  /* Read quat data (8 bytes) */
-  readLen(BNO055_QUATERNION_DATA_W_LSB_ADDR, buffer, 8);
-  w = (((uint16_t)buffer[1]) << 8) | ((uint16_t)buffer[0]);
-  x = (((uint16_t)buffer[3]) << 8) | ((uint16_t)buffer[2]);
-  y = (((uint16_t)buffer[5]) << 8) | ((uint16_t)buffer[4]);
-  z = (((uint16_t)buffer[7]) << 8) | ((uint16_t)buffer[6]);
-
-  /*!
-   * Assign to Quaternion
-   * See
-   * https://cdn-shop.adafruit.com/datasheets/BST_BNO055_DS000_12.pdf
-   * 3.6.5.5 Orientation (Quaternion)
-   */
-  const double scale = (1.0 / (1 << 14));
-  imu::Quaternion quat(scale * w, scale * x, scale * y, scale * z);
-  return quat;
-}
-
-/*!
  *  @brief  Provides the sensor_t data for this sensor
  *  @param  sensor
  *          Sensor description

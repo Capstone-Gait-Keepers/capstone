@@ -24,7 +24,7 @@
 
 #include "Arduino.h"
 
-#include "utility/imumaths.h"
+#include "imumaths.h"
 #include <Adafruit_I2CDevice.h>
 #include <Adafruit_Sensor.h>
 
@@ -320,7 +320,6 @@ public:
                       uint8_t *mag);
 
   imu::Vector<3> getVector(adafruit_vector_type_t vector_type);
-  imu::Quaternion getQuat();
   int8_t getTemp();
 
   /* Adafruit_Sensor implementation */
