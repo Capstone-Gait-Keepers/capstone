@@ -493,14 +493,13 @@ double BNO055_accel::getVerticalAcceleration() {
   y = ((int16_t)buffer[28]) | (((int16_t)buffer[29]) << 8);
   z = ((int16_t)buffer[30]) | (((int16_t)buffer[31]) << 8);
   /* 1m/s^2 = 100 LSB */
-  gravity[0] = ((double)x) / 100.0;
-  gravity[1] = ((double)y) / 100.0;
-  gravity[2] = ((double)z) / 100.0;
+  gravity[0] = (double)x;
+  gravity[1] = (double)y;
+  gravity[2] = (double)z;
+  gravity.normalize();
 
-  // Get component of acceleration in direction of gravity
-  imu::Vector<3> vertical_accel = accel - gravity * accel.dot(gravity);
-  double mag = vertical_accel.magnitude();
-  return mag * (vertical_accel.z() > 0 ? 1 : -1);
+  imu::Vector<3> vertical_accel = gravity * accel.dot(gravity); // Vector projection
+  return vertical_accel.magnitude() * (vertical_accel.z() > 0 ? 1 : -1);
 }
 
 /*!
