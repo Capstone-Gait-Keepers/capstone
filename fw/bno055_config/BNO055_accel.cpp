@@ -128,13 +128,14 @@ bool BNO055_accel::begin() {
                     (0 << 4) | // Temperature = Celsius
                     (0 << 2) | // Euler = Degrees
                     (1 << 1) | // Gyro = Rads
-                    (1 << 0);  // Accelerometer = mg
+                    (0 << 0);  // Accelerometer (0 = 1 m/s^2 per 100LSB, 1 = 1 mg per LSB)
   write8(BNO055_UNIT_SEL_ADDR, unitsel);
 
-  // uint8_t config = (0     << 5) | // Operation = Normal
-  //                  (0b101 << 2) | // Bandwidth = 250Hz
-  //                  (0     << 0);  // Range = 2G
-  // write8(BNO055_ACC_CONFIG_ADDR, config);
+  // TODO: Not sure if this makes a difference
+  uint8_t config = (0     << 5) | // Operation = Normal
+                   (0b101 << 2) | // Bandwidth = 250Hz
+                   (0     << 0);  // Range = 2G
+  write8(BNO055_ACC_CONFIG_ADDR, config);
 
   /* Configure axis mapping (see section 3.4) */
   /*
@@ -147,7 +148,7 @@ bool BNO055_accel::begin() {
   write8(BNO055_SYS_TRIGGER_ADDR, 0x0);
   delay(10);
   /* Set the requested operating mode (see section 3.3) */
-  setMode(OPERATION_MODE_GYRONLY);
+  setMode(OPERATION_MODE_NDOF); // OPERATION_MODE_GYRONLY, if we don't need gravity
   delay(20);
 
   return true;
@@ -489,61 +490,46 @@ bool BNO055_accel::getEvent(sensors_event_t *event) {
   // read the data according to vec_type
   imu::Vector<3> vec;
   event->type = SENSOR_TYPE_ACCELEROMETER;
-  vec = getVector(VECTOR_ACCELEROMETER);
+  vec = getVector(VECTOR_GYROSCOPE); // Values are wack
   event->acceleration.x = vec.x();
   event->acceleration.y = vec.y();
   event->acceleration.z = vec.z();
   return true;
 }
 
-/*!
- *  @brief  Reads the sensor's offset registers into a byte array
- *  @param  calibData
- *          Calibration offset (buffer size should be 22)
- *  @return true if read is successful
- */
-bool BNO055_accel::getAll(BNO055_sensed_t *event) {
-  /* Clear the event */
-  memset(event, 0, sizeof(BNO055_sensed_t));
+double BNO055_accel::getVerticalAcceleration() {
+  imu::Vector<3> accel;
+  imu::Vector<3> gravity;
+  uint8_t buffer[32];
+  memset(buffer, 0, 32);
 
-  imu::Vector<3> xyz;
-  uint8_t buffer[44];
-  memset(buffer, 0, 44);
+  int16_t x, y, z;
+  x = y = z = 0;
 
   /* Read vector data (6 bytes) */
-  readLen((BNO055_reg_t)VECTOR_ACCELEROMETER, buffer, 44);
+  readLen((BNO055_reg_t)VECTOR_GYROSCOPE, buffer, 32);
 
-  // Accel
-  event->acc_x = ((int16_t)buffer[0]) | (((int16_t)buffer[1]) << 8);
-  event->acc_y = ((int16_t)buffer[2]) | (((int16_t)buffer[3]) << 8);
-  event->acc_z = ((int16_t)buffer[4]) | (((int16_t)buffer[5]) << 8);
-  // Mag data
-  event->mag_x = ((int16_t)buffer[6]) | (((int16_t)buffer[7]) << 8);
-  event->mag_y = ((int16_t)buffer[8]) | (((int16_t)buffer[9]) << 8);
-  event->mag_z = ((int16_t)buffer[10]) | (((int16_t)buffer[11]) << 8);
-  // Gyro data
-  event->gyr_x = ((int16_t)buffer[12]) | (((int16_t)buffer[13]) << 8);
-  event->gyr_y = ((int16_t)buffer[14]) | (((int16_t)buffer[15]) << 8);
-  event->gyr_z = ((int16_t)buffer[16]) | (((int16_t)buffer[17]) << 8);
-  // Euler data
-  event->eul_x = ((int16_t)buffer[18]) | (((int16_t)buffer[19]) << 8);
-  event->eul_y = ((int16_t)buffer[20]) | (((int16_t)buffer[21]) << 8);
-  event->eul_z = ((int16_t)buffer[22]) | (((int16_t)buffer[23]) << 8);
-  // Quaternion data
-  event->qua_w = ((int16_t)buffer[24]) | (((int16_t)buffer[25]) << 8);
-  event->qua_x = ((int16_t)buffer[26]) | (((int16_t)buffer[27]) << 8);
-  event->qua_y = ((int16_t)buffer[28]) | (((int16_t)buffer[29]) << 8);
-  event->qua_z = ((int16_t)buffer[30]) | (((int16_t)buffer[31]) << 8);
-  // Linear acceleration
-  event->lin_x = ((int16_t)buffer[32]) | (((int16_t)buffer[33]) << 8);
-  event->lin_y = ((int16_t)buffer[34]) | (((int16_t)buffer[35]) << 8);
-  event->lin_z = ((int16_t)buffer[36]) | (((int16_t)buffer[37]) << 8);
-  // Gravity data
-  event->grv_x = ((int16_t)buffer[38]) | (((int16_t)buffer[39]) << 8);
-  event->grv_y = ((int16_t)buffer[40]) | (((int16_t)buffer[41]) << 8);
-  event->grv_z = ((int16_t)buffer[42]) | (((int16_t)buffer[43]) << 8);
+  // acceleration
+  x = ((int16_t)buffer[0]) | (((int16_t)buffer[1]) << 8);
+  y = ((int16_t)buffer[2]) | (((int16_t)buffer[3]) << 8);
+  z = ((int16_t)buffer[4]) | (((int16_t)buffer[5]) << 8);
+  /* 1m/s^2 = 100 LSB */
+  accel[0] = ((double)x) / 100.0;
+  accel[1] = ((double)y) / 100.0;
+  accel[2] = ((double)z) / 100.0;
+  // Gravity
+  x = ((int16_t)buffer[26]) | (((int16_t)buffer[27]) << 8);
+  y = ((int16_t)buffer[28]) | (((int16_t)buffer[29]) << 8);
+  z = ((int16_t)buffer[30]) | (((int16_t)buffer[31]) << 8);
+  /* 1m/s^2 = 100 LSB */
+  gravity[0] = ((double)x) / 100.0;
+  gravity[1] = ((double)y) / 100.0;
+  gravity[2] = ((double)z) / 100.0;
 
-  return true;
+  // Get component of acceleration in direction of gravity
+  imu::Vector<3> vertical_accel = accel - gravity * accel.dot(gravity);
+  double mag = vertical_accel.magnitude();
+  return mag * (vertical_accel.z() > 0 ? 1 : -1);
 }
 
 /*!
@@ -811,37 +797,4 @@ bool BNO055_accel::readLen(BNO055_reg_t reg, byte *buffer,
                               uint8_t len) {
   uint8_t reg_buf[1] = {(uint8_t)reg};
   return i2c_dev->write_then_read(reg_buf, 1, buffer, len);
-}
-
-
-
-void BNO055_accel::update_range(BNO055_accel_range_t value) {
-  update_bits(BNO055_ACC_CONFIG_ADDR, value, 0b11);
-  _range = value;
-}
-
-void BNO055_accel::update_bandwidth(BNO055_accel_bw_t value) {
-  update_bits(BNO055_ACC_CONFIG_ADDR, value << 2, 0b111 << 2);
-}
-
-void BNO055_accel::update_bits(BNO055_reg_t addr, byte value, byte mask) {
-  byte old_value = read8(addr);
-  byte new_value = (old_value & ~mask) | (value & mask);
-  write_config(BNO055_ACC_CONFIG_ADDR, new_value);
-}
-
-void BNO055_accel::update_units(bool use_mg) {
-  update_bits(BNO055_UNIT_SEL_ADDR, use_mg, 0b1);
-}
-
-void BNO055_accel::write_config(BNO055_reg_t addr, byte value) {
-  BNO055_accel_opmode_t modeback = _mode;
-  setMode(OPERATION_MODE_CONFIG);
-  delay(25);
-  uint8_t pageID = (addr >> 8) & 0b1;
-  write8(BNO055_PAGE_ID_ADDR, pageID);
-  write8(addr, value);
-  delay(10);
-  setMode(modeback);
-  delay(20);
 }
