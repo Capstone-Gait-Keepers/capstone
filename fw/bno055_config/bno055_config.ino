@@ -33,10 +33,19 @@ void setup(void) {
 
 void loop(void) {
   print_sample();
-  delay(100);
+  delay(10);
 }
 
 void print_sample() {
-  double accel = bno.getVerticalAcceleration();
-  Serial.println(accel);
+  // double accel = bno.getVerticalAcceleration();
+  // Serial.println(accel);
+  imu::Vector<3> accel = bno.getVector(BNO055_accel::VECTOR_ACCELEROMETER) - bno._gravity;
+  double vert = bno.getVerticalAcceleration(accel);
+  Serial.print(accel[0]);
+  Serial.print(",");
+  Serial.print(accel[1]);
+  Serial.print(",");
+  Serial.print(accel[2]);
+  Serial.print(",");
+  Serial.println(vert);
 }

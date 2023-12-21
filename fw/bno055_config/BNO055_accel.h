@@ -325,6 +325,7 @@ public:
   /* Adafruit_Sensor implementation */
   bool getEvent(sensors_event_t *);
   double getVerticalAcceleration();
+  double getVerticalAcceleration(imu::Vector<3>);
   void getSensor(sensor_t *);
 
   /* Functions to deal with raw calibration data */
@@ -348,6 +349,7 @@ public:
   int32_t _sensorID;
   BNO055_accel_opmode_t _mode;
   BNO055_accel_range_t _range = G4;
+  imu::Vector<3> _gravity;
 };
 
 #endif

@@ -131,7 +131,6 @@ bool BNO055_accel::begin() {
                     (0 << 0);  // Accelerometer (0 = 1 m/s^2 per 100LSB, 1 = 1 mg per LSB)
   write8(BNO055_UNIT_SEL_ADDR, unitsel);
 
-  // TODO: Not sure if this makes a difference
   uint8_t config = (0     << 5) | // Operation = Normal
                    (0b101 << 2) | // Bandwidth = 250Hz
                    (0     << 0);  // Range = 2G
@@ -148,8 +147,10 @@ bool BNO055_accel::begin() {
   write8(BNO055_SYS_TRIGGER_ADDR, 0x0);
   delay(10);
   /* Set the requested operating mode (see section 3.3) */
-  setMode(OPERATION_MODE_NDOF); // OPERATION_MODE_GYRONLY, if we don't need gravity
+  setMode(OPERATION_MODE_ACCONLY); // OPERATION_MODE_ACCONLY, if we don't need gravity
   delay(20);
+
+  _gravity = getVector(VECTOR_ACCELEROMETER);
 
   return true;
 }
@@ -461,7 +462,7 @@ bool BNO055_accel::getEvent(sensors_event_t *event) {
   // read the data according to vec_type
   imu::Vector<3> vec;
   event->type = SENSOR_TYPE_ACCELEROMETER;
-  vec = getVector(VECTOR_GYROSCOPE); // Values are wack
+  vec = getVector(VECTOR_LINEARACCEL);
   event->acceleration.x = vec.x();
   event->acceleration.y = vec.y();
   event->acceleration.z = vec.z();
@@ -469,37 +470,13 @@ bool BNO055_accel::getEvent(sensors_event_t *event) {
 }
 
 double BNO055_accel::getVerticalAcceleration() {
-  imu::Vector<3> accel;
-  imu::Vector<3> gravity;
-  uint8_t buffer[32];
-  memset(buffer, 0, 32);
+  // imu::Vector<3> gravity = getVector(VECTOR_GRAVITY);
+  imu::Vector<3> accel = getVector(VECTOR_ACCELEROMETER) - _gravity;
+  return accel.dot(_gravity) / _gravity.magnitude(); // Length of vector projection
+}
 
-  int16_t x, y, z;
-  x = y = z = 0;
-
-  /* Read vector data (6 bytes) */
-  readLen((BNO055_reg_t)VECTOR_GYROSCOPE, buffer, 32);
-
-  // acceleration
-  x = ((int16_t)buffer[0]) | (((int16_t)buffer[1]) << 8);
-  y = ((int16_t)buffer[2]) | (((int16_t)buffer[3]) << 8);
-  z = ((int16_t)buffer[4]) | (((int16_t)buffer[5]) << 8);
-  /* 1m/s^2 = 100 LSB */
-  accel[0] = ((double)x) / 100.0;
-  accel[1] = ((double)y) / 100.0;
-  accel[2] = ((double)z) / 100.0;
-  // Gravity
-  x = ((int16_t)buffer[26]) | (((int16_t)buffer[27]) << 8);
-  y = ((int16_t)buffer[28]) | (((int16_t)buffer[29]) << 8);
-  z = ((int16_t)buffer[30]) | (((int16_t)buffer[31]) << 8);
-  /* 1m/s^2 = 100 LSB */
-  gravity[0] = (double)x;
-  gravity[1] = (double)y;
-  gravity[2] = (double)z;
-  gravity.normalize();
-
-  imu::Vector<3> vertical_accel = gravity * accel.dot(gravity); // Vector projection
-  return vertical_accel.magnitude() * (vertical_accel.z() > 0 ? 1 : -1);
+double BNO055_accel::getVerticalAcceleration(imu::Vector<3> accel) {
+  return accel.dot(_gravity) / _gravity.magnitude(); // Length of vector projection
 }
 
 /*!
