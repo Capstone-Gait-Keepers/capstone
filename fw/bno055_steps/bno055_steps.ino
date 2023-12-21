@@ -93,11 +93,8 @@ void stop_saving_samples() {
 void running_mode() {
   if (start_sampling) 
   {
+    float accel_z = getVerticalAcceleration(); // Get z component of acceleration
     start_sampling = false; // Reset flag for interrupt handler
-
-    sensors_event_t event; 
-    bno.getEvent(&event, Adafruit_BNO055::VECTOR_LINEARACCEL); // Get a new sensor event for linear acceleration
-    float accel_z = event.acceleration.z; // Get z component of acceleration
 
     update_circular_buffer(accel_z); // Update circular buffer with new sample
 
@@ -140,6 +137,14 @@ void running_mode() {
     start_buffer_index = (start_buffer_index + 1) % START_BUFFER_SAMPLES; // Move to the next index, modulus handle wraparound
   }
 }
+
+double getVerticalAcceleration() {
+  imu::Vector<3> accel = bno.getVector(Adafruit_BNO055::VECTOR_LINEARACCEL);
+  imu::Vector<3> grav = bno.getVector(Adafruit_BNO055::VECTOR_GRAVITY);
+  grav.normalize();
+  return accel.dot(grav);
+}
+
 
 void setup(void)
 {

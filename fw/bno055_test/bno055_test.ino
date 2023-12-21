@@ -93,25 +93,22 @@ void setup(void)
 
 void loop(void)
 {
-  if (digitalRead(BUTTON_PIN) == LOW) {   // Check if button is pressed
+  if (digitalRead(BUTTON_PIN) == LOW) { // Check if button is pressed
     button_pressed = true;
   }
-  else if (button_pressed_last){   // reset button_pressed_last to false once button is released
+  else if (button_pressed_last) { // reset button_pressed_last to false once button is released
     button_pressed_last = false;
   }
   else {
     button_pressed = false;
   }
   if (start_sampling) {
-    // Get a new sensor event for linear acceleration
-    sensors_event_t event;
-    bno.getEvent(&event, Adafruit_BNO055::VECTOR_LINEARACCEL);
+    double vertical_accel = getVerticalAcceleration();
     start_sampling = false;
-
     // Print in format: timestamp, acceleration, event
     Serial.print(millis());
     Serial.print(",");
-    Serial.print(event.acceleration.z);
+    Serial.print(vertical_accel);
     Serial.print(",");
     // Print event only if button is pressed, else print space
     if (button_pressed && !button_pressed_last){
@@ -123,4 +120,11 @@ void loop(void)
       Serial.println(" ");
     }
   }
+}
+
+double getVerticalAcceleration() {
+  imu::Vector<3> accel = bno.getVector(Adafruit_BNO055::VECTOR_LINEARACCEL);
+  imu::Vector<3> grav = bno.getVector(Adafruit_BNO055::VECTOR_GRAVITY);
+  grav.normalize();
+  return accel.dot(grav);
 }
