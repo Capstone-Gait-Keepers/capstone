@@ -53,6 +53,26 @@ def collect_data(seconds: float = None, serial_port = '/dev/cu.usbserial-0001', 
     return vibes, events
 
 
+def collect_readings(serial_port='COM8', expected_columns=9):
+    # Open the serial port for communication with the ESP8266.
+    ser = serial.Serial(serial_port, 115200)
+    readings = [[] for _ in range(expected_columns)]
+    try:
+        while True:
+            try:
+                line = ser.readline().decode().strip().split(',')
+                if len(line) == expected_columns:
+                    for i, sample in enumerate(line):
+                        readings[i].append(float(sample))
+                else:
+                    print(f"Received {len(line)} samples, expected {len(readings)}: {line}")
+            except UnicodeDecodeError:
+                print("Unable to decode")
+    except KeyboardInterrupt:
+        ser.close()
+    return readings
+
+
 if __name__ == "__main__":
     # close_path = WalkPath(start=1.77, stop=2.16, length=3.65)
     # middle_path = WalkPath(start=2.69, stop=3.07, length=3.72)
