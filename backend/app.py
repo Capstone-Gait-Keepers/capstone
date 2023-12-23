@@ -26,7 +26,7 @@ SQLALCHEMY_DATABASE_URI = f"postgresql://postgres:{prodpass}@{prodhost}:5432/pos
 app.config["SQLALCHEMY_DATABASE_URI"] = SQLALCHEMY_DATABASE_URI
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-engine = create_engine(SQLALCHEMY_DATABASE_URI)
+engine = create_engine(SQLALCHEMY_DATABASE_URI, pool_pre_ping=True)
 connection = engine.connect() 
 Session = sessionmaker(bind=engine)
 session = Session()
