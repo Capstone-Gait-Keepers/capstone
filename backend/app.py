@@ -26,10 +26,7 @@ SQLALCHEMY_DATABASE_URI = f"postgresql://postgres:{prodpass}@{prodhost}:5432/pos
 app.config["SQLALCHEMY_DATABASE_URI"] = SQLALCHEMY_DATABASE_URI
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-engine = create_engine(SQLALCHEMY_DATABASE_URI, pool_pre_ping=True)
-connection = engine.connect() 
-Session = sessionmaker(bind=engine)
-session = Session()
+
 
 
 db.init_app(app)
@@ -245,6 +242,13 @@ def documentation():
 # shows status of each sensor
 @app.route('/status')
 def sensor_page():
+
+    # create unique session for each query
+    engine = create_engine(SQLALCHEMY_DATABASE_URI, pool_pre_ping=True)
+    connection = engine.connect() 
+    Session = sessionmaker(bind=engine)
+    session = Session()
+
     try:
         sensors_query = session.query(NewSensor).all()
         ambitious_query = (
@@ -261,12 +265,19 @@ def sensor_page():
         )
 
         sensors = [{'id': new_sensor._id, 'userid': new_sensor.userid, 'model': new_sensor.model, 'floor': new_sensor.floor, 'last_timestamp': new_sensor.latest_timestamp, 'num_recordings': new_sensor.record_count} for new_sensor in ambitious_query]
+        
+        #handing session instance
+        yield session
+        session.commit()
 
     except Exception as e:
     #exception occurs, rollback the transaction
         db.session.rollback()
         print(f"Error: {str(e)}")
-        return "Error occurred, transaction rolled back"    
+        return "Error occurred, transaction rolled back"
+    finally: 
+        session.close()
+
 
     return render_template('status.html', sensors=sensors)
 
