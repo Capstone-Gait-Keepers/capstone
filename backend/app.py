@@ -250,7 +250,7 @@ def sensor_page():
     session = Session()
 
     try:
-        yield session
+        #yield session
         sensors_query = session.query(NewSensor).all()
         ambitious_query = (
             session.query(
