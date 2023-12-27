@@ -41,22 +41,6 @@ bool post_data_ready = false; // Flag to indicate if post_data is ready to be se
 int end_buffer_length = 0; // Counter to logic to stop saving data to post_data if too many bad samples are received
 bool good_sample = false; // Flag to indicate if a sample is considered "good" (above threshold)
 
-// Displays some basic information on the sensor from the unified sensor API sensor_t type (see Adafruit_Sensor for more information)
-void displaySensorDetails(void)
-{
-  sensor_t sensor;
-  bno.getSensor(&sensor);
-  Serial.println("------------------------------------");
-  Serial.print  ("Sensor:       "); Serial.println(sensor.name);
-  Serial.print  ("Driver Ver:   "); Serial.println(sensor.version);
-  Serial.print  ("Unique ID:    "); Serial.println(sensor.sensor_id);
-  Serial.print  ("Max Value:    "); Serial.print(sensor.max_value); Serial.println(" xxx");
-  Serial.print  ("Min Value:    "); Serial.print(sensor.min_value); Serial.println(" xxx");
-  Serial.print  ("Resolution:   "); Serial.print(sensor.resolution); Serial.println(" xxx");
-  Serial.println("------------------------------------");
-  Serial.println("");
-  delay(500);
-}
 
 // Interrupt handler for timer
 void ICACHE_RAM_ATTR TimerHandler(void)
@@ -73,7 +57,7 @@ void update_circular_buffer(float accel_z) {
   good_sample = abs(accel_z) > amp_threshold;
 }
 
-void save_starting_buffer() {
+void save_circular_buffer() {
   Serial.println("Begin saving data");
   for (int i = 0; i < START_BUFFER_SAMPLES; i++) {
       post_data += String(sensor_data_buffer[i]) + ",";
@@ -93,17 +77,14 @@ void stop_saving_samples() {
 void running_mode() {
   if (start_sampling) 
   {
+    float accel_z = getVerticalAcceleration(); // Get z component of acceleration
     start_sampling = false; // Reset flag for interrupt handler
-
-    sensors_event_t event; 
-    bno.getEvent(&event, Adafruit_BNO055::VECTOR_LINEARACCEL); // Get a new sensor event for linear acceleration
-    float accel_z = event.acceleration.z; // Get z component of acceleration
 
     update_circular_buffer(accel_z); // Update circular buffer with new sample
 
     // if sample is considered good (above threshold), save buffer to string and start saving data to post_data
     if (good_sample && !save_sample_flag) {
-      save_starting_buffer();
+      save_circular_buffer();
       led_on();
     }
     if (good_sample && save_sample_flag) {
@@ -141,35 +122,34 @@ void running_mode() {
   }
 }
 
+double getVerticalAcceleration() {
+  imu::Vector<3> accel = bno.getVector(Adafruit_BNO055::VECTOR_LINEARACCEL);
+  imu::Vector<3> grav = bno.getVector(Adafruit_BNO055::VECTOR_GRAVITY);
+  grav.normalize();
+  return accel.dot(grav);
+}
+
+
 void setup(void)
 {
   Serial.begin(115200);
-  delay(1000);
-  Serial.println("Orientation Sensor Test\n");
+  delay(100);
+  Serial.println("FW: Step Detection\n");
 
-  // Initialise the sensor
-  if(!bno.begin())
-  {
+  if(!bno.begin()) {
     /* There was a problem detecting the BNO055 ... check your connections */
-    Serial.print("No BNO055 detected ... Check your wiring or I2C ADDR!");
+    Serial.println("No BNO055 detected ... Check your wiring or I2C ADDR!");
     while(1);
   }
-  
   delay(1000);
-
-  /* Use external crystal for better accuracy */
   bno.setExtCrystalUse(true);
-
-  /* Display some basic information on this sensor */
-  displaySensorDetails();
 
   pinMode(LED_BUILTIN, OUTPUT);     // Initialize the LED_BUILTIN pin as an output
   digitalWrite(LED_BUILTIN, HIGH);   // Turn the LED on by making the voltage LOW
   wifi_status = initialize_wifi();
 
-  // Setup Timer
-  Serial.print("Interrupt period: ");
-  Serial.println(INTERRUPT_INTERVAL_US);
+  Serial.print("Sample Rate (Hz): ");
+  Serial.println(SAMPLE_RATE);
   i_timer.attachInterruptInterval(INTERRUPT_INTERVAL_US, TimerHandler);
   i_timer.enableTimer();
 
