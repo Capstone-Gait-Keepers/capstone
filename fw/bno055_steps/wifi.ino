@@ -33,36 +33,49 @@ bool initialize_wifi() {
     }
 }
 
-// Create function to send data to backend server
-void send_data(String post_data) {
-    std::unique_ptr<BearSSL::WiFiClientSecure>client(new BearSSL::WiFiClientSecure);
-
-    client->setInsecure();  // Ignore SSL certificate validation
-    HTTPClient https;    //create an HTTPClient instance
-    
-    Serial.print("[HTTPS] begin...\n");     //Initializing an HTTPS communication using the secure client
-    if (https.begin(*client, "https://capstone-backend-f6qu.onrender.com/api/send_recording")) {
-        delay(1000);            // See if this prevents the problm with connection refused and deep sleep
-        https.addHeader("Content-Type", "application/json");    //Specify content-type header
-        int httpCode = https.POST(post_data);   //Send the request
-        String payload = https.getString();    //Get the response payload
-
-        // httpCode will be negative on error
-        if (httpCode > 0) {
-            // HTTP header has been send and Server response header has been handled
-            Serial.printf("[HTTPS] POST... code: %d\n", httpCode);
-            // file found at server
-            Serial.println(payload);
-        } else {
-            Serial.printf("[HTTPS] POST... failed, error: %s\n", https.errorToString(httpCode).c_str(), "Message:\n");
-            Serial.println(https.getString());
-            sos_mode();
-        }
-        https.end();
+void send_data(String post_data, uint8_t max_attempts) {
+    int httpCode = send_data(post_data);
+    uint8_t attempts = 1;
+    while (is_bad_http_code(httpCode) && attempts < max_attempts) {
+        Serial.println("\nRetrying...");
+        attempts++;
+        httpCode = send_data(post_data);
     }
-    else {
-      Serial.printf("[HTTPS] Unable to connect\n");
+}
+
+// Create function to send data to backend server
+int send_data(String post_data) {
+    int httpCode = -1;
+    if (T1C != 0) {
+        Serial.println("ERROR: INTERRUPT WAS NOT DISABLED");
+        sos_mode();
+    }
+    std::unique_ptr<BearSSL::WiFiClientSecure>client(new BearSSL::WiFiClientSecure);
+    HTTPClient https;
+
+    client->setInsecure(); // Ignore SSL certificate validation
+    client->setTimeout(50000); // Time out in milliseconds
+
+    if (https.begin(*client, "https://capstone-backend-f6qu.onrender.com/api/send_recording")) {
+        delay(1000); // See if this prevents the problem with connection refused and deep sleep
+        https.addHeader("Content-Type", "application/json");
+        httpCode = https.POST(post_data);
+        String payload = https.getString();
+        https.end();
+
+        Serial.printf("[HTTPS] POST Response: (%d) %s\n", httpCode, "Message:");
+        Serial.println(payload);
+
+        if (is_bad_http_code(httpCode)) {
+            Serial.println("ERROR: POST REQUEST FAILED");
+        }
+    } else {
+      Serial.println("[HTTPS] Unable to connect");
       sos_mode();
     }
+    return httpCode;
+}
 
+bool is_bad_http_code(int httpCode) {
+    return httpCode < 200 || 300 <= httpCode;
 }

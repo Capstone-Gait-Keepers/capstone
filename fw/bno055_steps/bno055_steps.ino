@@ -17,6 +17,8 @@
 Adafruit_BNO055 bno = Adafruit_BNO055(55, 0x28);
 ESP8266Timer i_timer;  // Hardware Timer
 
+#define USER_ID 0 // User ID for this device
+
 #define SAMPLE_RATE 100 // Sample rate for accelerometer in Hz
 #define INTERRUPT_INTERVAL_US (1000000/SAMPLE_RATE) // Interval between samples in microseconds
 #define START_BUFFER_TIME 1 // Size of buffer to store acceleration data prior to first step (in seconds)
@@ -104,17 +106,13 @@ void running_mode() {
         Serial.println("POST DATA READY");\
         i_timer.disableTimer();
         led_off();
-        Serial.println(post_data);
-        // post_data = "";
-        String fun_data = "{\"sensorid\": \"18\",\"timestamp\":\"2023-11-25 03:41:23.295\",\"ts_data\":[1.23, 4.56, 7.89, -0.81,0.00]}";
-        Serial.println(fun_data);
         // remove last comma if it exists
         if (post_data.endsWith(",")) {
           post_data = post_data.substring(0, post_data.length() - 1);
         }
-        String post_data_formatted = "{\"sensorid\": \"18\",\"timestamp\":\"2023-11-25 03:41:23.295\",\"ts_data\":[" + post_data + "]}";
-        Serial.println(post_data_formatted);
-        send_data(fun_data);
+        String json = "{\"sensorid\":\"" + String(USER_ID) + "\",\"timestamp\":\"" + String(millis()) + "\",\"ts_data\":[" + post_data + "]}";
+        Serial.println(json);
+        send_data(json, 3);
         post_data_ready = false;
         i_timer.enableTimer();
     }
