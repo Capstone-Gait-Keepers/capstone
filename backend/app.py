@@ -19,11 +19,20 @@ app = Flask(__name__)
 
 # database connection
 url = os.getenv("DATABSE_URL") 
-prodpass = os.getenv("PRODPASS") 
-prodhost = os.getenv("PRODHOST") 
-SQLALCHEMY_DATABASE_URI = f"postgresql://postgres:{prodpass}@{prodhost}:5432/postgres"
-#print(SQLALCHEMY_DATABASE_URI)
-app.config["SQLALCHEMY_DATABASE_URI"] = SQLALCHEMY_DATABASE_URI
+#prodpass = os.getenv("PRODPASS") 
+#prodhost = os.getenv("PRODHOST") 
+DBUSER = os.getenv("PRODUSER") 
+DBID = os.getenv("DB_ID") 
+DBPASS = os.getenv("PRODPASS") 
+DBREGION = os.getenv("DB_REGION") 
+DBNAME = os.getenv("PRODHOST") 
+
+
+NEW_SQLALCHEMY_DATABASE_URI = f"postgresql://{DBUSER}.{DBID}:{DBPASS}@aws-0-{DBREGION}.pooler.supabase.com:6543/{DBNAME}"
+#SQLALCHEMY_DATABASE_URI = f"postgresql://postgres:{prodpass}@{prodhost}:5432/postgres" #old
+#print(NEW_SQLALCHEMY_DATABASE_URI)
+
+app.config["SQLALCHEMY_DATABASE_URI"] = NEW_SQLALCHEMY_DATABASE_URI
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 
