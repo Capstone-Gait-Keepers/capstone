@@ -28,11 +28,11 @@ DBREGION = os.getenv("DB_REGION")
 DBNAME = os.getenv("PRODHOST") 
 
 
-NEW_SQLALCHEMY_DATABASE_URI = f"postgresql://{DBUSER}.{DBID}:{DBPASS}@aws-0-{DBREGION}.pooler.supabase.com:6543/{DBNAME}"
+SQLALCHEMY_DATABASE_URI = f"postgresql://{DBUSER}.{DBID}:{DBPASS}@aws-0-{DBREGION}.pooler.supabase.com:6543/{DBNAME}"
 #SQLALCHEMY_DATABASE_URI = f"postgresql://postgres:{prodpass}@{prodhost}:5432/postgres" #old
 #print(NEW_SQLALCHEMY_DATABASE_URI)
 
-app.config["SQLALCHEMY_DATABASE_URI"] = NEW_SQLALCHEMY_DATABASE_URI
+app.config["SQLALCHEMY_DATABASE_URI"] = SQLALCHEMY_DATABASE_URI
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 
