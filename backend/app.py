@@ -8,7 +8,6 @@ from sqlalchemy.orm import sessionmaker, relationship
 from http import HTTPStatus
 from flask_basicauth import BasicAuth
 from datetime import datetime
-from array import array
 
 # .env
 load_dotenv()
@@ -177,6 +176,7 @@ def process_json2_withdb():
 def add_recording():
     data = request.get_json()
 
+
     max_retries = 2
 
     for attempt in range(1, max_retries): # retry twice
@@ -185,9 +185,9 @@ def add_recording():
 
             new_data = Recordings(
                 _id=generate_unique_id(), # calls function, populates with value
-                sensorid=(data['sensorid']), # sensor property
-                timestamp=datetime(datetime.utcnow().isoformat()), # datatime
-                ts_data=array(data['ts_data']), # float 8 array
+                sensorid=int(data['sensorid']), # sensor property
+                timestamp=datetime.utcnow().isoformat(), # datatime
+                ts_data=data['ts_data'], # float 8 array
             )
 
             db.session.add(new_data)
@@ -213,7 +213,7 @@ def add_sensorconfig():
     
     try:
         new_data = NewSensor(
-            _id=int(new_sensor_id),
+            _id=new_sensor_id,
             model = str(data['model']),
             fs = float(data['fs']),
             userid = int(data['userid']),
