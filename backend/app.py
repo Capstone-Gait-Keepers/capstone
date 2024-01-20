@@ -175,7 +175,14 @@ def process_json2_withdb():
 @app.route('/api/send_recording', methods=['POST'])
 def add_recording():
     data = request.get_json()
+
     try:
+        engine = create_engine(SQLALCHEMY_DATABASE_URI, pool_pre_ping=True)
+        Session = sessionmaker(bind=engine)
+
+        engine.execute("SELECT 1") #pings the database, wakes it up
+        #time.sleep(0.1) #an idea to try later
+
         new_data = Recordings(
             _id=generate_unique_id(), # calls function, populates with value
             sensorid=int(data['sensorid']), # sensor property
@@ -231,11 +238,11 @@ def generate_unique_id():
     unique_id = timestamp % 1000000 #id will be 6 digits long
     return unique_id
 
-def query_sensors():
-    query = session.query(NewSensor).all()
-    ids = [result._id for result in query]
-    #print(ids)
-    return ids
+# def query_sensors():
+#     query = session.query(NewSensor).all()
+#     ids = [result._id for result in query]
+#     #print(ids)
+#     return ids
 
 # Hello World (Daniel)
 @app.route('/')
