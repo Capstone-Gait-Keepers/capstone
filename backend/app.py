@@ -176,8 +176,7 @@ def process_json2_withdb():
 def add_recording():
     data = request.get_json()
 
-    ping = database_wakeup()
-    print(ping)
+    #ping = database_wakeup()
 
     try:
 
