@@ -176,7 +176,7 @@ def process_json2_withdb():
 def add_recording():
     data = request.get_json()
 
-    #ping = database_wakeup()
+    database_wakeup()
 
     try:
 
@@ -243,9 +243,9 @@ def generate_unique_id():
 def database_wakeup():
     engine = create_engine(SQLALCHEMY_DATABASE_URI, pool_pre_ping=True)
     Session = sessionmaker(bind=engine)
-    ping = engine.execute("SELECT 1") #pings the database, wakes it up
+    #ping = engine.execute("SELECT 1") #pings the database, wakes it up
     #time.sleep(0.1) #an idea to try later
-    return ping
+    return 
 
 # def query_sensors():
 #     query = session.query(NewSensor).all()
