@@ -196,6 +196,9 @@ def add_recording():
     except Exception as e:
         db.session.rollback()
         return jsonify({"error": str(e)}), HTTPStatus.BAD_REQUEST
+    finally:
+        db.session.close()
+
 
 
 # for setting up a new sensor
@@ -224,6 +227,8 @@ def add_sensorconfig():
     except Exception as e:
         db.session.rollback()
         return jsonify({"error": str(e)}), HTTPStatus.BAD_REQUEST
+    finally:
+        db.session.close()
 
 
 
