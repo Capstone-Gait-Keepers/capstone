@@ -8,6 +8,7 @@ from sqlalchemy.orm import sessionmaker, relationship
 from http import HTTPStatus
 from flask_basicauth import BasicAuth
 from datetime import datetime
+from array import array
 
 # .env
 load_dotenv()
@@ -185,8 +186,8 @@ def add_recording():
             new_data = Recordings(
                 _id=generate_unique_id(), # calls function, populates with value
                 sensorid=int(data['sensorid']), # sensor property
-                timestamp=datetime.utcnow().isoformat(), # datatime
-                ts_data=data['ts_data'], # float 8 array
+                timestamp=datetime(datetime.utcnow().isoformat()), # datatime
+                ts_data=array(data['ts_data']), # float 8 array
             )
 
             db.session.add(new_data)
@@ -212,7 +213,7 @@ def add_sensorconfig():
     
     try:
         new_data = NewSensor(
-            _id=new_sensor_id,
+            _id=int(new_sensor_id),
             model = str(data['model']),
             fs = float(data['fs']),
             userid = int(data['userid']),
