@@ -176,12 +176,10 @@ def process_json2_withdb():
 def add_recording():
     data = request.get_json()
 
-    try:
-        engine = create_engine(SQLALCHEMY_DATABASE_URI, pool_pre_ping=True)
-        Session = sessionmaker(bind=engine)
+    ping = database_wakeup()
+    print(ping)
 
-        engine.execute("SELECT 1") #pings the database, wakes it up
-        #time.sleep(0.1) #an idea to try later
+    try:
 
         new_data = Recordings(
             _id=generate_unique_id(), # calls function, populates with value
@@ -237,6 +235,13 @@ def generate_unique_id():
     timestamp = int(time.time() * 1000) 
     unique_id = timestamp % 1000000 #id will be 6 digits long
     return unique_id
+
+def database_wakeup():
+    engine = create_engine(SQLALCHEMY_DATABASE_URI, pool_pre_ping=True)
+    Session = sessionmaker(bind=engine)
+    ping = engine.execute("SELECT 1") #pings the database, wakes it up
+    #time.sleep(0.1) #an idea to try later
+    return ping
 
 # def query_sensors():
 #     query = session.query(NewSensor).all()
