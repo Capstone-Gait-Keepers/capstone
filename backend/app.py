@@ -185,7 +185,7 @@ def add_recording():
 
             new_data = Recordings(
                 _id=generate_unique_id(), # calls function, populates with value
-                sensorid=int(data['sensorid']), # sensor property
+                sensorid=(data['sensorid']), # sensor property
                 timestamp=datetime(datetime.utcnow().isoformat()), # datatime
                 ts_data=array(data['ts_data']), # float 8 array
             )
