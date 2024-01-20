@@ -176,33 +176,36 @@ def process_json2_withdb():
 def add_recording():
     data = request.get_json()
 
-    database_wakeup()
+    max_retries = 2
 
-    try:
+    for attempt in range(1, max_retries): # retry twice
+        try:
+            database_wakeup()
 
-        new_data = Recordings(
-            _id=generate_unique_id(), # calls function, populates with value
-            sensorid=int(data['sensorid']), # sensor property
-            timestamp=datetime.utcnow().isoformat(), # datatime
-            ts_data=data['ts_data'], # float 8 array
-        )
+            new_data = Recordings(
+                _id=generate_unique_id(), # calls function, populates with value
+                sensorid=int(data['sensorid']), # sensor property
+                timestamp=datetime.utcnow().isoformat(), # datatime
+                ts_data=data['ts_data'], # float 8 array
+            )
 
-        db.session.add(new_data)
-        db.session.commit() # add to database
+            db.session.add(new_data)
+            db.session.commit() # add to database
 
-        return jsonify({"message": "Data added successfully"}), HTTPStatus.CREATED
+            return jsonify({"message": "Data added successfully"}), HTTPStatus.CREATED
 
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({"error": str(e)}), HTTPStatus.BAD_REQUEST
-    finally:
-        db.session.close()
+        except Exception as e:
+            db.session.rollback()
+            return jsonify({"error": str(e)}), HTTPStatus.BAD_REQUEST
+        finally:
+            db.session.close()
 
 
 
 # for setting up a new sensor
 @app.route('/api/add_sensorconfig', methods=['POST'])
 def add_sensorconfig():
+    database_wakeup()
     data = request.get_json()
     print(type(data['obstacle_radius']))
     new_sensor_id = generate_unique_id()
