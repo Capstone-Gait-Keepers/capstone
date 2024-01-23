@@ -63,7 +63,6 @@ int _send_data(String post_data) {
     Serial.println("BEGIN_TRANSMISSION");
     Serial.println("http://localhost:8000/api/send_recording");
     Serial.println(post_data);
-    Serial.println("END_TRANSMISSION");
     // TODO: Check response from host
     return 200;
 }

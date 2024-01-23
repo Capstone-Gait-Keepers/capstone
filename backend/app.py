@@ -7,6 +7,9 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from http import HTTPStatus
 from flask_basicauth import BasicAuth
+from multiprocessing import Process
+
+from serial_bridge import serial_bridge
 
 # .env
 load_dotenv()
@@ -268,4 +271,5 @@ if __name__ == '__main__':
         print("Here's the query!")
         print(query_sensors())
         #db.drop_all() #deletes all existing tables
+    Process(target=serial_bridge).start()
     app.run(debug=True)
