@@ -3,6 +3,7 @@
 #include <ESP8266HTTPClient.h>
 #include <WiFiClientSecureBearSSL.h>
 
+#define LOCAL_DEBUG
 #define DEFAULT_ATTEMPTS 3
 
 // Replace with your network credentials
@@ -11,6 +12,9 @@ const char* password = "6340631697";
 
 // Create wifi initialization function
 bool initialize_wifi() {
+    #ifdef LOCAL_DEBUG
+      return true;
+    #endif
     //Connect to Wi-Fi
     WiFi.mode(WIFI_STA);
     WiFi.begin(ssid, password);
@@ -54,6 +58,16 @@ void send_data(String post_data, uint8_t max_attempts) {
 }
 
 // Create function to send data to backend server
+#ifdef LOCAL_DEBUG
+int _send_data(String post_data) {
+    Serial.println("BEGIN_TRANSMISSION");
+    Serial.println("http://localhost:8000/api/send_recording");
+    Serial.println(post_data);
+    Serial.println("END_TRANSMISSION");
+    // TODO: Check response from host
+    return 200;
+}
+#else
 int _send_data(String post_data) {
     int httpCode = -1;
     if (T1C != 0) {
@@ -81,6 +95,7 @@ int _send_data(String post_data) {
     }
     return httpCode;
 }
+#endif
 
 bool is_bad_http_code(int httpCode) {
     return httpCode < 200 || 300 <= httpCode;
