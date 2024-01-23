@@ -103,7 +103,7 @@ void running_mode() {
         }
       }
     if (post_data_ready) {
-        Serial.println("POST DATA READY");\
+        Serial.println("POST DATA READY:");\
         i_timer.disableTimer();
         led_off();
         // remove last comma if it exists
@@ -112,7 +112,7 @@ void running_mode() {
         }
         String json = "{\"sensorid\":\"" + String(USER_ID) + "\",\"timestamp\":\"" + String(millis()) + "\",\"ts_data\":[" + post_data + "]}";
         Serial.println(json);
-        send_data(json, 3);
+        send_data(json);
         post_data_ready = false;
         i_timer.enableTimer();
     }

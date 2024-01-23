@@ -3,6 +3,8 @@
 #include <ESP8266HTTPClient.h>
 #include <WiFiClientSecureBearSSL.h>
 
+#define DEFAULT_ATTEMPTS 3
+
 // Replace with your network credentials
 const char* ssid = "DataCity-802 - 2.4GHz";
 const char* password = "6340631697";
@@ -33,18 +35,26 @@ bool initialize_wifi() {
     }
 }
 
+void send_data(String post_data) {
+    send_data(post_data, DEFAULT_ATTEMPTS);
+}
+
 void send_data(String post_data, uint8_t max_attempts) {
-    int httpCode = send_data(post_data);
+    int httpCode = _send_data(post_data);
     uint8_t attempts = 1;
     while (is_bad_http_code(httpCode) && attempts < max_attempts) {
         Serial.println("\nRetrying...");
         attempts++;
-        httpCode = send_data(post_data);
+        httpCode = _send_data(post_data);
+    }
+    if (is_bad_http_code(httpCode)) {
+        Serial.println("ERROR: POST REQUEST FAILED");
+        sos_mode();
     }
 }
 
 // Create function to send data to backend server
-int send_data(String post_data) {
+int _send_data(String post_data) {
     int httpCode = -1;
     if (T1C != 0) {
         Serial.println("ERROR: INTERRUPT WAS NOT DISABLED");
@@ -65,10 +75,6 @@ int send_data(String post_data) {
 
         Serial.printf("[HTTPS] POST Response: (%d) %s\n", httpCode, "Message:");
         Serial.println(payload);
-
-        if (is_bad_http_code(httpCode)) {
-            Serial.println("ERROR: POST REQUEST FAILED");
-        }
     } else {
       Serial.println("[HTTPS] Unable to connect");
       sos_mode();
