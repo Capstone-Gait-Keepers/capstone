@@ -4,7 +4,7 @@ import time
 
 START_SIGNAL = "BEGIN_TRANSMISSION"
 
-def serial_bridge(serial_port='COM8', baud_rate=115200):
+def serial_bridge(serial_port='/dev/cu.usbserial-0001', baud_rate=115200):
     # Open the serial port for communication with the ESP8266.
     ser = serial.Serial(serial_port, baud_rate)
     line = read_line(ser)
@@ -23,14 +23,10 @@ def serial_bridge(serial_port='COM8', baud_rate=115200):
         # TODO: Confirm error handling works
         except UnicodeDecodeError:
             ser.write(f"500: Couldn't decode")
-        except requests.exceptions.ConnectionError:
-            ser.write(f"400: Couldn't connect to {url}")
-        except requests.exceptions.InvalidURL:
-            ser.write(f"400: Invalid URL ({url})")
 
 
 def read_line(ser: serial.Serial):
-    return ser.readline().decode().strip()
+    return ser.readline()
 
 
 if __name__ == '__main__':
