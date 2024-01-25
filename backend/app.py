@@ -199,13 +199,15 @@ def add_recording():
 
         except OperationalError as e:
             db.session.rollback()
+            error = e
             #return jsonify({"error": str(e)}), HTTPStatus.BAD_REQUEST
         except Exception as e:
             db.session.rollback()
+            error = e
             #return jsonify({"error": str(e)}), HTTPStatus.BAD_REQUEST    
         finally:
             db.session.close()
-    return jsonify({"error": str(e)}), HTTPStatus.BAD_REQUEST
+    return jsonify({"error": str(error)}), HTTPStatus.BAD_REQUEST
 
 # for setting up a new sensor
 @app.route('/api/add_sensorconfig', methods=['POST'])
