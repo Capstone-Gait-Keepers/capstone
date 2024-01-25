@@ -203,8 +203,6 @@ def add_recording():
 
             print("Omg girls I did it")
 
-            db.session.close()
-
             return jsonify({"message": "Data added successfully"}), HTTPStatus.CREATED
 
         except OperationalError as e:
@@ -231,29 +229,31 @@ def add_sensorconfig():
     data = request.get_json()
     print(type(data['obstacle_radius']))
     new_sensor_id = generate_unique_id()
-    
-    try:
-        new_data = NewSensor(
-            _id=new_sensor_id,
-            model = str(data['model']),
-            fs = float(data['fs']),
-            userid = int(data['userid']),
-            floor = str(data['floor']),
-            wall_radius = float(data['wall_radius']),
-            obstacle_radius = float(data['obstacle_radius'])
-        )
 
-        db.session.add(new_data)
-        db.session.commit() # add to database
+    max_retries = 3
 
-        return jsonify({"message": "Sensor record created","sensorid": new_sensor_id})
-    
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({"error": str(e)}), HTTPStatus.BAD_REQUEST
-    finally:
-        db.session.close()
+    for attempt in range(max_retries): # retry twice
+        try:
+            new_data = NewSensor(
+                _id=new_sensor_id,
+                model = str(data['model']),
+                fs = float(data['fs']),
+                userid = int(data['userid']),
+                floor = str(data['floor']),
+                wall_radius = float(data['wall_radius']),
+                obstacle_radius = float(data['obstacle_radius'])
+            )
 
+            db.session.add(new_data)
+            db.session.commit() # add to database
+
+            return jsonify({"message": "Sensor record created","sensorid": new_sensor_id})
+        
+        except Exception as e:
+            db.session.rollback()
+            return jsonify({"error": str(e)}), HTTPStatus.BAD_REQUEST
+        finally:
+            db.session.close()
 
 
 
