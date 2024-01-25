@@ -193,6 +193,7 @@ def add_recording():
 
             db.session.add(new_data)
             db.session.commit() # add to database
+            db.session.close()
 
             return jsonify({"message": "Data added successfully"}), HTTPStatus.CREATED
 
@@ -201,9 +202,10 @@ def add_recording():
             #return jsonify({"error": str(e)}), HTTPStatus.BAD_REQUEST
         except Exception as e:
             db.session.rollback()
-            return jsonify({"error": str(e)}), HTTPStatus.BAD_REQUEST    
+            #return jsonify({"error": str(e)}), HTTPStatus.BAD_REQUEST    
         finally:
             db.session.close()
+    return jsonify({"error": str(e)}), HTTPStatus.BAD_REQUEST
 
 # for setting up a new sensor
 @app.route('/api/add_sensorconfig', methods=['POST'])
