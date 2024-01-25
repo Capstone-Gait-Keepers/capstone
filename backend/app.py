@@ -200,6 +200,9 @@ def add_recording():
 
             db.session.add(new_data)
             db.session.commit() # add to database
+
+            print("Omg girls I did it")
+
             db.session.close()
 
             return jsonify({"message": "Data added successfully"}), HTTPStatus.CREATED
@@ -217,8 +220,7 @@ def add_recording():
         finally:
             print("I'm closing!")
             db.session.close()
-            return("I don't know what happened but this shouldn't have reached here.")
-    
+                
     print("I give up!")
     return jsonify({"error": str(error)}), HTTPStatus.BAD_REQUEST
 
