@@ -29,7 +29,8 @@ DBREGION = os.getenv("DB_REGION")
 DBNAME = os.getenv("PRODHOST") 
 
 
-SQLALCHEMY_DATABASE_URI = f"postgresql://{DBUSER}.{DBID}:{DBPASS}@aws-0-{DBREGION}.pooler.supabase.com:6543/{DBNAME}"
+_SQLALCHEMY_DATABASE_URI = f"postgresql://{DBUSER}.{DBID}:{DBPASS}@aws-0-{DBREGION}.pooler.supabase.com:6543/{DBNAME}"
+SQLALCHEMY_DATABASE_URI = f"postgresql://postgres.{DBID}:{DBPASS}@aws-0-us-east-1.pooler.supabase.com:6543/postgres"
 #SQLALCHEMY_DATABASE_URI = f"postgresql://postgres:{prodpass}@{prodhost}:5432/postgres" #old
 #print(NEW_SQLALCHEMY_DATABASE_URI)
 
