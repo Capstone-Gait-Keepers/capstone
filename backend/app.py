@@ -180,17 +180,22 @@ def add_recording():
 
     max_retries = 3
 
-    for attempt in range(1, max_retries): # retry twice
+    for attempt in range(max_retries): # retry twice
         print("Trying!")
         try:
+
+            print("Wakey Wakey Mr Database!")
             database_wakeup()
 
+            print("Thanks for the data..")
             new_data = Recordings(
                 _id=generate_unique_id(), # calls function, populates with value
                 sensorid=int(data['sensorid']), # sensor property
                 timestamp=datetime.utcnow().isoformat(), # datatime
                 ts_data=data['ts_data'], # float 8 array
             )
+
+            print("Ok I'm trying to add data now cross your fingers")
 
             db.session.add(new_data)
             db.session.commit() # add to database
@@ -209,7 +214,9 @@ def add_recording():
             error = e
             #return jsonify({"error": str(e)}), HTTPStatus.BAD_REQUEST    
         finally:
+            print("I'm closing!")
             db.session.close()
+            return("I don't know what happened but this shouldn't have reached here.")
     
     print("I give up!")
     return jsonify({"error": str(error)}), HTTPStatus.BAD_REQUEST
