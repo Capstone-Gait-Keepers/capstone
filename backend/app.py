@@ -178,9 +178,10 @@ def add_recording():
     data = request.get_json()
 
 
-    max_retries = 2
+    max_retries = 3
 
     for attempt in range(1, max_retries): # retry twice
+        print("Trying!")
         try:
             database_wakeup()
 
@@ -198,15 +199,19 @@ def add_recording():
             return jsonify({"message": "Data added successfully"}), HTTPStatus.CREATED
 
         except OperationalError as e:
+            print("Operational Error :()")
             db.session.rollback()
             error = e
             #return jsonify({"error": str(e)}), HTTPStatus.BAD_REQUEST
         except Exception as e:
+            print("Exception error :()")
             db.session.rollback()
             error = e
             #return jsonify({"error": str(e)}), HTTPStatus.BAD_REQUEST    
         finally:
             db.session.close()
+    
+    print("I give up!")
     return jsonify({"error": str(error)}), HTTPStatus.BAD_REQUEST
 
 # for setting up a new sensor
@@ -254,7 +259,7 @@ def database_wakeup():
     engine = create_engine(SQLALCHEMY_DATABASE_URI, pool_pre_ping=True)
     Session = sessionmaker(bind=engine)
     #ping = engine.execute("SELECT 1") #pings the database, wakes it up
-    #time.sleep(0.1) #an idea to try later
+    time.sleep(0.1) #an idea to try later
     return 
 
 # def query_sensors():
