@@ -8,6 +8,7 @@ from sqlalchemy.orm import sessionmaker, relationship
 from http import HTTPStatus
 from flask_basicauth import BasicAuth
 from datetime import datetime
+from sqlalchemy.exc import OperationalError
 
 # .env
 load_dotenv()
@@ -195,13 +196,14 @@ def add_recording():
 
             return jsonify({"message": "Data added successfully"}), HTTPStatus.CREATED
 
+        except OperationalError as e:
+            db.session.rollback()
+            #return jsonify({"error": str(e)}), HTTPStatus.BAD_REQUEST
         except Exception as e:
             db.session.rollback()
-            return jsonify({"error": str(e)}), HTTPStatus.BAD_REQUEST
+            return jsonify({"error": str(e)}), HTTPStatus.BAD_REQUEST    
         finally:
             db.session.close()
-
-
 
 # for setting up a new sensor
 @app.route('/api/add_sensorconfig', methods=['POST'])
