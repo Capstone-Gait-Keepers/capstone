@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from plotly.subplots import make_subplots
 from typing import Dict, List, Tuple, Optional
 
-from data_types import Metrics, Recording
+from data_types import Metrics, Recording, concat_metrics
 
 
 class DataHandler:
@@ -458,8 +458,8 @@ class AnalysisController(MetricAnalyzer):
 
     def get_metric_error(self, *datasets: Recording, **kwargs) -> Optional[pd.DataFrame]:
         """Analyzes a recording and returns a dictionary of metrics"""
-        measured = np.sum([Metrics(*self._detector.get_step_groups(data.ts, **kwargs)) for data in datasets])
-        source_of_truth = np.sum([Metrics(self._get_step_timestamps(data)) for data in datasets])
+        measured = concat_metrics([Metrics(*self._detector.get_step_groups(data.ts, **kwargs)) for data in datasets])
+        source_of_truth = concat_metrics([Metrics(self._get_step_timestamps(data)) for data in datasets])
         if not len(measured):
             return None
         print("Measured metrics")

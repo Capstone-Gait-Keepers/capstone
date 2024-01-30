@@ -100,41 +100,37 @@ class Recording:
 
 
 class Metrics:
+    """
+    A collection of the following gait metrics:
+
+    - Step Count: Total number of steps recorded.
+    - Stride Time Gait Asymmetry (STGA): A measure of the difference in stride time between the left and right legs.
+    - Stride Time: The average time between steps of the same foot.
+    - Cadence: The average number of steps per second.
+    - Stride Time Coefficient of Variation: A measure of the regularity of the stride time. Low values indicate high regularity, which is good.
+    - Stride Time Phase Synchronization Index: A measure of the phase synchronization between the left and right legs. High values indicate high phase synchronization, which is good.
+    - Stride Time Conditional Entropy: A measure of the regularity of the stride time. Low values indicate high regularity, which is good
+    """
+
+    summed_vars = ['step_count']
+
     def __init__(self, *timestamp_groups: np.ndarray):
         self._df = pd.DataFrame.from_dict(
             {
                 'step_count': [np.sum([len(timestamps) for timestamps in timestamp_groups])],
                 'STGA': [np.mean([self._get_STGA(timestamps) for timestamps in timestamp_groups])],
+                'stride_time': [np.mean([np.mean(self._get_stride_times(timestamps)) for timestamps in timestamp_groups])],
                 'cadence': [np.mean([self._get_cadence(timestamps) for timestamps in timestamp_groups])],
+                'var_coef': [np.mean([self._get_var_coef(self._get_stride_times(timestamps)) for timestamps in timestamp_groups])],
                 'phase_sync': [np.mean([self._get_phase_sync(timestamps) for timestamps in timestamp_groups])],
                 'conditional_entropy': [np.mean([self._get_conditional_entropy(timestamps) for timestamps in timestamp_groups])],
             }
         )
 
-    @property
-    def step_count(self):
-        """Total number of steps recorded."""
-        return np.sum(self._df['step_count'].values)
-
-    @property
-    def STGA(self):
-        """Stride Time Gait Asymmetry (STGA)"""
-        return np.mean(self._df['STGA'].values)
-
-    @property
-    def cadence(self):
-        """Cadence (steps per second)"""
-        return np.mean(self._df['cadence'].values)
-    
-    @property
-    def phase_sync(self):
-        """Stride Time Phase Synchronization Index (0 < p < 1). High values indicate high phase synchronization, which is good."""
-        return np.mean(self._df['phase_sync'].values)
-
-    @property
-    def conditional_entropy(self):
-        """Stride Time Conditional Entropy. Low values indicate high regularity, which is good."""
-        return np.mean(self._df['conditional_entropy'].values)
+    def __getitem__(self, key):
+        if key in self.summed_vars:
+            return np.sum(self._df[key].values)
+        return np.mean(self._df[key].values)
 
     def __len__(self):
         return len(self._df)
@@ -143,10 +139,11 @@ class Metrics:
     def _get_STGA(timestamps: np.ndarray):
         if len(timestamps) < 3:
             return np.nan
-        step_durations = np.diff(timestamps)
+        # TODO: Update stride time definition
+        stride_times = Metrics._get_stride_times(timestamps)
         # TODO: Does this match literature?
         # https://citeseerx.ist.psu.edu/document?repid=rep1&type=pdf&doi=aeee9316f2a72d0f89e59f3c5144bf69a695730b
-        return np.abs(np.mean(step_durations[1:] / step_durations[:-1]) - 1) / np.mean(step_durations)
+        return np.abs(np.mean(stride_times[1:] / stride_times[:-1]) - 1) / np.mean(stride_times)
 
     @staticmethod
     def _get_cadence(timestamps: np.ndarray):
@@ -154,6 +151,18 @@ class Metrics:
             return np.nan
         return 1 / np.mean(np.diff(timestamps))
     
+    @staticmethod
+    def _get_stride_times(timestamps: np.ndarray):
+        if len(timestamps) < 2:
+            return np.nan
+        # TODO: Update stride time definition
+        return np.diff(timestamps)
+
+    @staticmethod
+    def _get_var_coef(dist):
+        """General formula for coefficient of variation"""
+        return np.std(dist) / np.mean(dist)
+
     @staticmethod
     def _get_phase_sync(timestamps: np.ndarray, num_bins=40):
         if len(timestamps) < 4:
@@ -207,7 +216,17 @@ class Metrics:
             raise ValueError('Can only compare Metrics to Metrics.')
         if truth._df.shape != self._df.shape:
             raise ValueError('Cannot compare Metrics of different lengths.')
-        return np.abs(self._df - truth._df) / truth._df
+        error = np.abs(self._df - truth._df) / truth._df
+        for key in self.summed_vars:
+            error[key] = error[key] * truth._df[key]
+        return error
 
     def __str__(self) -> str:
         return str(self._df)
+
+# TODO: Why can't I just do sum :(
+def concat_metrics(metrics_list):
+    """Concatenates a list of Metrics objects into one."""
+    m = metrics_list[0]
+    m._df = pd.concat([new_m._df for new_m in metrics_list])
+    return m
