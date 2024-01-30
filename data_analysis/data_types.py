@@ -5,7 +5,8 @@ from copy import deepcopy
 from dataclasses import dataclass, field, asdict
 from pathlib import Path
 from ruamel.yaml import YAML
-from typing import Optional, List
+from scipy.stats import entropy
+from typing import Optional
 
 
 
@@ -104,24 +105,30 @@ class Metrics:
                 'step_count': [np.sum([len(timestamps) for timestamps in timestamp_groups])],
                 'STGA': [np.mean([self._get_STGA(timestamps) for timestamps in timestamp_groups])],
                 'cadence': [np.mean([self._get_cadence(timestamps) for timestamps in timestamp_groups])],
+                # 'stride_phase_sync': [np.mean([self._get_gait_type(timestamps) for timestamps in timestamp_groups])],
+                'stride_entropy': [np.mean([self._get_stride_entropy(timestamps) for timestamps in timestamp_groups])],
             }
         )
 
     @property
     def step_count(self):
+        """Total number of steps recorded."""
         return np.sum(self._df['step_count'].values)
 
     @property
     def STGA(self):
+        """Stride Time Gait Asymmetry (STGA)"""
         return np.mean(self._df['STGA'].values)
 
     @property
     def cadence(self):
+        """Cadence (steps per second)"""
         return np.mean(self._df['cadence'].values)
-    
+
     @property
-    def sections(self):
-        return len(self._df)
+    def stride_entropy(self):
+        """Stride Time Conditional Entropy (STCE)"""
+        return np.mean(self._df['stride_entropy'].values)
 
     def __len__(self):
         return len(self._df)
@@ -139,8 +146,21 @@ class Metrics:
             return np.nan
         return 1 / np.mean(np.diff(timestamps))
 
-    def _get_gait_type(self, timestamps: np.ndarray):
-        raise NotImplementedError()
+    # https://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=7247739
+    def _get_stride_entropy(self, timestamps: np.ndarray):
+        timestamps_left_foot = timestamps[::2]
+        timestamps_right_foot = timestamps[1::2]
+        stride_times_left_foot = np.diff(timestamps_left_foot)
+        stride_times_right_foot = np.diff(timestamps_right_foot)
+        shannon_entropy_left_foot = self._calculate_shannon_entropy(stride_times_left_foot)
+        shannon_entropy_right_foot = self._calculate_shannon_entropy(stride_times_right_foot)
+        return (shannon_entropy_left_foot + shannon_entropy_right_foot) / 2
+
+    @staticmethod
+    def _calculate_shannon_entropy(stride_times: np.ndarray, num_bins=40):
+        counts, _ = np.histogram(stride_times, bins=num_bins)
+        probabilities = counts / sum(counts)
+        return entropy(probabilities, base=2)
 
     def __add__(self, other: 'Metrics'):
         """Combines two Metrics objects by averaging their values."""
