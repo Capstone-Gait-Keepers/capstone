@@ -271,11 +271,7 @@ class MetricAnalyzer:
             step_groups.extend(self._detector.get_step_groups(ts, **kwargs))
         if not len(step_groups):
             raise ValueError("No valid step sections found")
-        return self.get_metrics(step_groups)
-
-    @staticmethod
-    def get_metrics(step_groups: List[np.ndarray]) -> Metrics:
-        return np.sum([Metrics(group) for group in step_groups])
+        return Metrics(*step_groups)
 
 
 @dataclass
@@ -443,13 +439,14 @@ class AnalysisController(MetricAnalyzer):
         if not len(step_groups):
             raise ValueError("No valid step sections found")
         correct_steps = self._get_step_timestamps(data)
-        measured = self.get_metrics(step_groups)
-        metric_error = self._get_metric_error(step_groups, [correct_steps])
+        source_of_truth = Metrics(*correct_steps)
+        measured = Metrics(*step_groups)
+        metric_error = measured.error(source_of_truth)
         algorithm_error = self._get_algorithm_error(np.concatenate(step_groups), correct_steps)
-        print("Measured Metrics")
+        print("Measured metrics")
         print(measured)
-        print("Correct Metrics")
-        print(AnalysisController.get_metrics([correct_steps]))
+        print("Correct metrics")
+        print(source_of_truth)
         print("Metric Error")
         print(metric_error)
         print("Algorithm Error")
@@ -459,23 +456,15 @@ class AnalysisController(MetricAnalyzer):
     def _get_step_timestamps(data: Recording) -> List[float]:
         return [event.timestamp for event in data.events if event.category == 'step']
 
-    def get_metric_error(self, *datasets: Recording, **kwargs) -> Optional[Metrics]:
+    def get_metric_error(self, *datasets: Recording, **kwargs) -> Optional[pd.DataFrame]:
         """Analyzes a recording and returns a dictionary of metrics"""
-        measured_step_groups = []
-        correct_step_groups = []
-        for data in datasets:
-            measured_step_groups.extend(self._detector.get_step_groups(data.ts, **kwargs))
-            correct_step_groups.append(self._get_step_timestamps(data))
-        if not len(measured_step_groups):
+        measured = np.sum([Metrics(*self._detector.get_step_groups(data.ts, **kwargs)) for data in datasets])
+        source_of_truth = np.sum([Metrics(self._get_step_timestamps(data)) for data in datasets])
+        if not len(measured):
             return None
-        return self._get_metric_error(measured_step_groups, correct_step_groups)
-
-    @staticmethod
-    def _get_metric_error(step_groups: List[np.ndarray], correct_times: List[np.ndarray]) -> Metrics:
-        """Analyzes a recording and returns a dictionary of metrics"""
-        measured = AnalysisController.get_metrics(step_groups)
-        source_of_truth = AnalysisController.get_metrics(correct_times)
+        print("Measured metrics")
         print(measured)
+        print("Correct metrics")
         print(source_of_truth)
         return measured.error(source_of_truth)
 

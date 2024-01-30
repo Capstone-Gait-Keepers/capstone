@@ -1,10 +1,11 @@
 
 import numpy as np
+import pandas as pd
 from copy import deepcopy
 from dataclasses import dataclass, field, asdict
 from pathlib import Path
 from ruamel.yaml import YAML
-from typing import Optional
+from typing import Optional, List
 
 
 
@@ -97,14 +98,33 @@ class Recording:
 
 
 class Metrics:
-    _metric_names = ['STGA', 'cadence']
+    def __init__(self, *timestamp_groups: np.ndarray):
+        self._df = pd.DataFrame.from_dict(
+            {
+                'step_count': [np.sum([len(timestamps) for timestamps in timestamp_groups])],
+                'STGA': [np.mean([self._get_STGA(timestamps) for timestamps in timestamp_groups])],
+                'cadence': [np.mean([self._get_cadence(timestamps) for timestamps in timestamp_groups])],
+            }
+        )
 
-    def __init__(self, timestamps = []):
-        self.sections = 1
-        self.step_count = len(timestamps)
-        self.STGA = self._get_STGA(timestamps)
-        self.cadence = self._get_cadence(timestamps)
-        # self.gait_type = self._get_gait_type(timestamps)
+    @property
+    def step_count(self):
+        return np.sum(self._df['step_count'].values)
+
+    @property
+    def STGA(self):
+        return np.mean(self._df['STGA'].values)
+
+    @property
+    def cadence(self):
+        return np.mean(self._df['cadence'].values)
+    
+    @property
+    def sections(self):
+        return len(self._df)
+
+    def __len__(self):
+        return len(self._df)
 
     def _get_STGA(self, timestamps: np.ndarray):
         if len(timestamps) < 3:
@@ -126,37 +146,22 @@ class Metrics:
         """Combines two Metrics objects by averaging their values."""
         if not isinstance(other, Metrics):
             raise ValueError('Can only add Metrics to Metrics.')
-        for key in self.__dict__.keys():
-            if key in self._metric_names:
-                if self.__dict__[key] == np.nan:
-                    self.__dict__[key] = other.__dict__[key]
-                elif other.__dict__[key] != np.nan:
-                    self.__dict__[key] = np.average([self.__dict__[key], other.__dict__[key]], weights=[self.step_count, other.step_count])
-            else:
-                self.__dict__[key] += other.__dict__[key]
-        self.sections += 1
+        if not len(self):
+            return other
+        if not len(other):
+            return self
+        self._df = pd.concat([self._df, other._df])
         return self
 
-    def error(self, truth: 'Metrics') -> 'MetricsError':
+    def error(self, truth: 'Metrics') -> pd.DataFrame:
         """Returns the % error between two Metrics objects."""
         if not isinstance(truth, Metrics):
             raise ValueError('Can only compare Metrics to Metrics.')
-        error = Metrics()
-        for key in self.__dict__.keys():
-            if key in self._metric_names:
-                error.__dict__[key] = np.abs(self.__dict__[key] - truth.__dict__[key]) / truth.__dict__[key]
-            else:
-                error.__dict__[key] = np.abs(self.__dict__[key] - truth.__dict__[key])
-        return error
+        if truth._df.shape != self._df.shape:
+            raise ValueError('Cannot compare Metrics of different lengths.')
+        if not np.all(truth._df.index == self._df.index):
+            raise ValueError('Cannot compare Metrics of different timestamps.')
+        return (self._df - truth._df) / truth._df
 
     def __str__(self) -> str:
-        metrics = [f'{key}: {value:.3f}' for key, value in self.__dict__.items()]
-        return ', '.join(metrics)
-
-# TODO: Convert to a panda dataframe, not a unique class
-class MetricsError(Metrics):
-    def error(self, truth: Metrics):
-        raise NotImplementedError('Cannot compare MetricsError to MetricsError.')
-    
-    def __add__(self, other: Metrics):
-        raise NotImplementedError('Cannot add MetricsError to MetricsError.')
+        return str(self._df)
