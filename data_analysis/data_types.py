@@ -5,6 +5,7 @@ from copy import deepcopy
 from dataclasses import dataclass, field, asdict
 from pathlib import Path
 from ruamel.yaml import YAML
+from scipy.signal import hilbert
 from scipy.stats import entropy
 from typing import Optional
 
@@ -105,8 +106,8 @@ class Metrics:
                 'step_count': [np.sum([len(timestamps) for timestamps in timestamp_groups])],
                 'STGA': [np.mean([self._get_STGA(timestamps) for timestamps in timestamp_groups])],
                 'cadence': [np.mean([self._get_cadence(timestamps) for timestamps in timestamp_groups])],
-                # 'stride_phase_sync': [np.mean([self._get_gait_type(timestamps) for timestamps in timestamp_groups])],
-                'stride_entropy': [np.mean([self._get_stride_entropy(timestamps) for timestamps in timestamp_groups])],
+                'phase_sync': [np.mean([self._get_phase_sync(timestamps) for timestamps in timestamp_groups])],
+                'conditional_entropy': [np.mean([self._get_conditional_entropy(timestamps) for timestamps in timestamp_groups])],
             }
         )
 
@@ -124,16 +125,22 @@ class Metrics:
     def cadence(self):
         """Cadence (steps per second)"""
         return np.mean(self._df['cadence'].values)
+    
+    @property
+    def phase_sync(self):
+        """Stride Time Phase Synchronization Index (0 < p < 1). High values indicate high phase synchronization, which is good."""
+        return np.mean(self._df['phase_sync'].values)
 
     @property
-    def stride_entropy(self):
-        """Stride Time Conditional Entropy (STCE)"""
-        return np.mean(self._df['stride_entropy'].values)
+    def conditional_entropy(self):
+        """Stride Time Conditional Entropy. Low values indicate high regularity, which is good."""
+        return np.mean(self._df['conditional_entropy'].values)
 
     def __len__(self):
         return len(self._df)
 
-    def _get_STGA(self, timestamps: np.ndarray):
+    @staticmethod
+    def _get_STGA(timestamps: np.ndarray):
         if len(timestamps) < 3:
             return np.nan
         step_durations = np.diff(timestamps)
@@ -141,19 +148,40 @@ class Metrics:
         # https://citeseerx.ist.psu.edu/document?repid=rep1&type=pdf&doi=aeee9316f2a72d0f89e59f3c5144bf69a695730b
         return np.abs(np.mean(step_durations[1:] / step_durations[:-1]) - 1) / np.mean(step_durations)
 
-    def _get_cadence(self, timestamps: np.ndarray):
+    @staticmethod
+    def _get_cadence(timestamps: np.ndarray):
         if len(timestamps) < 2:
             return np.nan
         return 1 / np.mean(np.diff(timestamps))
+    
+    @staticmethod
+    def _get_phase_sync(timestamps: np.ndarray, num_bins=40):
+        if len(timestamps) < 4:
+            return np.nan
+        if len(timestamps) % 2 != 0:
+            timestamps = np.copy(timestamps)[:-1]
+        timestamps_right_foot = timestamps[1::2]
+        timestamps_left_foot = timestamps[::2]
+        analytic_signal1 = hilbert(timestamps_left_foot)
+        analytic_signal2 = hilbert(timestamps_right_foot)
+        phase1 = np.unwrap(np.angle(analytic_signal1))
+        phase2 = np.unwrap(np.angle(analytic_signal2))
+        phase_difference = phase1 - phase2
+        H = Metrics._calculate_shannon_entropy(phase_difference, num_bins)
+        H_max = np.log2(num_bins)
+        return (H_max - H) / H_max
 
     # https://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=7247739
-    def _get_stride_entropy(self, timestamps: np.ndarray):
+    @staticmethod
+    def _get_conditional_entropy(timestamps: np.ndarray):
+        if len(timestamps) < 4:
+            return np.nan
         timestamps_left_foot = timestamps[::2]
         timestamps_right_foot = timestamps[1::2]
         stride_times_left_foot = np.diff(timestamps_left_foot)
         stride_times_right_foot = np.diff(timestamps_right_foot)
-        shannon_entropy_left_foot = self._calculate_shannon_entropy(stride_times_left_foot)
-        shannon_entropy_right_foot = self._calculate_shannon_entropy(stride_times_right_foot)
+        shannon_entropy_left_foot = Metrics._calculate_shannon_entropy(stride_times_left_foot)
+        shannon_entropy_right_foot = Metrics._calculate_shannon_entropy(stride_times_right_foot)
         return (shannon_entropy_left_foot + shannon_entropy_right_foot) / 2
 
     @staticmethod
@@ -179,9 +207,7 @@ class Metrics:
             raise ValueError('Can only compare Metrics to Metrics.')
         if truth._df.shape != self._df.shape:
             raise ValueError('Cannot compare Metrics of different lengths.')
-        if not np.all(truth._df.index == self._df.index):
-            raise ValueError('Cannot compare Metrics of different timestamps.')
-        return (self._df - truth._df) / truth._df
+        return np.abs(self._df - truth._df) / truth._df
 
     def __str__(self) -> str:
         return str(self._df)
