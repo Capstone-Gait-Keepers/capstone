@@ -61,7 +61,7 @@ void send_data(String post_data, uint8_t max_attempts) {
 #ifdef LOCAL_DEBUG
 int _send_data(String post_data) {
     Serial.println("BEGIN_TRANSMISSION");
-    Serial.println("http://localhost:5000/api/send_recording");
+    Serial.println("http://127.0.0.1:5000/api/send_recording");
     Serial.println(post_data);
     // TODO: Check response from host
     return 200;
