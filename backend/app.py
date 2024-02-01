@@ -9,38 +9,39 @@ from http import HTTPStatus
 from flask_basicauth import BasicAuth
 from datetime import datetime
 from sqlalchemy.exc import OperationalError
+from flask_sslify import SSLify
 
 # .env
 load_dotenv()
 
-# init
+# init db
 db = SQLAlchemy()
 
 app = Flask(__name__)
 
 # database connection
 url = os.getenv("DATABSE_URL") 
-#prodpass = os.getenv("PRODPASS") 
-#prodhost = os.getenv("PRODHOST") 
 DBUSER = os.getenv("PRODUSER") 
 DBID = os.getenv("DB_ID") 
 DBPASS = os.getenv("PRODPASS") 
 DBREGION = os.getenv("DB_REGION") 
 DBNAME = os.getenv("PRODHOST") 
 
-
-_SQLALCHEMY_DATABASE_URI = f"postgresql://{DBUSER}.{DBID}:{DBPASS}@aws-0-{DBREGION}.pooler.supabase.com:6543/{DBNAME}"
+#_SQLALCHEMY_DATABASE_URI = f"postgresql://{DBUSER}.{DBID}:{DBPASS}@aws-0-{DBREGION}.pooler.supabase.com:6543/{DBNAME}"
 SQLALCHEMY_DATABASE_URI = f"postgresql://postgres.{DBID}:{DBPASS}@aws-0-us-east-1.pooler.supabase.com:6543/postgres"
 #SQLALCHEMY_DATABASE_URI = f"postgresql://postgres:{prodpass}@{prodhost}:5432/postgres" #old
-#print(NEW_SQLALCHEMY_DATABASE_URI)
 
 app.config["SQLALCHEMY_DATABASE_URI"] = SQLALCHEMY_DATABASE_URI
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-
-
-
+# database init
 db.init_app(app)
+
+
+# SSLify - for TLS security
+## forces endpoints to use HTTPS instead of defaulting to HTTP based on client
+sslify = SSLify(app)
+
 
 # BasicAuth configuration
 # for documentation page
@@ -338,4 +339,4 @@ if __name__ == '__main__':
         print("Here's the query!")
         #print(query_sensors())
         #db.drop_all() #deletes all existing tables
-    app.run(debug=True)
+    app.run(debug=True, ssl_context='adhoc')
