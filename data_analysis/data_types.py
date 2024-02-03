@@ -225,7 +225,7 @@ class Metrics:
         return str(self._df)
 
 # TODO: Why can't I just do sum :(
-def concat_metrics(metrics_list):
+def concat_metrics(metrics_list: list[Metrics]) -> Metrics:
     """Concatenates a list of Metrics objects into one."""
     m = metrics_list[0]
     m._df = pd.concat([new_m._df for new_m in metrics_list])

@@ -4,7 +4,7 @@ import pandas as pd
 import plotly.graph_objects as go
 from dataclasses import dataclass
 from plotly.subplots import make_subplots
-from typing import Dict, List, Tuple, Optional
+from typing import List, Tuple
 
 from data_types import Metrics, Recording, concat_metrics
 
@@ -13,13 +13,13 @@ class DataHandler:
     def __init__(self, folder = "datasets") -> None:
         self.folder = folder
 
-    def get(self, **filters) -> Dict[str, Recording]:
+    def get(self, **filters) -> List[Recording]:
         """Walk through datasets folder and return all records that match the filters"""
         filepaths = [file for root, dirs, files in os.walk(self.folder) for file in files if file.endswith(".yaml")]
         filepaths.remove('example.yaml')
-        datasets = {filename: Recording.from_file(os.path.join(self.folder, filename)) for filename in filepaths}
+        datasets = [Recording.from_file(os.path.join(self.folder, filename)) for filename in filepaths]
         for key, value in filters.items():
-            datasets = {filename: dataset for filename, dataset in datasets.items() if getattr(dataset.env, key) == value}
+            datasets = [d for d in datasets if getattr(d.env, key) == value]
         return datasets
 
     def plot(self, clip=False, truth=True, **filters):
@@ -433,43 +433,38 @@ class AnalysisController(MetricAnalyzer):
         )
         super().__init__(self._detector)
 
-    def analyze_recording(self, data: Recording, **kwargs):
-        """Analyzes a recording and returns a dictionary of metrics"""
+    def get_metrics(self, *datasets: Recording, **kwargs) -> Tuple[Metrics, Metrics, pd.DataFrame]:
+        """Analyzes a sequence of recording and returns metrics"""
+        measured_sets, source_of_truth_sets, algorithm_errors = [], [], []
+        for data in datasets:
+            measured, source_of_truth, algorithm_error = self._get_metrics(data, **kwargs)
+            measured_sets.append(measured)
+            source_of_truth_sets.append(source_of_truth)
+            algorithm_errors.append(algorithm_error)
+        measured = concat_metrics(measured_sets)
+        source_of_truth = concat_metrics(source_of_truth_sets)
+        algorithm_error = pd.concat(algorithm_errors)
+        return measured, source_of_truth, algorithm_error
+
+    def _get_metrics(self, data: Recording, **kwargs):
+        """Analyzes a recording and returns metrics"""
+        measured = Metrics()
+        predicted_steps = []
         step_groups = self._detector.get_step_groups(data.ts, **kwargs)
-        if not len(step_groups):
-            raise ValueError("No valid step sections found")
+        if len(step_groups):
+            measured = Metrics(*step_groups)
+            predicted_steps = np.concatenate(step_groups)
         correct_steps = self._get_step_timestamps(data)
-        source_of_truth = Metrics(*correct_steps)
-        measured = Metrics(*step_groups)
-        metric_error = measured.error(source_of_truth)
-        algorithm_error = self._get_algorithm_error(np.concatenate(step_groups), correct_steps)
-        print("Measured metrics")
-        print(measured)
-        print("Correct metrics")
-        print(source_of_truth)
-        print("Metric Error")
-        print(metric_error)
-        print("Algorithm Error")
-        print(', '.join([f'{key}: {value:.3f}' for key, value in algorithm_error.items()]))
+        algorithm_error = self._get_algorithm_error(predicted_steps, correct_steps)
+        source_of_truth = Metrics(correct_steps)
+        return measured, source_of_truth, algorithm_error
 
     @staticmethod
     def _get_step_timestamps(data: Recording) -> List[float]:
         return [event.timestamp for event in data.events if event.category == 'step']
 
-    def get_metric_error(self, *datasets: Recording, **kwargs) -> Optional[pd.DataFrame]:
-        """Analyzes a recording and returns a dictionary of metrics"""
-        measured = concat_metrics([Metrics(*self._detector.get_step_groups(data.ts, **kwargs)) for data in datasets])
-        source_of_truth = concat_metrics([Metrics(self._get_step_timestamps(data)) for data in datasets])
-        if not len(measured):
-            return None
-        print("Measured metrics")
-        print(measured)
-        print("Correct metrics")
-        print(source_of_truth)
-        return measured.error(source_of_truth)
-
     @staticmethod
-    def _get_algorithm_error(measured_times: np.ndarray, correct_times: np.ndarray) -> dict:
+    def _get_algorithm_error(measured_times: np.ndarray, correct_times: np.ndarray) -> pd.DataFrame:
         """
         Calculates the algorithm error of a recording. There are three types of errors:
         - Incorrect measurements: The algorithm found a step when there was none (False Positive)
@@ -484,7 +479,12 @@ class AnalysisController(MetricAnalyzer):
             List of step timestamps from the source of truth
         """
         if not len(measured_times):
-            raise ValueError("Algorithm did not find any steps")
+            return pd.DataFrame({
+                "error": [np.nan],
+                "stderr": [np.nan],
+                "incorrect": [0],
+                "missed": [len(correct_times)]
+            })
         missed_steps = 0
         measurement_errors = {}
         for step_stamp in correct_times:
@@ -495,14 +495,16 @@ class AnalysisController(MetricAnalyzer):
                 missed_steps += 1
             else:
                 measurement_errors[best_measurement] = possible_errors[best_measurement]
+        # TODO: If there is a missed step and a false positive, it will be matched and the error will be large
         incorrect_measurements = len(measured_times) - len(measurement_errors)
         errors = list(measurement_errors.values())
-        return {
-            "error": np.mean(errors),
-            "stderr": np.std(errors),
-            "incorrect": incorrect_measurements,
-            "missed": missed_steps
-        }
+
+        return pd.DataFrame({
+            "error": [np.mean(errors)],
+            "stderr": [np.std(errors)],
+            "incorrect": [incorrect_measurements],
+            "missed": [missed_steps]
+        })
 
     @staticmethod
     def optimize_threshold_weights(datasets: List[Recording], plot=False, **kwargs) -> Tuple[float, float]:
@@ -521,4 +523,5 @@ if __name__ == "__main__":
     # Get average metric error
     # walk_type='normal', user='ron', wall_radius=1.89 -> 5.6% cadence, fucked STGA
     datasets = DataHandler().get(walk_type='shuffle', user='ron', wall_radius=1.89)
-    print(controller.get_metric_error(*datasets.values()))
+    measured, truth, alg_err = controller.get_metrics(*datasets)
+
