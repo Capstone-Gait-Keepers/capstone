@@ -84,6 +84,7 @@ class Recording:
     @classmethod
     def from_dict(cls, data: dict):
         env = RecordingEnvironment(**data['env'])
+        env.path = WalkPath(**data['env']['path'])
         events = [Event(**event) for event in data['events']]
         return cls(env, events, np.asarray(data['ts']))
 
@@ -217,8 +218,6 @@ class Metrics:
         if truth._df.shape != self._df.shape:
             raise ValueError('Cannot compare Metrics of different lengths.')
         error = np.abs(self._df - truth._df) / truth._df
-        for key in self.summed_vars:
-            error[key] = error[key] * truth._df[key]
         return error
 
     def __str__(self) -> str:

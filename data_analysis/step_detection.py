@@ -1,12 +1,13 @@
 import os
 import numpy as np
 import pandas as pd
+import plotly.express as px
 import plotly.graph_objects as go
 from dataclasses import dataclass
 from plotly.subplots import make_subplots
 from typing import List, Tuple
 
-from data_types import Metrics, Recording, concat_metrics
+from data_types import Metrics, Recording, RecordingEnvironment, concat_metrics
 
 
 class DataHandler:
@@ -219,6 +220,7 @@ class StepDetector(TimeSeriesProcessor):
         noise_std = np.std(self._noise)
         confirmed_threshold = c*max_sig + (1-c)*noise_max
         uncertain_threshold = u1*max_sig + (1-u1)*noise_max + u2*noise_std + u3
+        # TODO: Uncertain threshold is sometimes above confirmed threshold
         assert uncertain_threshold <= confirmed_threshold, f"Uncertain threshold ({uncertain_threshold}) must be less than confirmed threshold ({confirmed_threshold})"
         return uncertain_threshold, confirmed_threshold
 
@@ -433,8 +435,8 @@ class AnalysisController(MetricAnalyzer):
         )
         super().__init__(self._detector)
 
-    def get_metrics(self, *datasets: Recording, **kwargs) -> Tuple[Metrics, Metrics, pd.DataFrame]:
-        """Analyzes a sequence of recording and returns metrics"""
+    def get_metrics(self, *datasets: Recording, plot=True, **kwargs) -> Tuple[Metrics, Metrics, pd.DataFrame]:
+        """Analyzes a sequence of recordings and returns metrics"""
         measured_sets, source_of_truth_sets, algorithm_errors = [], [], []
         for data in datasets:
             measured, source_of_truth, algorithm_error = self._get_metrics(data, **kwargs)
@@ -444,7 +446,50 @@ class AnalysisController(MetricAnalyzer):
         measured = concat_metrics(measured_sets)
         source_of_truth = concat_metrics(source_of_truth_sets)
         algorithm_error = pd.concat(algorithm_errors)
+        if plot:
+            err = measured.error(source_of_truth)
+            err.index = [d.filepath for d in datasets]
+            err_series = err.melt(value_name="error", var_name="metric")
+            err_series.dropna(inplace=True)
+            fig = px.box(err_series, x="metric", y="error", points="all", title="Metric Error Distribution", labels={"error": "Error (%)", "metric": "Metric"})
+            fig.show()
+            fig = self._plot_error_vs_env(err, datasets)
         return measured, source_of_truth, algorithm_error
+
+    def _plot_error_vs_env(self, err, datasets: List[Recording], show=True):
+        """Plot showing grouped box plots of average metric error, grouped by each recording environment variables"""
+        varied_vars = self._get_varied_env_vars(datasets)
+        env_df = self._get_env_df(datasets)
+        df = pd.concat([env_df, err], axis=1)
+        fig = make_subplots(rows=len(varied_vars), cols=1, subplot_titles=[f"{key} comparison" for key in varied_vars])
+        fig.update_layout(title="Metric Error Distribution")
+        for i, (env_var, values) in enumerate(varied_vars.items(), start=1):
+            for value in values:
+                subset = df[df[env_var] == value]
+                subset.drop(env_df.columns, axis=1, inplace=True)
+                subset = subset.melt(value_name="error", var_name="metric")
+                fig.add_box(x=subset["metric"], y=subset["error"], name=f"{env_var} = {value}", boxpoints="all", row=i, col=1)
+        if show:
+            fig.show()
+        return fig
+
+    @staticmethod
+    def _get_env_df(datasets: List[Recording]) -> pd.DataFrame:
+        """Returns a dataframe of environmental variables. Each row corresponds to a recording. Each column corresponds to an environmental variable."""
+        env_dicts = {d.filepath: d.env.to_dict() for d in datasets}
+        env_df = pd.DataFrame(env_dicts).T
+        return env_df
+
+    @staticmethod
+    def _get_varied_env_vars(datasets: List[Recording]) -> dict[str, list[str]]:
+        """Returns a dictionary of environmental variables that vary across datasets"""
+        env_vars = {key: [] for key in RecordingEnvironment.__annotations__}
+        for data in datasets:
+            for key, value in data.env.to_dict().items():
+                if value is not None and value not in env_vars[key]:
+                    env_vars[key].append(value)
+        varied_vars = {key: value for key, value in env_vars.items() if len(value) > 1}
+        return varied_vars
 
     def _get_metrics(self, data: Recording, **kwargs):
         """Analyzes a recording and returns metrics"""
