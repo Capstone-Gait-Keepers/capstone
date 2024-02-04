@@ -85,7 +85,7 @@ class TimeSeriesProcessor:
         Returns
         -------
         np.ndarray
-            Windowed time series
+            Windowed time series, of shape (n_windows, window_size)
         """
         if stride is None:
             stride = window_size
@@ -153,8 +153,13 @@ class StepDetector(TimeSeriesProcessor):
 
     def get_step_groups(self, ts: np.ndarray, **kwargs) -> List[np.ndarray]:
         """
-        Analyzes a recording and returns a dictionary of metrics
+        Analyzes time series and returns a list of step groups
         """
+        if ts[-1] is None:
+            ts = ts[:-1]
+            print("Warning: removed last value from time series because it was None")
+        if None in ts:
+            raise ValueError("Time series must not contain None values")
         steps, uncertain_steps = self._find_steps(ts, **kwargs)
         step_groups = self._resolve_step_sections(steps, uncertain_steps)
         return step_groups
@@ -221,6 +226,8 @@ class StepDetector(TimeSeriesProcessor):
         confirmed_threshold = c*max_sig + (1-c)*noise_max
         uncertain_threshold = u1*max_sig + (1-u1)*noise_max + u2*noise_std + u3
         # TODO: Uncertain threshold is sometimes above confirmed threshold
+        if uncertain_threshold > confirmed_threshold:
+            uncertain_threshold = confirmed_threshold * 0.9
         assert uncertain_threshold <= confirmed_threshold, f"Uncertain threshold ({uncertain_threshold}) must be less than confirmed threshold ({confirmed_threshold})"
         return uncertain_threshold, confirmed_threshold
 
@@ -253,6 +260,8 @@ class StepDetector(TimeSeriesProcessor):
             section_indices[i] = current_section
         steps = pd.DataFrame({'confirmed': confirmed, 'section': section_indices}, index=confirmed.index)
         steps = steps[steps.confirmed] # Ignore unconfirmed steps that were not upgraded
+        if not len(steps):
+            return []
         steps = steps.groupby('section').filter(lambda x: len(x) >= 3) # Ignore sections with less than 3 steps
         sections = [group.index.values for _, group in steps.groupby('section')]
 
@@ -437,6 +446,8 @@ class AnalysisController(MetricAnalyzer):
 
     def get_metrics(self, *datasets: Recording, plot=True, **kwargs) -> Tuple[Metrics, Metrics, pd.DataFrame]:
         """Analyzes a sequence of recordings and returns metrics"""
+        if not len(datasets):
+            raise ValueError("No datasets provided")
         measured_sets, source_of_truth_sets, algorithm_errors = [], [], []
         for data in datasets:
             measured, source_of_truth, algorithm_error = self._get_metrics(data, **kwargs)
@@ -481,12 +492,12 @@ class AnalysisController(MetricAnalyzer):
         return env_df
 
     @staticmethod
-    def _get_varied_env_vars(datasets: List[Recording]) -> dict[str, list[str]]:
+    def _get_varied_env_vars(datasets: List[Recording], exclude=['notes']) -> dict[str, list[str]]:
         """Returns a dictionary of environmental variables that vary across datasets"""
         env_vars = {key: [] for key in RecordingEnvironment.__annotations__}
         for data in datasets:
             for key, value in data.env.to_dict().items():
-                if value is not None and value not in env_vars[key]:
+                if value is not None and value not in env_vars[key] and key not in exclude:
                     env_vars[key].append(value)
         varied_vars = {key: value for key, value in env_vars.items() if len(value) > 1}
         return varied_vars
@@ -565,8 +576,6 @@ if __name__ == "__main__":
 
     # DataHandler().plot(walk_speed='normal', user='ron', footwear='socks', wall_radius=1.89)
 
-    # Get average metric error
     # walk_type='normal', user='ron', wall_radius=1.89 -> 5.6% cadence, fucked STGA
-    datasets = DataHandler().get(walk_type='shuffle', user='ron', wall_radius=1.89)
+    datasets = DataHandler().get(user='ron', location='Aarons Studio')
     measured, truth, alg_err = controller.get_metrics(*datasets)
-
