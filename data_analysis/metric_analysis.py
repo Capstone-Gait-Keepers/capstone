@@ -12,13 +12,13 @@ class MetricAnalyzer:
     def __init__(self, step_detector: StepDetector) -> None:
         self._detector = step_detector
 
-    def analyze(self, *vibes: np.ndarray, **kwargs) -> Metrics:
+    def analyze(self, *vibes: np.ndarray, plot=False) -> Metrics:
         """
         Analyzes a recording and returns a dictionary of metrics
         """
         step_groups = []
         for ts in vibes:
-            step_groups.extend(self._detector.get_step_groups(ts, **kwargs))
+            step_groups.extend(self._detector.get_step_groups(ts, plot))
         if not len(step_groups):
             raise ValueError("No valid step sections found")
         return Metrics(*step_groups)
@@ -39,16 +39,14 @@ class AnalysisController(MetricAnalyzer):
         )
         super().__init__(self._detector)
 
-    def get_metrics(self, *datasets: Recording, plot_dist=True, plot_vs_env=False, **kwargs) -> Tuple[Metrics, Metrics, pd.DataFrame]:
+    def get_metrics(self, datasets: List[Recording], plot_dist=False, plot_vs_env=False, plot_signals=False) -> Tuple[Metrics, Metrics, pd.DataFrame]:
         """Analyzes a sequence of recordings and returns metrics"""
         if not len(datasets):
             raise ValueError("No datasets provided")
-        measured_sets, source_of_truth_sets, algorithm_errors = [], [], []
-        for data in datasets:
-            measured, source_of_truth, algorithm_error = self._get_metrics(data, **kwargs)
-            measured_sets.append(measured)
-            source_of_truth_sets.append(source_of_truth)
-            algorithm_errors.append(algorithm_error)
+        if not all(isinstance(data, Recording) for data in datasets):
+            raise ValueError("All datasets must be of type Recording")
+        results = [self.get_recording_metrics(data, plot=plot_signals) for data in datasets]
+        measured_sets, source_of_truth_sets, algorithm_errors = zip(*results)
         measured = concat_metrics(measured_sets)
         source_of_truth = concat_metrics(source_of_truth_sets)
         algorithm_error = pd.concat(algorithm_errors)
@@ -99,14 +97,11 @@ class AnalysisController(MetricAnalyzer):
         varied_vars = {key: value for key, value in env_vars.items() if len(value) > 1}
         return varied_vars
 
-    def _get_metrics(self, data: Recording, **kwargs):
+    def get_recording_metrics(self, data: Recording, plot=False) -> Tuple[Metrics, Metrics, pd.DataFrame]:
         """Analyzes a recording and returns metrics"""
-        measured = Metrics()
-        predicted_steps = []
-        step_groups = self._detector.get_step_groups(data.ts, **kwargs)
-        if len(step_groups):
-            measured = Metrics(*step_groups)
-            predicted_steps = np.concatenate(step_groups)
+        step_groups = self._detector.get_step_groups(data.ts, plot)
+        predicted_steps = np.concatenate(step_groups) if len(step_groups) else []
+        measured = Metrics(*step_groups)
         correct_steps = self._get_step_timestamps(data)
         algorithm_error = self._get_algorithm_error(predicted_steps, correct_steps)
         source_of_truth = Metrics(correct_steps)
@@ -166,13 +161,18 @@ class AnalysisController(MetricAnalyzer):
 
 
 if __name__ == "__main__":
-    model_data = Recording.from_file('datasets/2023-11-09_18-42-33.yaml')
-    controller = AnalysisController(model_data)
-    # data = Recording.from_file('datasets/2023-11-09_18-46-43.yaml')
-    # controller.get_metric_error(data, plot=True)
-
     # DataHandler().plot(walk_speed='normal', user='ron', footwear='socks', wall_radius=1.89)
 
-    # walk_type='normal', user='ron', wall_radius=1.89 -> 5.6% cadence, fucked STGA
+    model_data = Recording.from_file('datasets/2023-11-09_18-42-33.yaml')
+    controller = AnalysisController(model_data)
     datasets = DataHandler().get(user='ron', location='Aarons Studio')
-    measured, truth, alg_err = controller.get_metrics(*datasets)
+    controller.get_metrics(datasets, plot_dist=True)
+
+    bad_recordings = [
+        'datasets/2023-11-09_18-54-28.yaml',
+        'datasets/2023-11-09_18-42-33.yaml',
+        'datasets/2023-11-09_18-44-35.yaml',
+    ]
+
+    datasets = [Recording.from_file(f) for f in bad_recordings]
+    controller.get_metrics(datasets, plot_signals=True)

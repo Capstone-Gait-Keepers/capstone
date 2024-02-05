@@ -150,7 +150,7 @@ class StepDetector(TimeSeriesProcessor):
         if freq_weights is not None and len(freq_weights) != len(self.get_window_fft_freqs(window_duration)):
             raise ValueError(f"Length of freq_weights ({len(freq_weights)}) must match the window duration ({window_duration})")
 
-    def get_step_groups(self, ts: np.ndarray, **kwargs) -> List[np.ndarray]:
+    def get_step_groups(self, ts: np.ndarray, plot=False) -> List[np.ndarray]:
         """
         Analyzes time series and returns a list of step groups
         """
@@ -159,7 +159,7 @@ class StepDetector(TimeSeriesProcessor):
             print("Warning: removed last value from time series because it was None")
         if None in ts:
             raise ValueError("Time series must not contain None values")
-        steps, uncertain_steps = self._find_steps(ts, **kwargs)
+        steps, uncertain_steps = self._find_steps(ts, plot)
         step_groups = self._resolve_step_sections(steps, uncertain_steps)
         return step_groups
 
