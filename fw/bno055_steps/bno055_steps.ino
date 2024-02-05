@@ -114,6 +114,7 @@ void running_mode() {
         Serial.println(json);
         send_data(json);
         post_data_ready = false;
+        post_data = "";
         i_timer.enableTimer();
     }
     start_buffer_index = (start_buffer_index + 1) % START_BUFFER_SAMPLES; // Move to the next index, modulus handle wraparound

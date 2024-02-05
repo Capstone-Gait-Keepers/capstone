@@ -2,6 +2,7 @@ import serial
 import requests
 import time
 from json import loads
+import json
 
 START_SIGNAL = b'BEGIN_TRANSMISSION'
 
@@ -19,10 +20,10 @@ def serial_bridge(serial_port='/dev/cu.usbserial-0001', baud_rate=115200):
                 time.sleep(0.05)
             line = b''
             url = ser.readline().decode().strip()
-            json = loads(ser.readline().strip())
-            print(f"URL: {url}\nJSON: {json}")
+            json_data = json.loads(ser.readline().strip())
+            print(f"URL: {url}\nJSON: {json_data}")
             # TODO: Validate JSON and url
-            resp = requests.post(url, json=json)
+            resp = requests.post(url, json=json_data)
             print(f"{resp.status_code}: {resp.text}")
 
         # TODO: Confirm error handling works
