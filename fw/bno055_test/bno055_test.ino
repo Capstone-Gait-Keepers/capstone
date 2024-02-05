@@ -38,22 +38,7 @@ boolean button_pressed_last = false; // Flag to indicate if button was pressed l
 int interrupt_interval = 10000; // Interval (sample rate) for timer interrupt in microseconds
 int scale = 10; // Scale factor for acceleration, currently not used
 
-// Displays some basic information on the sensor from the unified sensor API sensor_t type (see Adafruit_Sensor for more information)
-void displaySensorDetails(void)
-{
-  sensor_t sensor;
-  bno.getSensor(&sensor);
-  Serial.println("------------------------------------");
-  Serial.print  ("Sensor:       "); Serial.println(sensor.name);
-  Serial.print  ("Driver Ver:   "); Serial.println(sensor.version);
-  Serial.print  ("Unique ID:    "); Serial.println(sensor.sensor_id);
-  Serial.print  ("Max Value:    "); Serial.print(sensor.max_value); Serial.println(" xxx");
-  Serial.print  ("Min Value:    "); Serial.print(sensor.min_value); Serial.println(" xxx");
-  Serial.print  ("Resolution:   "); Serial.print(sensor.resolution); Serial.println(" xxx");
-  Serial.println("------------------------------------");
-  Serial.println("");
-  delay(500);
-}
+
 // Interrupt handler for timer
 void ICACHE_RAM_ATTR TimerHandler(void)
 {
@@ -66,52 +51,38 @@ void ICACHE_RAM_ATTR TimerHandler(void)
 void setup(void)
 {
   Serial.begin(115200);
-  Serial.println("Orientation Sensor Test"); Serial.println("");
+  Serial.println("FW: Sample Collection\n");
 
-  // Initialise the sensor
-  if(!bno.begin())
-  {
-    /* There was a problem detecting the BNO055 ... check your connections */
-    Serial.print("Ooops, no BNO055 detected ... Check your wiring or I2C ADDR!");
+  if(!bno.begin()) {
+    Serial.println("Ooops, no BNO055 detected ... Check your wiring or I2C ADDR!");
     while(1);
   }
+  delay(1000);
+  bno.setExtCrystalUse(true);
 
   pinMode(BUTTON_PIN, INPUT);
-  
-  delay(1000);
-
-  /* Use external crystal for better accuracy */
-  bno.setExtCrystalUse(true);
-   
-  /* Display some basic information on this sensor */
-  displaySensorDetails();
-
-  // Setup Timer
   i_timer.attachInterruptInterval(interrupt_interval, TimerHandler);
   i_timer.enableTimer();
 }
 
 void loop(void)
 {
-  if (digitalRead(BUTTON_PIN) == LOW) {   // Check if button is pressed
+  if (digitalRead(BUTTON_PIN) == LOW) { // Check if button is pressed
     button_pressed = true;
   }
-  else if (button_pressed_last){   // reset button_pressed_last to false once button is released
+  else if (button_pressed_last) { // reset button_pressed_last to false once button is released
     button_pressed_last = false;
   }
   else {
     button_pressed = false;
   }
   if (start_sampling) {
-    // Get a new sensor event for linear acceleration
-    sensors_event_t event;
-    bno.getEvent(&event, Adafruit_BNO055::VECTOR_LINEARACCEL);
+    double vertical_accel = getVerticalAcceleration();
     start_sampling = false;
-
     // Print in format: timestamp, acceleration, event
     Serial.print(millis());
     Serial.print(",");
-    Serial.print(event.acceleration.z);
+    Serial.print(vertical_accel);
     Serial.print(",");
     // Print event only if button is pressed, else print space
     if (button_pressed && !button_pressed_last){
@@ -123,4 +94,11 @@ void loop(void)
       Serial.println(" ");
     }
   }
+}
+
+double getVerticalAcceleration() {
+  imu::Vector<3> accel = bno.getVector(Adafruit_BNO055::VECTOR_LINEARACCEL);
+  imu::Vector<3> grav = bno.getVector(Adafruit_BNO055::VECTOR_GRAVITY);
+  grav.normalize();
+  return accel.dot(grav);
 }

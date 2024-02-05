@@ -13,8 +13,7 @@ float max_amp = 0;
 int calibration_index = 0;
 
 void calibration_mode() {
-    if (start_sampling)
-    {
+    if (start_sampling) {
         start_sampling = false; // Reset flag for interrupt handler
         if (calibration_index == 0) {
             Serial.println("CALIBRATION MODE");
@@ -27,9 +26,7 @@ void calibration_mode() {
         }
         // Run calibration. Gather data and set the thresholds for good samples based on the max amplitude
         if (calibration_index < CALIBRATION_TIME * SAMPLE_RATE) {
-            sensors_event_t event; 
-            bno.getEvent(&event, Adafruit_BNO055::VECTOR_LINEARACCEL); // Get a new sensor event for linear acceleration
-            float accel_z = event.acceleration.z; // Get z component of acceleration
+            float accel_z = getVerticalAcceleration();
             if (abs(accel_z) > max_amp) { // Update max amplitude
                 max_amp = abs(accel_z);
             }

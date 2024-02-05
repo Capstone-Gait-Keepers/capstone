@@ -1,9 +1,12 @@
 
 import numpy as np
+import pandas as pd
 from copy import deepcopy
 from dataclasses import dataclass, field, asdict
 from pathlib import Path
 from ruamel.yaml import YAML
+from scipy.signal import hilbert
+from scipy.stats import entropy
 from typing import Optional
 
 
@@ -81,6 +84,7 @@ class Recording:
     @classmethod
     def from_dict(cls, data: dict):
         env = RecordingEnvironment(**data['env'])
+        env.path = WalkPath(**data['env']['path'])
         events = [Event(**event) for event in data['events']]
         return cls(env, events, np.asarray(data['ts']))
 
@@ -97,66 +101,148 @@ class Recording:
 
 
 class Metrics:
-    _metric_names = ['STGA', 'cadence']
+    """
+    A collection of the following gait metrics:
 
-    def __init__(self, timestamps = []):
-        self.sections = 1
-        self.step_count = len(timestamps)
-        self.STGA = self._get_STGA(timestamps)
-        self.cadence = self._get_cadence(timestamps)
-        # self.gait_type = self._get_gait_type(timestamps)
+    - Step Count: Total number of steps recorded.
+    - Stride Time Gait Asymmetry (STGA): A measure of the difference in stride time between the left and right legs.
+    - Stride Time: The average time between steps of the same foot.
+    - Cadence: The average number of steps per second.
+    - Stride Time Coefficient of Variation: A measure of the regularity of the stride time. Low values indicate high regularity, which is good.
+    - Stride Time Phase Synchronization Index: A measure of the phase synchronization between the left and right legs. High values indicate high phase synchronization, which is good.
+    - Stride Time Conditional Entropy: A measure of the regularity of the stride time. Low values indicate high regularity, which is good
+    """
 
-    def _get_STGA(self, timestamps: np.ndarray):
+    summed_vars = set(['step_count'])
+
+    def __init__(self, *timestamp_groups: np.ndarray, recording_id=0):
+        func_map = {
+            'step_count': len,
+            'STGA': self._get_STGA,
+            'stride_time': lambda x: np.mean(self._get_stride_times(x)),
+            'cadence': self._get_cadence,
+            'var_coef': lambda x: self._get_var_coef(self._get_stride_times(x)),
+            'phase_sync': self._get_phase_sync,
+            'conditional_entropy': self._get_conditional_entropy,
+        }
+        self.keys = list(func_map.keys())
+        if len(timestamp_groups) == 0:
+            self._df = pd.DataFrame({key: [np.nan] for key in self.keys})
+            return
+        data = {key: [func_map[key](timestamps) for timestamps in timestamp_groups] for key in self.keys}
+        self._df = pd.DataFrame.from_dict(data)
+        self._df['recording_id'] = [recording_id] * len(self._df)
+
+    def __getitem__(self, key):
+        if len(self._df) == 0:
+            return np.nan
+        if key in self.summed_vars:
+            return np.sum(self._df[key].values)
+        return np.average(self._df[key].values, weights=self._df['step_count'].values)
+
+    def __len__(self):
+        return len(self._df)
+
+    @staticmethod
+    def _get_STGA(timestamps: np.ndarray):
         if len(timestamps) < 3:
             return np.nan
-        step_durations = np.diff(timestamps)
+        # TODO: Update stride time definition
+        stride_times = Metrics._get_stride_times(timestamps)
         # TODO: Does this match literature?
         # https://citeseerx.ist.psu.edu/document?repid=rep1&type=pdf&doi=aeee9316f2a72d0f89e59f3c5144bf69a695730b
-        return np.abs(np.mean(step_durations[1:] / step_durations[:-1]) - 1) / np.mean(step_durations)
+        return np.abs(np.mean(stride_times[1:] / stride_times[:-1]) - 1) / np.mean(stride_times)
 
-    def _get_cadence(self, timestamps: np.ndarray):
+    @staticmethod
+    def _get_cadence(timestamps: np.ndarray):
         if len(timestamps) < 2:
             return np.nan
         return 1 / np.mean(np.diff(timestamps))
+    
+    @staticmethod
+    def _get_stride_times(timestamps: np.ndarray):
+        if len(timestamps) < 2:
+            return np.nan
+        # TODO: Update stride time definition
+        return np.diff(timestamps)
 
-    def _get_gait_type(self, timestamps: np.ndarray):
-        raise NotImplementedError()
+    @staticmethod
+    def _get_var_coef(dist):
+        """General formula for coefficient of variation"""
+        return np.std(dist) / np.mean(dist)
+
+    @staticmethod
+    def _get_phase_sync(timestamps: np.ndarray, num_bins=40):
+        if len(timestamps) < 4:
+            return np.nan
+        if len(timestamps) % 2 != 0:
+            timestamps = np.copy(timestamps)[:-1]
+        timestamps_right_foot = timestamps[1::2]
+        timestamps_left_foot = timestamps[::2]
+        analytic_signal1 = hilbert(timestamps_left_foot)
+        analytic_signal2 = hilbert(timestamps_right_foot)
+        phase1 = np.unwrap(np.angle(analytic_signal1))
+        phase2 = np.unwrap(np.angle(analytic_signal2))
+        phase_difference = phase1 - phase2
+        H = Metrics._calculate_shannon_entropy(phase_difference, num_bins)
+        H_max = np.log2(num_bins)
+        return (H_max - H) / H_max
+
+    # https://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=7247739
+    @staticmethod
+    def _get_conditional_entropy(timestamps: np.ndarray):
+        if len(timestamps) < 4:
+            return np.nan
+        timestamps_left_foot = timestamps[::2]
+        timestamps_right_foot = timestamps[1::2]
+        stride_times_left_foot = np.diff(timestamps_left_foot)
+        stride_times_right_foot = np.diff(timestamps_right_foot)
+        shannon_entropy_left_foot = Metrics._calculate_shannon_entropy(stride_times_left_foot)
+        shannon_entropy_right_foot = Metrics._calculate_shannon_entropy(stride_times_right_foot)
+        return (shannon_entropy_left_foot + shannon_entropy_right_foot) / 2
+
+    @staticmethod
+    def _calculate_shannon_entropy(stride_times: np.ndarray, num_bins=40):
+        counts, _ = np.histogram(stride_times, bins=num_bins)
+        probabilities = counts / sum(counts)
+        return entropy(probabilities, base=2)
 
     def __add__(self, other: 'Metrics'):
         """Combines two Metrics objects by averaging their values."""
         if not isinstance(other, Metrics):
             raise ValueError('Can only add Metrics to Metrics.')
-        for key in self.__dict__.keys():
-            if key in self._metric_names:
-                if self.__dict__[key] == np.nan:
-                    self.__dict__[key] = other.__dict__[key]
-                elif other.__dict__[key] != np.nan:
-                    self.__dict__[key] = np.average([self.__dict__[key], other.__dict__[key]], weights=[self.step_count, other.step_count])
-            else:
-                self.__dict__[key] += other.__dict__[key]
-        self.sections += 1
+        if not len(self):
+            return other
+        if not len(other):
+            return self
+        self._df = pd.concat([self._df, other._df])
         return self
 
-    def error(self, truth: 'Metrics') -> 'MetricsError':
-        """Returns the % error between two Metrics objects."""
+    def error(self, truth: 'Metrics') -> pd.DataFrame:
+        """Returns the % error between two Metrics objects. Groups by recording_id."""
         if not isinstance(truth, Metrics):
             raise ValueError('Can only compare Metrics to Metrics.')
-        error = Metrics()
-        for key in self.__dict__.keys():
-            if key in self._metric_names:
-                error.__dict__[key] = np.abs(self.__dict__[key] - truth.__dict__[key]) / truth.__dict__[key]
-            else:
-                error.__dict__[key] = np.abs(self.__dict__[key] - truth.__dict__[key])
+        if len(truth) != self._df['recording_id'].nunique():
+            raise ValueError(f'Cannot compare Metrics of different lengths. {len(truth)} != {self._df["recording_id"].nunique()} ({len(self)})')
+        metric_groups = self._df.groupby('recording_id').mean()
+        metric_groups = metric_groups.filter(items=self.keys, axis=1)
+        truth_groups = truth._df.groupby('recording_id').mean()
+        truth_groups = truth_groups.filter(items=self.keys, axis=1)
+        error = np.abs(metric_groups - truth_groups) / truth_groups
         return error
 
     def __str__(self) -> str:
-        metrics = [f'{key}: {value:.3f}' for key, value in self.__dict__.items()]
-        return ', '.join(metrics)
+        return str(self._df)
 
-# TODO: Convert to a panda dataframe, not a unique class
-class MetricsError(Metrics):
-    def error(self, truth: Metrics):
-        raise NotImplementedError('Cannot compare MetricsError to MetricsError.')
-    
-    def __add__(self, other: Metrics):
-        raise NotImplementedError('Cannot add MetricsError to MetricsError.')
+# TODO: Why can't I just do sum :(
+def concat_metrics(metrics_list: list[Metrics]) -> Metrics:
+    """Concatenates a list of Metrics objects into one."""
+    if not len(metrics_list):
+        raise ValueError('Cannot concatenate an empty list of Metrics.')
+    for i, m in enumerate(metrics_list):
+        if not isinstance(m, Metrics):
+            raise ValueError('Can only concatenate Metrics objects.')
+        m._df['recording_id'] = [i] * len(m._df)
+    m = metrics_list[0]
+    m._df = pd.concat([new_m._df for new_m in metrics_list])
+    return m

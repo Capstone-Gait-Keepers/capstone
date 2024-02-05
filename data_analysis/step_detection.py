@@ -4,22 +4,22 @@ import pandas as pd
 import plotly.graph_objects as go
 from dataclasses import dataclass
 from plotly.subplots import make_subplots
-from typing import Dict, List, Tuple, Optional
+from typing import List, Tuple
 
-from data_types import Metrics, Recording
+from data_types import Recording
 
 
 class DataHandler:
     def __init__(self, folder = "datasets") -> None:
         self.folder = folder
 
-    def get(self, **filters) -> Dict[str, Recording]:
+    def get(self, **filters) -> List[Recording]:
         """Walk through datasets folder and return all records that match the filters"""
         filepaths = [file for root, dirs, files in os.walk(self.folder) for file in files if file.endswith(".yaml")]
         filepaths.remove('example.yaml')
-        datasets = {filename: Recording.from_file(os.path.join(self.folder, filename)) for filename in filepaths}
+        datasets = [Recording.from_file(os.path.join(self.folder, filename)) for filename in filepaths]
         for key, value in filters.items():
-            datasets = {filename: dataset for filename, dataset in datasets.items() if getattr(dataset.env, key) == value}
+            datasets = [d for d in datasets if getattr(d.env, key) == value]
         return datasets
 
     def plot(self, clip=False, truth=True, **filters):
@@ -84,7 +84,7 @@ class TimeSeriesProcessor:
         Returns
         -------
         np.ndarray
-            Windowed time series
+            Windowed time series, of shape (n_windows, window_size)
         """
         if stride is None:
             stride = window_size
@@ -150,11 +150,16 @@ class StepDetector(TimeSeriesProcessor):
         if freq_weights is not None and len(freq_weights) != len(self.get_window_fft_freqs(window_duration)):
             raise ValueError(f"Length of freq_weights ({len(freq_weights)}) must match the window duration ({window_duration})")
 
-    def get_step_groups(self, ts: np.ndarray, **kwargs) -> List[np.ndarray]:
+    def get_step_groups(self, ts: np.ndarray, plot=False) -> List[np.ndarray]:
         """
-        Analyzes a recording and returns a dictionary of metrics
+        Analyzes time series and returns a list of step groups
         """
-        steps, uncertain_steps = self._find_steps(ts, **kwargs)
+        if ts[-1] is None:
+            ts = ts[:-1]
+            print("Warning: removed last value from time series because it was None")
+        if None in ts:
+            raise ValueError("Time series must not contain None values")
+        steps, uncertain_steps = self._find_steps(ts, plot)
         step_groups = self._resolve_step_sections(steps, uncertain_steps)
         return step_groups
 
@@ -219,6 +224,9 @@ class StepDetector(TimeSeriesProcessor):
         noise_std = np.std(self._noise)
         confirmed_threshold = c*max_sig + (1-c)*noise_max
         uncertain_threshold = u1*max_sig + (1-u1)*noise_max + u2*noise_std + u3
+        # TODO: Uncertain threshold is sometimes above confirmed threshold
+        if uncertain_threshold > confirmed_threshold:
+            uncertain_threshold = confirmed_threshold * 0.9
         assert uncertain_threshold <= confirmed_threshold, f"Uncertain threshold ({uncertain_threshold}) must be less than confirmed threshold ({confirmed_threshold})"
         return uncertain_threshold, confirmed_threshold
 
@@ -251,31 +259,13 @@ class StepDetector(TimeSeriesProcessor):
             section_indices[i] = current_section
         steps = pd.DataFrame({'confirmed': confirmed, 'section': section_indices}, index=confirmed.index)
         steps = steps[steps.confirmed] # Ignore unconfirmed steps that were not upgraded
+        if not len(steps):
+            return []
         steps = steps.groupby('section').filter(lambda x: len(x) >= 3) # Ignore sections with less than 3 steps
         sections = [group.index.values for _, group in steps.groupby('section')]
 
         # TODO: Set hard bounds on min/max step delta, cadence and asymmetry and ignore sections that don't meet them
         return sections
-
-
-class MetricAnalyzer:
-    def __init__(self, step_detector: StepDetector) -> None:
-        self._detector = step_detector
-
-    def analyze(self, *vibes: np.ndarray, **kwargs) -> Metrics:
-        """
-        Analyzes a recording and returns a dictionary of metrics
-        """
-        step_groups = []
-        for ts in vibes:
-            step_groups.extend(self._detector.get_step_groups(ts, **kwargs))
-        if not len(step_groups):
-            raise ValueError("No valid step sections found")
-        return self.get_metrics(step_groups)
-
-    @staticmethod
-    def get_metrics(step_groups: List[np.ndarray]) -> Metrics:
-        return np.sum([Metrics(group) for group in step_groups])
 
 
 @dataclass
@@ -420,116 +410,3 @@ class ParsedRecording(Recording):
             fig.update_yaxes(title_text="Energy")
             fig.show()
         return step_model
-
-
-class AnalysisController(MetricAnalyzer):
-    def __init__(self, model: Recording, window_duration=0.2) -> None:
-        self.model = ParsedRecording.from_recording(model)
-        weights = self.model.get_frequency_weights(window_duration, plot=False)
-        noise = self.model.get_noise()
-        step_model = self.model.get_step_model(window_duration, plot_model=False, plot_steps=False)
-        self._detector = StepDetector(
-            fs=self.model.env.fs,
-            window_duration=window_duration,
-            noise_profile=noise,
-            # step_model=step_model,
-            freq_weights=weights
-        )
-        super().__init__(self._detector)
-
-    def analyze_recording(self, data: Recording, **kwargs):
-        """Analyzes a recording and returns a dictionary of metrics"""
-        step_groups = self._detector.get_step_groups(data.ts, **kwargs)
-        if not len(step_groups):
-            raise ValueError("No valid step sections found")
-        correct_steps = self._get_step_timestamps(data)
-        measured = self.get_metrics(step_groups)
-        metric_error = self._get_metric_error(step_groups, [correct_steps])
-        algorithm_error = self._get_algorithm_error(np.concatenate(step_groups), correct_steps)
-        print("Measured Metrics")
-        print(measured)
-        print("Correct Metrics")
-        print(AnalysisController.get_metrics([correct_steps]))
-        print("Metric Error")
-        print(metric_error)
-        print("Algorithm Error")
-        print(', '.join([f'{key}: {value:.3f}' for key, value in algorithm_error.items()]))
-
-    @staticmethod
-    def _get_step_timestamps(data: Recording) -> List[float]:
-        return [event.timestamp for event in data.events if event.category == 'step']
-
-    def get_metric_error(self, *datasets: Recording, **kwargs) -> Optional[Metrics]:
-        """Analyzes a recording and returns a dictionary of metrics"""
-        measured_step_groups = []
-        correct_step_groups = []
-        for data in datasets:
-            measured_step_groups.extend(self._detector.get_step_groups(data.ts, **kwargs))
-            correct_step_groups.append(self._get_step_timestamps(data))
-        if not len(measured_step_groups):
-            return None
-        return self._get_metric_error(measured_step_groups, correct_step_groups)
-
-    @staticmethod
-    def _get_metric_error(step_groups: List[np.ndarray], correct_times: List[np.ndarray]) -> Metrics:
-        """Analyzes a recording and returns a dictionary of metrics"""
-        measured = AnalysisController.get_metrics(step_groups)
-        source_of_truth = AnalysisController.get_metrics(correct_times)
-        print(measured)
-        print(source_of_truth)
-        return measured.error(source_of_truth)
-
-    @staticmethod
-    def _get_algorithm_error(measured_times: np.ndarray, correct_times: np.ndarray) -> dict:
-        """
-        Calculates the algorithm error of a recording. There are three types of errors:
-        - Incorrect measurements: The algorithm found a step when there was none (False Positive)
-        - Missed steps: The algorithm missed a step (False Negative)
-        - Measurement error: The algorithm found a step correctly, but at the wrong time
-
-        Parameters
-        ----------
-        measured_times : np.ndarray
-            List of timestamps where the algorithm found steps
-        correct_times : np.ndarray
-            List of step timestamps from the source of truth
-        """
-        if not len(measured_times):
-            raise ValueError("Algorithm did not find any steps")
-        missed_steps = 0
-        measurement_errors = {}
-        for step_stamp in correct_times:
-            possible_errors = np.abs(measured_times - step_stamp)
-            best_measurement = np.argmin(possible_errors)
-            # If the measurement is already the best one for another step, it means we missed this step
-            if best_measurement in measurement_errors:
-                missed_steps += 1
-            else:
-                measurement_errors[best_measurement] = possible_errors[best_measurement]
-        incorrect_measurements = len(measured_times) - len(measurement_errors)
-        errors = list(measurement_errors.values())
-        return {
-            "error": np.mean(errors),
-            "stderr": np.std(errors),
-            "incorrect": incorrect_measurements,
-            "missed": missed_steps
-        }
-
-    @staticmethod
-    def optimize_threshold_weights(datasets: List[Recording], plot=False, **kwargs) -> Tuple[float, float]:
-        raise NotImplementedError()
-
-
-
-if __name__ == "__main__":
-    model_data = Recording.from_file('datasets/2023-11-09_18-42-33.yaml')
-    controller = AnalysisController(model_data)
-    # data = Recording.from_file('datasets/2023-11-09_18-46-43.yaml')
-    # controller.get_metric_error(data, plot=True)
-
-    # DataHandler().plot(walk_speed='normal', user='ron', footwear='socks', wall_radius=1.89)
-
-    # Get average metric error
-    # walk_type='normal', user='ron', wall_radius=1.89 -> 5.6% cadence, fucked STGA
-    datasets = DataHandler().get(walk_type='shuffle', user='ron', wall_radius=1.89)
-    print(controller.get_metric_error(*datasets.values()))
