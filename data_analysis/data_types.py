@@ -113,25 +113,32 @@ class Metrics:
     - Stride Time Conditional Entropy: A measure of the regularity of the stride time. Low values indicate high regularity, which is good
     """
 
-    summed_vars = ['step_count']
+    summed_vars = set(['step_count'])
 
-    def __init__(self, *timestamp_groups: np.ndarray):
-        self._df = pd.DataFrame.from_dict(
-            {
-                'step_count': [np.sum([len(timestamps) for timestamps in timestamp_groups])],
-                'STGA': [np.mean([self._get_STGA(timestamps) for timestamps in timestamp_groups])],
-                'stride_time': [np.mean([np.mean(self._get_stride_times(timestamps)) for timestamps in timestamp_groups])],
-                'cadence': [np.mean([self._get_cadence(timestamps) for timestamps in timestamp_groups])],
-                'var_coef': [np.mean([self._get_var_coef(self._get_stride_times(timestamps)) for timestamps in timestamp_groups])],
-                'phase_sync': [np.mean([self._get_phase_sync(timestamps) for timestamps in timestamp_groups])],
-                'conditional_entropy': [np.mean([self._get_conditional_entropy(timestamps) for timestamps in timestamp_groups])],
-            }
-        )
+    def __init__(self, *timestamp_groups: np.ndarray, recording_id=0):
+        func_map = {
+            'step_count': len,
+            'STGA': self._get_STGA,
+            'stride_time': lambda x: np.mean(self._get_stride_times(x)),
+            'cadence': self._get_cadence,
+            'var_coef': lambda x: self._get_var_coef(self._get_stride_times(x)),
+            'phase_sync': self._get_phase_sync,
+            'conditional_entropy': self._get_conditional_entropy,
+        }
+        self.keys = list(func_map.keys())
+        if len(timestamp_groups) == 0:
+            self._df = pd.DataFrame({key: [np.nan] for key in self.keys})
+            return
+        data = {key: [func_map[key](timestamps) for timestamps in timestamp_groups] for key in self.keys}
+        self._df = pd.DataFrame.from_dict(data)
+        self._df['recording_id'] = [recording_id] * len(self._df)
 
     def __getitem__(self, key):
+        if len(self._df) == 0:
+            return np.nan
         if key in self.summed_vars:
             return np.sum(self._df[key].values)
-        return np.mean(self._df[key].values)
+        return np.average(self._df[key].values, weights=self._df['step_count'].values)
 
     def __len__(self):
         return len(self._df)
@@ -212,12 +219,16 @@ class Metrics:
         return self
 
     def error(self, truth: 'Metrics') -> pd.DataFrame:
-        """Returns the % error between two Metrics objects."""
+        """Returns the % error between two Metrics objects. Groups by recording_id."""
         if not isinstance(truth, Metrics):
             raise ValueError('Can only compare Metrics to Metrics.')
-        if truth._df.shape != self._df.shape:
-            raise ValueError('Cannot compare Metrics of different lengths.')
-        error = np.abs(self._df - truth._df) / truth._df
+        if len(truth) != self._df['recording_id'].nunique():
+            raise ValueError(f'Cannot compare Metrics of different lengths. {len(truth)} != {self._df["recording_id"].nunique()} ({len(self)})')
+        metric_groups = self._df.groupby('recording_id').mean()
+        metric_groups = metric_groups.filter(items=self.keys, axis=1)
+        truth_groups = truth._df.groupby('recording_id').mean()
+        truth_groups = truth_groups.filter(items=self.keys, axis=1)
+        error = np.abs(metric_groups - truth_groups) / truth_groups
         return error
 
     def __str__(self) -> str:
@@ -226,6 +237,12 @@ class Metrics:
 # TODO: Why can't I just do sum :(
 def concat_metrics(metrics_list: list[Metrics]) -> Metrics:
     """Concatenates a list of Metrics objects into one."""
+    if not len(metrics_list):
+        raise ValueError('Cannot concatenate an empty list of Metrics.')
+    for i, m in enumerate(metrics_list):
+        if not isinstance(m, Metrics):
+            raise ValueError('Can only concatenate Metrics objects.')
+        m._df['recording_id'] = [i] * len(m._df)
     m = metrics_list[0]
     m._df = pd.concat([new_m._df for new_m in metrics_list])
     return m
