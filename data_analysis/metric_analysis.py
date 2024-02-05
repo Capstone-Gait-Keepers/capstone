@@ -39,7 +39,7 @@ class AnalysisController(MetricAnalyzer):
         )
         super().__init__(self._detector)
 
-    def get_metrics(self, *datasets: Recording, plot=True, **kwargs) -> Tuple[Metrics, Metrics, pd.DataFrame]:
+    def get_metrics(self, *datasets: Recording, plot_dist=True, plot_vs_env=False, **kwargs) -> Tuple[Metrics, Metrics, pd.DataFrame]:
         """Analyzes a sequence of recordings and returns metrics"""
         if not len(datasets):
             raise ValueError("No datasets provided")
@@ -52,13 +52,15 @@ class AnalysisController(MetricAnalyzer):
         measured = concat_metrics(measured_sets)
         source_of_truth = concat_metrics(source_of_truth_sets)
         algorithm_error = pd.concat(algorithm_errors)
-        if plot:
+        if plot_dist:
             err = measured.error(source_of_truth)
             err.index = [d.filepath for d in datasets]
-            err_series = err.melt(value_name="error", var_name="metric")
-            err_series.dropna(inplace=True)
-            fig = px.box(err_series, x="metric", y="error", points="all", title="Metric Error Distribution", labels={"error": "Error (%)", "metric": "Metric"})
+            melted_err = err.melt(value_name="error", var_name="metric", ignore_index=False)
+            melted_err.dropna(inplace=True)
+            melted_err.reset_index(inplace=True)
+            fig = px.box(melted_err, x="metric", y="error", hover_data="index", points="all", title="Metric Error Distribution", labels={"error": "Error (%)", "metric": "Metric"})
             fig.show()
+        if plot_vs_env:
             self._plot_error_vs_env(err, datasets)
         return measured, source_of_truth, algorithm_error
 
