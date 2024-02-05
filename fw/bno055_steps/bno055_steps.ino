@@ -110,10 +110,11 @@ void running_mode() {
         if (post_data.endsWith(",")) {
           post_data = post_data.substring(0, post_data.length() - 1);
         }
-        String json = "{\"sensorid\":\"" + String(USER_ID) + "\",\"timestamp\":\"" + String(millis()) + "\",\"ts_data\":[" + post_data + "]}";
+        String json = "{\"sensorid\":\"" + String(USER_ID) + "\",\"timestamp\":\"" + "2024-01-01 12:00:00" + "\",\"ts_data\":[" + post_data + "]}";
         Serial.println(json);
         send_data(json);
         post_data_ready = false;
+        post_data = "";
         i_timer.enableTimer();
     }
     start_buffer_index = (start_buffer_index + 1) % START_BUFFER_SAMPLES; // Move to the next index, modulus handle wraparound
