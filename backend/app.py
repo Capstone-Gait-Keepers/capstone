@@ -27,7 +27,6 @@ DBPASS = os.getenv("PRODPASS")
 DBREGION = os.getenv("DB_REGION") 
 DBNAME = os.getenv("PRODHOST") 
 
-#_SQLALCHEMY_DATABASE_URI = f"postgresql://{DBUSER}.{DBID}:{DBPASS}@aws-0-{DBREGION}.pooler.supabase.com:6543/{DBNAME}"
 SQLALCHEMY_DATABASE_URI = f"postgresql://postgres.{DBID}:{DBPASS}@aws-0-us-east-1.pooler.supabase.com:6543/postgres"
 #SQLALCHEMY_DATABASE_URI = f"postgresql://postgres:{prodpass}@{prodhost}:5432/postgres" #old
 
@@ -37,11 +36,9 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 # database init
 db.init_app(app)
 
-
 # SSLify - for TLS security
 ## forces endpoints to use HTTPS instead of defaulting to HTTP based on client
 sslify = SSLify(app)
-
 
 # BasicAuth configuration
 # for documentation page
@@ -53,21 +50,20 @@ basic_auth = BasicAuth(app)
 app.config['MAX_CONTENT_LENGTH'] = 64 * 1024 * 1024
 
 # DATABASE MODELS FOR CONSISTENT DATA STRUCTURE:
+## Use a class to define a table structure.
+## Incoming data will be required to fit the class for consistency.
+## When the backend gets run, any non-existing tables 
+## that have a newly defined class will be (*)should be)
+## automatically created in the database.
 
-# Use a class to define a table structure.
-# Incoming data will be required to fit the class for consistency.
-# When the backend gets run, any non-existing tables 
-# that have a newly defined class will be (*)should be)
-# automatically created in the database.
-
-# sensors model - for sensor metadata
+# not in use
 class Sensors(db.Model):
     _id = db.Column("id", db.Integer, primary_key=True)
     sampling = db.Column(db.Integer)
     floor = db.Column(db.String(255))
     user = db.Column(db.String(255))
 
-# test model
+# test model - not in use
 class Test(db.Model):
     text1 = db.Column(db.String(255), primary_key=True)
     text2 = db.Column(db.String(255))
@@ -81,6 +77,7 @@ class Recordings(db.Model):
     ts_data = db.Column(db.ARRAY(db.Float))
     new_sensor = relationship('NewSensor', back_populates='recordings')
 
+# for sensor conflig
 class NewSensor(db.Model):
     __tablename__ = 'new_sensor'
     _id = db.Column("sensorid", db.Integer, primary_key=True)
