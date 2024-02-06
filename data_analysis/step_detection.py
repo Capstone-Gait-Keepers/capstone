@@ -122,12 +122,21 @@ class TimeSeriesProcessor:
         return energy
 
     @staticmethod
-    def get_peak_indices(signal: np.ndarray, threshold: float):
-        """Find the indices of the peaks in a time series above a certain threshold"""
+    def get_peak_indices(signal: np.ndarray, threshold: float, reset_threshold: float = None) -> np.ndarray:
+        """
+        Find the indices of the peaks in a time series above a certain threshold. 
+        If a reset threshold is provided, the signal must drop below it before finding another peak
+        """
         de_dt = np.gradient(signal)
         optima = np.diff(np.sign(de_dt), prepend=[0]) != 0
-        indices = np.where((signal > threshold) & optima)[0]
-        return indices
+        peak_indices = np.where((signal > threshold) & optima)[0]
+        bad_peaks = []
+        if reset_threshold is not None:
+            for peak1, peak2 in zip(peak_indices[:-1], peak_indices[1:]):
+                if not np.any(signal[peak1:peak2] < reset_threshold):
+                    bad_peaks.append(peak2)
+            peak_indices = np.setdiff1d(peak_indices, bad_peaks)
+        return peak_indices
 
 
 class StepDetector(TimeSeriesProcessor):
@@ -185,11 +194,9 @@ class StepDetector(TimeSeriesProcessor):
             energy = np.correlate(energy, self._step_model, mode='same')
             model_autocorr = np.correlate(self._step_model, self._step_model, mode='valid')
             energy /= np.max(model_autocorr)
-        confirmed_threshold, uncertain_threshold = self._get_energy_thresholds(np.max(energy))
-        confirmed_indices = self.get_peak_indices(energy, confirmed_threshold)
-        # TODO: This finds confirmed peaks as well. Fix this
-        # TODO: Add reset threshold (must drop below a certain value before finding another peak)
-        uncertain_indices = self.get_peak_indices(energy, uncertain_threshold) if uncertain_threshold is not None else []
+        confirmed_threshold, uncertain_threshold, reset_threshold = self._get_energy_thresholds(np.max(energy))
+        confirmed_indices = self.get_peak_indices(energy, confirmed_threshold, reset_threshold)
+        uncertain_indices = self.get_peak_indices(energy, uncertain_threshold, reset_threshold)
         uncertain_indices = np.setdiff1d(uncertain_indices, confirmed_indices)    
         confirmed_stamps = timestamps[confirmed_indices]
         uncertain_stamps = timestamps[uncertain_indices]
@@ -202,7 +209,7 @@ class StepDetector(TimeSeriesProcessor):
             freqs = self.get_window_fft_freqs(self._window_duration)
             fig.add_heatmap(x=timestamps, y=freqs, z=amps, row=2, col=1)
             fig.add_scatter(x=timestamps, y=energy, name='energy', showlegend=False, row=3, col=1)
-            for threshold in (confirmed_threshold, uncertain_threshold):
+            for threshold in (confirmed_threshold, uncertain_threshold, reset_threshold):
                 fig.add_hline(y=threshold, row=3, col=1)
             # TODO: Add source of truth back to plot
             # for event in data.events:
@@ -220,15 +227,20 @@ class StepDetector(TimeSeriesProcessor):
 
     # TODO: Parameterize weights of max_sig, max_noise and np.std(noise) to find optimal thresholds
     def _get_energy_thresholds(self, max_sig, c=0.7, u1=.5, u2=0, u3=0):
+        """
+        Calculates the thresholds for confirmed, uncertain and reset steps
+        based on the energy of the time series and the noise floor
+        """
         noise_max = np.max(self._noise)
         noise_std = np.std(self._noise)
         confirmed_threshold = c*max_sig + (1-c)*noise_max
         uncertain_threshold = u1*max_sig + (1-u1)*noise_max + u2*noise_std + u3
+        reset_threshold = noise_max
         # TODO: Uncertain threshold is sometimes above confirmed threshold
         if uncertain_threshold > confirmed_threshold:
             uncertain_threshold = confirmed_threshold * 0.9
         assert uncertain_threshold <= confirmed_threshold, f"Uncertain threshold ({uncertain_threshold}) must be less than confirmed threshold ({confirmed_threshold})"
-        return uncertain_threshold, confirmed_threshold
+        return uncertain_threshold, confirmed_threshold, reset_threshold
 
     @staticmethod
     def _resolve_step_sections(confirmed_stamps: np.ndarray, uncertain_stamps: np.ndarray = [], min_step_delta=0.05) -> List[np.ndarray]:
