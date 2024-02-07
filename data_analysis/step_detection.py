@@ -155,8 +155,9 @@ class StepDetector(TimeSeriesProcessor):
         self._window_duration = window_duration
         # Tresholds
         self._sig_treshold = 0.1
+        self._max_step_delta = 0.5
         self._confirm_coefs = (0.8, 0.1, 0.1, 0.1)
-        self._unconfirm_coefs = (0.9, 0.1, 0.1, 0.1)
+        self._unconfirm_coefs = (0.5, 0.1, 0.1, 0.1)
         self._reset_coefs = (0.1, 0.1, 0.1, 0.1)
         # Modelling
         self._step_model = step_model
@@ -176,6 +177,7 @@ class StepDetector(TimeSeriesProcessor):
             raise ValueError("Time series must not contain None values")
         steps, uncertain_steps = self._find_steps(ts, plot, truth)
         step_groups = self._resolve_step_sections(steps, uncertain_steps)
+        step_groups = self._enforce_step_delta_bounds(step_groups)
         return step_groups
 
     def get_energy(self, vibes: np.ndarray) -> np.ndarray:
@@ -243,7 +245,6 @@ class StepDetector(TimeSeriesProcessor):
             fig.show()
         return confirmed_stamps, uncertain_stamps
 
-    # TODO: Parameterize weights of max_sig, max_noise and np.std(noise) to find optimal thresholds
     def _get_energy_thresholds(self, max_sig: float):
         """
         Calculates the thresholds for confirmed, uncertain and reset steps
@@ -292,9 +293,23 @@ class StepDetector(TimeSeriesProcessor):
             return []
         steps = steps.groupby('section').filter(lambda x: len(x) >= 3) # Ignore sections with less than 3 steps
         sections = [group.index.values for _, group in steps.groupby('section')]
-
-        # TODO: Set hard bounds on min/max step delta, cadence and asymmetry and ignore sections that don't meet them
         return sections
+
+    def _enforce_step_delta_bounds(self, step_groups: List[np.ndarray]) -> List[np.ndarray]:
+        """Splits up steps that are too far apart"""
+        new_step_groups = []
+        for steps in step_groups:
+            step_diffs = np.diff(steps)
+            split_indices = np.where(step_diffs > self._max_step_delta)[0]
+            if len(split_indices):
+                split_indices = np.insert(split_indices, 0, 0)
+                split_indices = np.append(split_indices, len(steps))
+                for start, end in zip(split_indices[:-1], split_indices[1:]):
+                    step_groups.append(steps[start:end])
+            else:
+                step_groups.append(steps)
+        # TODO: Set hard bounds on min step delta, cadence and asymmetry and ignore sections that don't meet them
+        return new_step_groups
 
 
 @dataclass
