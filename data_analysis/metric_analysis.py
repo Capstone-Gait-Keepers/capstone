@@ -8,23 +8,7 @@ from data_types import Metrics, Recording, RecordingEnvironment, concat_metrics
 from step_detection import DataHandler, StepDetector, ParsedRecording
 
 
-class MetricAnalyzer:
-    def __init__(self, step_detector: StepDetector) -> None:
-        self._detector = step_detector
-
-    def analyze(self, *vibes: np.ndarray, plot=False) -> Metrics:
-        """
-        Analyzes a recording and returns a dictionary of metrics
-        """
-        step_groups = []
-        for ts in vibes:
-            step_groups.extend(self._detector.get_step_groups(ts, plot))
-        if not len(step_groups):
-            raise ValueError("No valid step sections found")
-        return Metrics(*step_groups)
-
-
-class AnalysisController(MetricAnalyzer):
+class AnalysisController:
     def __init__(self, model: Recording, window_duration=0.2) -> None:
         self.model = ParsedRecording.from_recording(model)
         weights = self.model.get_frequency_weights(window_duration, plot=False)
@@ -37,7 +21,6 @@ class AnalysisController(MetricAnalyzer):
             # step_model=step_model,
             freq_weights=weights
         )
-        super().__init__(self._detector)
 
     def get_metrics(self, datasets: List[Recording], plot_dist=False, plot_vs_env=False, plot_signals=False) -> Tuple[Metrics, Metrics, pd.DataFrame]:
         """Analyzes a sequence of recordings and returns metrics"""
@@ -59,6 +42,8 @@ class AnalysisController(MetricAnalyzer):
             fig = px.box(melted_err, x="metric", y="error", hover_data="index", points="all", title="Metric Error Distribution", labels={"error": "Error (%)", "metric": "Metric"})
             fig.show()
         if plot_vs_env:
+            err = measured.error(source_of_truth)
+            err.index = [d.filepath for d in datasets]
             self._plot_error_vs_env(err, datasets)
         return measured, source_of_truth, algorithm_error
 
@@ -99,7 +84,7 @@ class AnalysisController(MetricAnalyzer):
 
     def get_recording_metrics(self, data: Recording, plot=False) -> Tuple[Metrics, Metrics, pd.DataFrame]:
         """Analyzes a recording and returns metrics"""
-        step_groups = self._detector.get_step_groups(data.ts, plot)
+        step_groups = self._detector.get_step_groups(data.ts, plot, truth=self._get_step_timestamps(data))
         predicted_steps = np.concatenate(step_groups) if len(step_groups) else []
         measured = Metrics(*step_groups)
         correct_steps = self._get_step_timestamps(data)
@@ -170,7 +155,7 @@ if __name__ == "__main__":
 
     bad_recordings = [
         'datasets/2023-11-09_18-54-28.yaml',
-        'datasets/2023-11-09_18-42-33.yaml',
+        # 'datasets/2023-11-09_18-42-33.yaml',
         'datasets/2023-11-09_18-44-35.yaml',
     ]
 

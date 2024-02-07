@@ -152,14 +152,20 @@ class StepDetector(TimeSeriesProcessor):
             Weights to apply to each frequency when averaging the frequency spectrum
         """
         super().__init__(fs)
-        self._noise = self.get_energy(noise_profile)
         self._window_duration = window_duration
+        # Tresholds
+        self._sig_treshold = 0.1
+        self._confirm_coefs = (0.8, 0.1, 0.1, 0.1)
+        self._unconfirm_coefs = (0.9, 0.1, 0.1, 0.1)
+        self._reset_coefs = (0.1, 0.1, 0.1, 0.1)
+        # Modelling
         self._step_model = step_model
         self._freq_weights = freq_weights
-        if freq_weights is not None and len(freq_weights) != len(self.get_window_fft_freqs(window_duration)):
+        if freq_weights is not None and len(freq_weights) != len(self.get_window_fft_freqs()):
             raise ValueError(f"Length of freq_weights ({len(freq_weights)}) must match the window duration ({window_duration})")
+        self._noise = self.get_energy(noise_profile)
 
-    def get_step_groups(self, ts: np.ndarray, plot=False) -> List[np.ndarray]:
+    def get_step_groups(self, ts: np.ndarray, plot=False, truth=None) -> List[np.ndarray]:
         """
         Analyzes time series and returns a list of step groups
         """
@@ -168,11 +174,17 @@ class StepDetector(TimeSeriesProcessor):
             print("Warning: removed last value from time series because it was None")
         if None in ts:
             raise ValueError("Time series must not contain None values")
-        steps, uncertain_steps = self._find_steps(ts, plot)
+        steps, uncertain_steps = self._find_steps(ts, plot, truth)
         step_groups = self._resolve_step_sections(steps, uncertain_steps)
         return step_groups
 
-    def _find_steps(self, vibes: np.ndarray, plot=False) -> Tuple[np.ndarray, np.ndarray]:
+    def get_energy(self, vibes: np.ndarray) -> np.ndarray:
+        return super().get_energy(vibes, self._window_duration, weights=self._freq_weights)
+    
+    def get_window_fft_freqs(self) -> np.ndarray:
+        return super().get_window_fft_freqs(self._window_duration)
+
+    def _find_steps(self, vibes: np.ndarray, plot=False, truth=None) -> Tuple[np.ndarray, np.ndarray]:
         """
         Counts the number of steps in a time series of accelerometer data. This function should not use
         anything from `data.events` except for plotting purposes. This is because it is meant to mimic
@@ -182,11 +194,14 @@ class StepDetector(TimeSeriesProcessor):
         ----------
         data : Recording
             Time series of accelerometer data, plus the environmental data
+        plot : bool
+            Whether or not to plot the results
+        truth: Optional[List[float]]
+            Source of truth for the steps. Only used for plotting
         """
+        # Time series processing
         timestamps = np.linspace(0, len(vibes) / self.fs, len(vibes))
-        ### Time series processing
         amps = self.rolling_window_fft(vibes, self._window_duration, stride=1, ignore_dc=True)
-        ### Frequency domain processing
         # Weight average based on shape of frequency spectrum
         energy = np.average(amps, axis=0, weights=self._freq_weights)
         # Cross correlate step model with energy
@@ -194,27 +209,30 @@ class StepDetector(TimeSeriesProcessor):
             energy = np.correlate(energy, self._step_model, mode='same')
             model_autocorr = np.correlate(self._step_model, self._step_model, mode='valid')
             energy /= np.max(model_autocorr)
-        confirmed_threshold, uncertain_threshold, reset_threshold = self._get_energy_thresholds(np.max(energy))
+        max_sig = np.max(energy)
+        if max_sig < self._sig_treshold:
+            return [], []
+        # Step detection
+        confirmed_threshold, uncertain_threshold, reset_threshold = self._get_energy_thresholds(max_sig)
         confirmed_indices = self.get_peak_indices(energy, confirmed_threshold, reset_threshold)
         uncertain_indices = self.get_peak_indices(energy, uncertain_threshold, reset_threshold)
         uncertain_indices = np.setdiff1d(uncertain_indices, confirmed_indices)    
         confirmed_stamps = timestamps[confirmed_indices]
         uncertain_stamps = timestamps[uncertain_indices]
         # TODO: Find start of step within confirmed window?
-
         if plot:
             titles = ("Raw Timeseries", "Scrolling FFT", "Average Energy")
             fig = make_subplots(rows=3, cols=1, shared_xaxes=True, subplot_titles=titles)
             fig.add_scatter(x=timestamps, y=vibes, name='vibes', showlegend=False, row=1, col=1)
-            freqs = self.get_window_fft_freqs(self._window_duration)
+            freqs = self.get_window_fft_freqs()
             fig.add_heatmap(x=timestamps, y=freqs, z=amps, row=2, col=1)
             fig.add_scatter(x=timestamps, y=energy, name='energy', showlegend=False, row=3, col=1)
             for threshold in (confirmed_threshold, uncertain_threshold, reset_threshold):
                 fig.add_hline(y=threshold, row=3, col=1)
-            # TODO: Add source of truth back to plot
-            # for event in data.events:
-            #     fig.add_vline(x=event.timestamp + 0.05, line_color='green', row=1, col=1)
-            #     fig.add_annotation(x=event.timestamp + 0.05, y=0, xshift=-17, text="Step", showarrow=False, row=1, col=1)
+            if truth:
+                for timestamp in truth:
+                    fig.add_vline(x=timestamp + 0.05, line_color='green', row=1, col=1)
+                    fig.add_annotation(x=timestamp + 0.05, y=0, xshift=-17, text="Step", showarrow=False, row=1, col=1)
             for confirmed in confirmed_stamps:
                 fig.add_vline(x=confirmed, line_dash="dash", row=1, col=1)
                 fig.add_annotation(x=confirmed, y=-0.3, xshift=-10, text="C", showarrow=False, row=1, col=1)
@@ -226,19 +244,18 @@ class StepDetector(TimeSeriesProcessor):
         return confirmed_stamps, uncertain_stamps
 
     # TODO: Parameterize weights of max_sig, max_noise and np.std(noise) to find optimal thresholds
-    def _get_energy_thresholds(self, max_sig, c=0.7, u1=.5, u2=0, u3=0):
+    def _get_energy_thresholds(self, max_sig: float):
         """
         Calculates the thresholds for confirmed, uncertain and reset steps
         based on the energy of the time series and the noise floor
         """
         noise_max = np.max(self._noise)
         noise_std = np.std(self._noise)
-        confirmed_threshold = c*max_sig + (1-c)*noise_max
-        uncertain_threshold = u1*max_sig + (1-u1)*noise_max + u2*noise_std + u3
-        reset_threshold = noise_max
-        # TODO: Uncertain threshold is sometimes above confirmed threshold
+        confirmed_threshold = np.dot(self._confirm_coefs, [max_sig, noise_max, noise_std, 1])
+        uncertain_threshold = np.dot(self._unconfirm_coefs, [max_sig, noise_max, noise_std, 1])
+        reset_threshold = np.dot(self._reset_coefs, [max_sig, noise_max, noise_std, 1])
         if uncertain_threshold > confirmed_threshold:
-            uncertain_threshold = confirmed_threshold * 0.9
+            uncertain_threshold = confirmed_threshold
         assert uncertain_threshold <= confirmed_threshold, f"Uncertain threshold ({uncertain_threshold}) must be less than confirmed threshold ({confirmed_threshold})"
         return uncertain_threshold, confirmed_threshold, reset_threshold
 
