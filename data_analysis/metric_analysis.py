@@ -9,17 +9,18 @@ from step_detection import DataHandler, StepDetector, ParsedRecording
 
 
 class AnalysisController:
-    def __init__(self, model: Recording, window_duration=0.2) -> None:
+    def __init__(self, model: Recording, window_duration=0.2, **kwargs) -> None:
         self.model = ParsedRecording.from_recording(model)
         weights = self.model.get_frequency_weights(window_duration, plot=False)
         noise = self.model.get_noise()
-        step_model = self.model.get_step_model(window_duration, plot_model=False, plot_steps=False)
+        # step_model = self.model.get_step_model(window_duration, plot_model=False, plot_steps=False)
         self._detector = StepDetector(
             fs=self.model.env.fs,
             window_duration=window_duration,
             noise_profile=noise,
             # step_model=step_model,
-            freq_weights=weights
+            freq_weights=weights,
+            **kwargs
         )
 
     def get_metrics(self, datasets: List[Recording], plot_dist=False, plot_vs_env=False, plot_signals=False) -> Tuple[Metrics, Metrics, pd.DataFrame]:
@@ -28,7 +29,12 @@ class AnalysisController:
             raise ValueError("No datasets provided")
         if not all(isinstance(data, Recording) for data in datasets):
             raise ValueError("All datasets must be of type Recording")
-        results = [self.get_recording_metrics(data, plot=plot_signals) for data in datasets]
+        try:
+            results = []
+            for data in datasets:
+                results.append(self.get_recording_metrics(data, plot=plot_signals))
+        except Exception as e:
+            raise ValueError(f"Failed to get metrics for {data.filepath}") from e
         measured_sets, source_of_truth_sets, algorithm_errors = zip(*results)
         measured = concat_metrics(measured_sets)
         source_of_truth = concat_metrics(source_of_truth_sets)
@@ -139,9 +145,6 @@ class AnalysisController:
             "missed": [missed_steps]
         })
 
-    @staticmethod
-    def optimize_threshold_weights(datasets: List[Recording], plot=False, **kwargs) -> Tuple[float, float]:
-        raise NotImplementedError()
 
 
 

@@ -104,6 +104,9 @@ class TimeSeriesProcessor:
             tapering_window = np.vstack([np.blackman(window_size)] * len(intervals))
             intervals *= tapering_window
         rolling_fft = np.fft.fft(intervals, axis=-1).T[:window_size//2]
+        # Edge case when the window size is odd
+        if len(a) == rolling_fft.shape[-1] + 1:
+            rolling_fft = np.pad(rolling_fft, ((0, 0), (0, 1)), mode='constant')
         return np.abs(rolling_fft)
 
     def get_window_fft_freqs(self, window_duration) -> np.ndarray:
@@ -140,7 +143,19 @@ class TimeSeriesProcessor:
 
 
 class StepDetector(TimeSeriesProcessor):
-    def __init__(self, fs: float, window_duration: float, noise_profile: np.ndarray, step_model=None, freq_weights=None) -> None:
+    def __init__(self,
+                 fs: float,
+                 window_duration: float,
+                 noise_profile: np.ndarray,
+                 min_signal: float = 0.1,
+                 min_step_delta: float = 0.05,
+                 max_step_delta: float = 0.5,
+                 confirm_coefs: Tuple[float, float, float, float] = (0.8, 0.1, 0.1, 0.1),
+                 unconfirm_coefs: Tuple[float, float, float, float] = (0.5, 0.1, 0.1, 0.1),
+                 reset_coefs: Tuple[float, float, float, float] = (0.1, 0.1, 0.1, 0.1),
+                 step_model=None,
+                 freq_weights=None,
+    ) -> None:
         """
         Parameters
         ----------
@@ -154,11 +169,14 @@ class StepDetector(TimeSeriesProcessor):
         super().__init__(fs)
         self._window_duration = window_duration
         # Tresholds
-        self._sig_treshold = 0.1
-        self._max_step_delta = 0.5
-        self._confirm_coefs = (0.8, 0.1, 0.1, 0.1)
-        self._unconfirm_coefs = (0.5, 0.1, 0.1, 0.1)
-        self._reset_coefs = (0.1, 0.1, 0.1, 0.1)
+        self._min_signal = min_signal
+        if min_step_delta > max_step_delta:
+            raise ValueError(f"min_step_delta ({min_step_delta}) must be less than max_step_delta ({max_step_delta})")
+        self._min_step_delta = min_step_delta
+        self._max_step_delta = max_step_delta
+        self._confirm_coefs = confirm_coefs
+        self._unconfirm_coefs = unconfirm_coefs
+        self._reset_coefs = reset_coefs
         # Modelling
         self._step_model = step_model
         self._freq_weights = freq_weights
@@ -212,7 +230,7 @@ class StepDetector(TimeSeriesProcessor):
             model_autocorr = np.correlate(self._step_model, self._step_model, mode='valid')
             energy /= np.max(model_autocorr)
         max_sig = np.max(energy)
-        if max_sig < self._sig_treshold:
+        if max_sig < self._min_signal:
             return [], []
         # Step detection
         confirmed_threshold, uncertain_threshold, reset_threshold = self._get_energy_thresholds(max_sig)
@@ -257,18 +275,17 @@ class StepDetector(TimeSeriesProcessor):
         reset_threshold = np.dot(self._reset_coefs, [max_sig, noise_max, noise_std, 1])
         if uncertain_threshold > confirmed_threshold:
             uncertain_threshold = confirmed_threshold
-        assert uncertain_threshold <= confirmed_threshold, f"Uncertain threshold ({uncertain_threshold}) must be less than confirmed threshold ({confirmed_threshold})"
+        if reset_threshold > uncertain_threshold:
+            reset_threshold = uncertain_threshold
         return uncertain_threshold, confirmed_threshold, reset_threshold
 
     @staticmethod
-    def _resolve_step_sections(confirmed_stamps: np.ndarray, uncertain_stamps: np.ndarray = [], min_step_delta=0.05) -> List[np.ndarray]:
+    def _resolve_step_sections(confirmed_stamps: np.ndarray, uncertain_stamps: np.ndarray = []) -> List[np.ndarray]:
         """Groups confirmed steps into sections, ignoring unconfirmed steps. Sections must have at least 3 steps."""
         all_steps = np.concatenate([confirmed_stamps, uncertain_stamps])
-        if len(set(set(all_steps))) != len(all_steps):
+        if len(set(all_steps)) != len(all_steps):
             raise ValueError("All step stamps must be unique")
-        if not np.all(np.diff(confirmed_stamps) > min_step_delta):
-            raise ValueError(f"Confirmed step stamps must be at least {min_step_delta}s apart")
-
+        # Creating a series of confirmed steps
         confirmed = pd.Series([True] * len(confirmed_stamps), index=confirmed_stamps)
         if len(uncertain_stamps):
             unconfirmed_steps = pd.Series([False] * len(uncertain_stamps), index=uncertain_stamps)
@@ -296,10 +313,16 @@ class StepDetector(TimeSeriesProcessor):
         return sections
 
     def _enforce_step_delta_bounds(self, step_groups: List[np.ndarray]) -> List[np.ndarray]:
-        """Splits up steps that are too far apart"""
+        """Splits up steps that are too far apart, and drop steps that are too close together"""
         new_step_groups = []
         for steps in step_groups:
             step_diffs = np.diff(steps)
+            # Drop steps that are too close together
+            steps_too_close = step_diffs < self._min_step_delta
+            if np.any(steps_too_close):
+                steps = steps[~np.insert(steps_too_close, 0, False)]
+                step_diffs = np.diff(steps)
+            # Split steps that are too far apart
             split_indices = np.where(step_diffs > self._max_step_delta)[0]
             if len(split_indices):
                 split_indices = np.insert(split_indices, 0, 0)
@@ -308,7 +331,7 @@ class StepDetector(TimeSeriesProcessor):
                     step_groups.append(steps[start:end])
             else:
                 step_groups.append(steps)
-        # TODO: Set hard bounds on min step delta, cadence and asymmetry and ignore sections that don't meet them
+        # TODO: Set hard bounds on metrics?
         return new_step_groups
 
 
@@ -338,7 +361,7 @@ class ParsedRecording(Recording):
                     start += np.argmax(energy) - offset
                     step_data = self.ts[start : start+window_size]
                 if start + window_size > len(self.ts):
-                    print("Step is too close to the end of the recording, skipping. Consider decreasing the step duration")
+                    print(f"Step is too close to the end of the recording, skipping. Consider decreasing the step duration (currently {step_duration} s)")
                     continue
                 if len(step_data) != window_size:
                     raise ValueError(f"Step data is the wrong size: {len(step_data)} != {window_size}")
