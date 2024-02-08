@@ -31,31 +31,34 @@ def parse_args(x, round_digits=None) -> dict:
         for el in v:
             params.pop(el)
     if round_digits is not None:
-        params = {k: round(v, round_digits) for k, v in params.items()}
+        params = {k: np.round(v, round_digits) for k, v in params.items()}
     return params
 
 
-def optimize_step_detection(datasets: List[Recording], missing_punish_factor=5, maxiter=20, popsize=15) -> dict:
+def optimize_step_detection(datasets: List[Recording], missing_punish_factor=10, maxiter=3, popsize=15) -> dict:
     """Optimizes step detection parameters using differential evolution algorithm."""
     # TODO: Cross fold validation (sklearn.model_selection.StratifiedKFold)
     model_data = Recording.from_file('datasets/2023-11-09_18-42-33.yaml')
     logger = AnalysisController.init_logger('optimize.log')
-    pbar = tqdm(total=(maxiter + 1) * popsize * 18)
+    logger.setLevel('INFO')
+    pbar = tqdm(total=(maxiter + 1) * popsize * 10)
 
     def objective_function(x):
         params = parse_args(x)
         if np.any(x < 0) or np.any(np.isnan(x)):
             logger.warning(f"Invalid parameters: {params}")
             return np.inf
-        logger.info(f'Running with parameters: {params}')
+        logger.info(f'Running with parameters: {parse_args(x, round_digits=4)}')
         if params['min_step_delta'] > params['max_step_delta']:
             return np.inf
         ctrl = AnalysisController(model_data, logger=logger, **params)
         measured, truth, alg = ctrl.get_metrics(datasets)
         pbar.update(1)
         err = measured.error(truth)
-        if err['step_count'].notna().any():
-            missing_data_loss = missing_punish_factor*err.max(axis=None)
+        all_metrics_represented = err.notna().any(axis=0).all()
+        if all_metrics_represented:
+            num_missing_rows = err['step_count'].isna().sum()
+            missing_data_loss = num_missing_rows*(missing_punish_factor + err.max(axis=None))
             err.fillna(missing_data_loss, inplace=True) # Punish missing data
             loss = err.mean(axis=None)
             logger.info(f'Cumulative Error: {loss}')
@@ -77,7 +80,9 @@ def optimize_step_detection(datasets: List[Recording], missing_punish_factor=5, 
     )
     pbar.close()
     logger.info(f'Optimization result: {res}')
-    return parse_args(res.x, round_digits=4)
+    params = parse_args(res.x)
+    logger.info(f'Optimized parameters: {params}')
+    return params
 
 
 if __name__ == '__main__':

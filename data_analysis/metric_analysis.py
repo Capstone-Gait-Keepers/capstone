@@ -30,7 +30,7 @@ class AnalysisController:
     @staticmethod
     def init_logger(log_file: Optional[str] = None) -> Logger:
         logger = getLogger()
-        logger.setLevel("INFO")
+        logger.setLevel("DEBUG")
         handler = FileHandler(log_file, mode='w+') if log_file else StreamHandler(sys.stdout)
         handler.setFormatter(Formatter('%(asctime)s - %(levelname)s - %(message)s'))
         logger.addHandler(handler)
@@ -177,7 +177,7 @@ if __name__ == "__main__":
     # DataHandler().plot(walk_speed='normal', user='ron', footwear='socks', wall_radius=1.89)
 
     model_data = Recording.from_file('datasets/2023-11-09_18-42-33.yaml')
-    params = {'window_duration': 0.454, 'min_signal': 0.547, 'min_step_delta': 0.036, 'max_step_delta': 0.728, 'confirm_coefs': [0.371, 0.324, 0.613, 0.064], 'unconfirm_coefs': [0.638, 0.765, 0.256, 1.629], 'reset_coefs': [0.32, 0.375, 1.4, 1.85]}
+    params = {'window_duration': 0.09610293596218258, 'min_signal': 0.9255774291395902, 'min_step_delta': 0.3473642689296651, 'max_step_delta': 1.3466980759130174, 'confirm_coefs': [0.06441405583227566, 1.721246167409189, 0.34013823260166054, 0.007652060221684964], 'unconfirm_coefs': [0.027288371317633953, 0.38371428061888646, 1.7425691202573512, 0.781486599075381], 'reset_coefs': [0.7469581128236926, 1.291174847574172, 1.786924086990361, 1.4176149229234183]}
     controller = AnalysisController(model_data, **params)
     datasets = DataHandler().get(user='ron', location='Aarons Studio')
     print(controller.get_metrics(datasets, plot_dist=True, plot_title=str(params)))
