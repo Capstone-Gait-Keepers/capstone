@@ -36,7 +36,7 @@ class AnalysisController:
         logger.addHandler(handler)
         return logger
 
-    def get_metrics(self, datasets: List[Recording], abort_on_limit=False, plot_dist=False, plot_vs_env=False, plot_signals=False) -> Tuple[Metrics, Metrics, pd.DataFrame]:
+    def get_metrics(self, datasets: List[Recording], abort_on_limit=False, plot_title=None, plot_dist=False, plot_vs_env=False, plot_signals=False) -> Tuple[Metrics, Metrics, pd.DataFrame]:
         """Analyzes a sequence of recordings and returns metrics"""
         if not len(datasets):
             raise ValueError("No datasets provided")
@@ -59,21 +59,29 @@ class AnalysisController:
             melted_err = err.melt(value_name="error", var_name="metric", ignore_index=False)
             melted_err.dropna(inplace=True)
             melted_err.reset_index(inplace=True)
-            fig = px.box(melted_err, x="metric", y="error", hover_data="index", points="all", title="Metric Error Distribution", labels={"error": "Error (%)", "metric": "Metric"})
+            fig = px.box(
+                melted_err,
+                x="metric",
+                y="error",
+                hover_data="index",
+                points="all",
+                title=plot_title if plot_title else "Metric Error Distribution",
+                labels={"error": "Error (%)", "metric": "Metric"}
+            )
             fig.show()
         if plot_vs_env:
             err = measured.error(source_of_truth)
             err.index = [d.filepath for d in datasets]
-            self._plot_error_vs_env(err, datasets)
+            self._plot_error_vs_env(err, datasets, plot_title)
         return measured, source_of_truth, algorithm_error
 
-    def _plot_error_vs_env(self, err, datasets: List[Recording], show=True):
+    def _plot_error_vs_env(self, err, datasets: List[Recording], plot_title=None, show=True):
         """Plot showing grouped box plots of average metric error, grouped by each recording environment variables"""
         varied_vars = self._get_varied_env_vars(datasets)
         env_df = self._get_env_df(datasets)
         df = pd.concat([env_df, err], axis=1)
         fig = make_subplots(rows=len(varied_vars), cols=1, subplot_titles=[f"{key} comparison" for key in varied_vars])
-        fig.update_layout(title="Metric Error Distribution")
+        fig.update_layout(title=plot_title if plot_title else "Metric Error Distribution")
         for i, (env_var, values) in enumerate(varied_vars.items(), start=1):
             for value in values:
                 subset = df[df[env_var] == value]
@@ -169,9 +177,10 @@ if __name__ == "__main__":
     # DataHandler().plot(walk_speed='normal', user='ron', footwear='socks', wall_radius=1.89)
 
     model_data = Recording.from_file('datasets/2023-11-09_18-42-33.yaml')
-    controller = AnalysisController(model_data)
+    params = {'window_duration': 0.454, 'min_signal': 0.547, 'min_step_delta': 0.036, 'max_step_delta': 0.728, 'confirm_coefs': [0.371, 0.324, 0.613, 0.064], 'unconfirm_coefs': [0.638, 0.765, 0.256, 1.629], 'reset_coefs': [0.32, 0.375, 1.4, 1.85]}
+    controller = AnalysisController(model_data, **params)
     datasets = DataHandler().get(user='ron', location='Aarons Studio')
-    controller.get_metrics(datasets, plot_dist=False)
+    print(controller.get_metrics(datasets, plot_dist=True, plot_title=str(params)))
 
     # bad_recordings = [
     #     'datasets/2023-11-09_18-54-28.yaml',

@@ -9,30 +9,57 @@ from step_detection import DataHandler
 from metric_analysis import AnalysisController
 
 
-def optimize_step_detection(datasets: List[Recording], maxiter=2, popsize=15):
+def parse_args(x, round_digits=None) -> dict:
+    """Parses the parameters from the optimization result."""
+    param_names = [
+        'window_duration',
+        'min_signal',
+        'min_step_delta',
+        'max_step_delta',
+        'c1', 'c2', 'c3', 'c4',
+        'u1', 'u2', 'u3', 'u4',
+        'ra', 'r2', 'r3', 'r4',
+    ]
+    param_map = {
+        'confirm_coefs': ['c1', 'c2', 'c3', 'c4'],
+        'unconfirm_coefs': ['u1', 'u2', 'u3', 'u4'],
+        'reset_coefs': ['ra', 'r2', 'r3', 'r4'],
+    }
+    params = dict(zip(param_names, x))
+    for k, v in param_map.items():
+        params[k] = [params[p] for p in v]
+        for el in v:
+            params.pop(el)
+    if round_digits is not None:
+        params = {k: round(v, round_digits) for k, v in params.items()}
+    return params
+
+
+def optimize_step_detection(datasets: List[Recording], missing_punish_factor=5, maxiter=20, popsize=15) -> dict:
+    """Optimizes step detection parameters using differential evolution algorithm."""
     # TODO: Cross fold validation (sklearn.model_selection.StratifiedKFold)
     model_data = Recording.from_file('datasets/2023-11-09_18-42-33.yaml')
     logger = AnalysisController.init_logger('optimize.log')
-    pbar = tqdm(total=(maxiter + 1) * popsize * 214)
+    pbar = tqdm(total=(maxiter + 1) * popsize * 18)
+
     def objective_function(x):
-        logger.info(f'Running with parameters: {x}')
-        window_duration, min_signal, min_step_delta, max_step_delta, ca, cb, cc, cd, ua, ub, uc, ud, ra, rb, rc, rd = x
-        ctrl = AnalysisController(
-            model_data,
-            window_duration=window_duration,
-            min_signal=min_signal,
-            min_step_delta=min_step_delta,
-            max_step_delta=max_step_delta,
-            confirm_coefs=(ca, cb, cc, cd),
-            unconfirm_coefs=(ua, ub, uc, ud),
-            reset_coefs=(ra, rb, rc, rd),
-            logger=logger,
-        )
+        params = parse_args(x)
+        if np.any(x < 0) or np.any(np.isnan(x)):
+            logger.warning(f"Invalid parameters: {params}")
+            return np.inf
+        logger.info(f'Running with parameters: {params}')
+        if params['min_step_delta'] > params['max_step_delta']:
+            return np.inf
+        ctrl = AnalysisController(model_data, logger=logger, **params)
         measured, truth, alg = ctrl.get_metrics(datasets)
         pbar.update(1)
         err = measured.error(truth)
-        if err['step_count'].notna().all():
-            return err.mean().mean()
+        if err['step_count'].notna().any():
+            missing_data_loss = missing_punish_factor*err.max(axis=None)
+            err.fillna(missing_data_loss, inplace=True) # Punish missing data
+            loss = err.mean(axis=None)
+            logger.info(f'Cumulative Error: {loss}')
+            return loss
         return np.inf
 
     bounds = [
@@ -47,17 +74,10 @@ def optimize_step_detection(datasets: List[Recording], maxiter=2, popsize=15):
         bounds,
         maxiter=maxiter,
         popsize=popsize,
-        constraints=[
-            # LinearConstraint([1] + [0] * 15, lb=0.05, ub=0.5, keep_feasible=True), # Window duration must be enforced
-            LinearConstraint([0] * 2 + [-1, 1] + [0] * 12, lb=0, keep_feasible=True), # min_step_delta < max_step_delta
-            LinearConstraint(np.eye(len(bounds)), lb=np.zeros(len(bounds)), keep_feasible=True), # All values must be positive
-        #     LinearConstraint(np.hstack([np.zeros((4, 4)), np.eye(4), -np.eye(4), np.zeros((4, 4))]), lb=np.zeros(4)), # Confirm coefs must be large than unconfirm coefs
-        #     LinearConstraint(np.hstack([np.zeros((4, 4)), np.eye(4), np.zeros((4, 4)), -np.eye(4)]), lb=np.zeros(4)), # Confirm coefs must be large than reset coefs
-        ],
     )
     pbar.close()
     logger.info(f'Optimization result: {res}')
-    return res.x
+    return parse_args(res.x, round_digits=4)
 
 
 if __name__ == '__main__':
