@@ -4,7 +4,8 @@ import pandas as pd
 import plotly.graph_objects as go
 from dataclasses import dataclass
 from plotly.subplots import make_subplots
-from typing import List, Tuple
+from typing import List, Tuple, Optional
+from logging import Logger, getLogger
 
 from data_types import Recording
 
@@ -155,6 +156,7 @@ class StepDetector(TimeSeriesProcessor):
                  reset_coefs: Tuple[float, float, float, float] = (0.1, 0.1, 0.1, 0.1),
                  step_model=None,
                  freq_weights=None,
+                 logger: Optional[Logger]=None,
     ) -> None:
         """
         Parameters
@@ -167,6 +169,8 @@ class StepDetector(TimeSeriesProcessor):
             Weights to apply to each frequency when averaging the frequency spectrum
         """
         super().__init__(fs)
+        self.logger = logger if logger is not None else getLogger(__name__)
+        self.logger.debug(f"StepDetector initialized with the following parameters:\n{locals()}")
         self._window_duration = window_duration
         # Tresholds
         self._min_signal = min_signal
@@ -184,19 +188,28 @@ class StepDetector(TimeSeriesProcessor):
             raise ValueError(f"Length of freq_weights ({len(freq_weights)}) must match the window duration ({window_duration})")
         self._noise = self.get_energy(noise_profile)
 
-    def get_step_groups(self, ts: np.ndarray, plot=False, truth=None) -> List[np.ndarray]:
+    def get_step_groups(self, ts: np.ndarray, abort_limit=None, plot=False, truth=None) -> List[np.ndarray]:
         """
         Analyzes time series and returns a list of step groups
         """
         if ts[-1] is None:
             ts = ts[:-1]
-            print("Warning: removed last value from time series because it was None")
+            self.logger.warning("Removed last value from time series because it was None")
         if None in ts:
             raise ValueError("Time series must not contain None values")
         steps, uncertain_steps = self._find_steps(ts, plot, truth)
-        step_groups = self._resolve_step_sections(steps, uncertain_steps)
-        step_groups = self._enforce_step_delta_bounds(step_groups)
-        return step_groups
+        if abort_limit and len(steps) > abort_limit:
+            self.logger.warning(f"Too many steps detected, aborting. Found {len(steps)} confirmed steps and {len(uncertain_steps)} uncertain steps")
+            return []
+        self.logger.debug(f"Found {len(steps)} confirmed steps and {len(uncertain_steps)} uncertain steps")
+        if len(steps):
+            step_groups = self._resolve_step_sections(steps, uncertain_steps)
+            self.logger.info(f"Resolved {len(steps)} steps into {len(step_groups)} step groups of lengths {[len(group) for group in step_groups]}")
+            if len(step_groups):
+                step_groups = self._enforce_step_delta_bounds(step_groups)
+                self.logger.debug(f"Enforced step delta bounds, now have {len(step_groups)} step groups")
+            return step_groups
+        return []
 
     def get_energy(self, vibes: np.ndarray) -> np.ndarray:
         return super().get_energy(vibes, self._window_duration, weights=self._freq_weights)
@@ -274,9 +287,12 @@ class StepDetector(TimeSeriesProcessor):
         uncertain_threshold = np.dot(self._unconfirm_coefs, [max_sig, noise_max, noise_std, 1])
         reset_threshold = np.dot(self._reset_coefs, [max_sig, noise_max, noise_std, 1])
         if uncertain_threshold > confirmed_threshold:
+            self.logger.debug(f"Uncertain threshold ({uncertain_threshold:.3f}) is greater than confirmed threshold ({confirmed_threshold:.3f})")
             uncertain_threshold = confirmed_threshold
         if reset_threshold > uncertain_threshold:
+            self.logger.debug(f"Reset threshold ({reset_threshold:.3f}) is greater than uncertain threshold ({uncertain_threshold:.3f})")
             reset_threshold = uncertain_threshold
+        self.logger.debug(f"Thresholds: confirmed={confirmed_threshold:.3f}, uncertain={uncertain_threshold:.3f}, reset={reset_threshold:.3f}")
         return uncertain_threshold, confirmed_threshold, reset_threshold
 
     @staticmethod
@@ -328,22 +344,24 @@ class StepDetector(TimeSeriesProcessor):
                 split_indices = np.insert(split_indices, 0, 0)
                 split_indices = np.append(split_indices, len(steps))
                 for start, end in zip(split_indices[:-1], split_indices[1:]):
-                    step_groups.append(steps[start:end])
+                    new_step_groups.append(steps[start:end])
             else:
-                step_groups.append(steps)
+                new_step_groups.append(steps)
         # TODO: Set hard bounds on metrics?
         return new_step_groups
 
 
 @dataclass
 class ParsedRecording(Recording):
-    @classmethod
-    def from_recording(cls, recording: Recording):
-        return cls(recording.env, recording.events, recording.ts, recording.filepath)
-
     # TODO: Accept a TimeSeriesProcessor with the signal conversion-type specified (e.g. energy vs correlation)
-    def __post_init__(self):
+    def __init__(self, *args, logger: Optional[Logger]=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.logger = logger if logger is not None else getLogger(__name__)
         self.processor = TimeSeriesProcessor(self.env.fs)
+
+    @classmethod
+    def from_recording(cls, recording: Recording, logger: Optional[Logger]=None):
+        return cls(recording.env, recording.events, recording.ts, recording.filepath, logger=logger)
 
     def get_steps_from_truth(self, step_duration=0.4, shift_percent=0.2, align_peak=True, plot=False) -> List[np.ndarray]:
         """
@@ -361,7 +379,7 @@ class ParsedRecording(Recording):
                     start += np.argmax(energy) - offset
                     step_data = self.ts[start : start+window_size]
                 if start + window_size > len(self.ts):
-                    print(f"Step is too close to the end of the recording, skipping. Consider decreasing the step duration (currently {step_duration} s)")
+                    self.logger.warning(f"Step is too close to the end of the recording, skipping. Consider decreasing the step duration (currently {step_duration} s)")
                     continue
                 if len(step_data) != window_size:
                     raise ValueError(f"Step data is the wrong size: {len(step_data)} != {window_size}")

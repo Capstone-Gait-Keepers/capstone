@@ -1,16 +1,19 @@
 import numpy as np
 import pandas as pd
 import plotly.express as px
+import sys
 from plotly.subplots import make_subplots
-from typing import List, Tuple
+from typing import List, Tuple, Optional
+from logging import Logger, getLogger, StreamHandler, FileHandler, Formatter
 
 from data_types import Metrics, Recording, RecordingEnvironment, concat_metrics
 from step_detection import DataHandler, StepDetector, ParsedRecording
 
 
 class AnalysisController:
-    def __init__(self, model: Recording, window_duration=0.2, **kwargs) -> None:
-        self.model = ParsedRecording.from_recording(model)
+    def __init__(self, model: Recording, window_duration=0.2, logger: Optional[Logger]=None, log_file='latest.log', **kwargs) -> None:
+        self.logger = self.init_logger(log_file) if logger is None else logger
+        self.model = ParsedRecording.from_recording(model, logger=self.logger)
         weights = self.model.get_frequency_weights(window_duration, plot=False)
         noise = self.model.get_noise()
         # step_model = self.model.get_step_model(window_duration, plot_model=False, plot_steps=False)
@@ -20,21 +23,32 @@ class AnalysisController:
             noise_profile=noise,
             # step_model=step_model,
             freq_weights=weights,
+            logger=self.logger,
             **kwargs
         )
 
-    def get_metrics(self, datasets: List[Recording], plot_dist=False, plot_vs_env=False, plot_signals=False) -> Tuple[Metrics, Metrics, pd.DataFrame]:
+    @staticmethod
+    def init_logger(log_file: Optional[str] = None) -> Logger:
+        logger = getLogger()
+        logger.setLevel("INFO")
+        handler = FileHandler(log_file, mode='w+') if log_file else StreamHandler(sys.stdout)
+        handler.setFormatter(Formatter('%(asctime)s - %(levelname)s - %(message)s'))
+        logger.addHandler(handler)
+        return logger
+
+    def get_metrics(self, datasets: List[Recording], abort_on_limit=False, plot_dist=False, plot_vs_env=False, plot_signals=False) -> Tuple[Metrics, Metrics, pd.DataFrame]:
         """Analyzes a sequence of recordings and returns metrics"""
         if not len(datasets):
             raise ValueError("No datasets provided")
         if not all(isinstance(data, Recording) for data in datasets):
-            raise ValueError("All datasets must be of type Recording")
-        try:
-            results = []
-            for data in datasets:
-                results.append(self.get_recording_metrics(data, plot=plot_signals))
-        except Exception as e:
-            raise ValueError(f"Failed to get metrics for {data.filepath}") from e
+            raise TypeError("All datasets must be of type Recording")
+        results = []
+        for data in datasets:
+            try:
+                results.append(self.get_recording_metrics(data, abort_on_limit, plot=plot_signals))
+            except Exception as e:
+                self.logger.error(f"Failed to get metrics for {data.filepath}: {e}")
+                raise e
         measured_sets, source_of_truth_sets, algorithm_errors = zip(*results)
         measured = concat_metrics(measured_sets)
         source_of_truth = concat_metrics(source_of_truth_sets)
@@ -88,18 +102,21 @@ class AnalysisController:
         varied_vars = {key: value for key, value in env_vars.items() if len(value) > 1}
         return varied_vars
 
-    def get_recording_metrics(self, data: Recording, plot=False) -> Tuple[Metrics, Metrics, pd.DataFrame]:
+    def get_recording_metrics(self, data: Recording, abort_on_limit=False, plot=False) -> Tuple[Metrics, Metrics, pd.DataFrame]:
         """Analyzes a recording and returns metrics"""
-        step_groups = self._detector.get_step_groups(data.ts, plot, truth=self._get_step_timestamps(data))
+        correct_steps = self._get_true_step_timestamps(data)
+        abort_limit = None if not abort_on_limit else len(correct_steps)
+        step_groups = self._detector.get_step_groups(data.ts, abort_limit, plot, truth=correct_steps)
+        if len(step_groups):
+            self.logger.info(f"Found {len(step_groups)} step groups in {data.filepath}")
         predicted_steps = np.concatenate(step_groups) if len(step_groups) else []
         measured = Metrics(*step_groups)
-        correct_steps = self._get_step_timestamps(data)
-        algorithm_error = self._get_algorithm_error(predicted_steps, correct_steps)
         source_of_truth = Metrics(correct_steps)
+        algorithm_error = self._get_algorithm_error(predicted_steps, correct_steps)
         return measured, source_of_truth, algorithm_error
 
     @staticmethod
-    def _get_step_timestamps(data: Recording) -> List[float]:
+    def _get_true_step_timestamps(data: Recording) -> List[float]:
         return [event.timestamp for event in data.events if event.category == 'step']
 
     @staticmethod
@@ -154,13 +171,13 @@ if __name__ == "__main__":
     model_data = Recording.from_file('datasets/2023-11-09_18-42-33.yaml')
     controller = AnalysisController(model_data)
     datasets = DataHandler().get(user='ron', location='Aarons Studio')
-    controller.get_metrics(datasets, plot_dist=True)
+    controller.get_metrics(datasets, plot_dist=False)
 
-    bad_recordings = [
-        'datasets/2023-11-09_18-54-28.yaml',
-        # 'datasets/2023-11-09_18-42-33.yaml',
-        'datasets/2023-11-09_18-44-35.yaml',
-    ]
+    # bad_recordings = [
+    #     'datasets/2023-11-09_18-54-28.yaml',
+    #     # 'datasets/2023-11-09_18-42-33.yaml',
+    #     'datasets/2023-11-09_18-44-35.yaml',
+    # ]
 
-    datasets = [Recording.from_file(f) for f in bad_recordings]
-    controller.get_metrics(datasets, plot_signals=True)
+    # datasets = [Recording.from_file(f) for f in bad_recordings]
+    # controller.get_metrics(datasets, plot_signals=True)
