@@ -13,7 +13,7 @@ import serial
 import time
 from json import dumps
 from datetime import datetime
-from step_detection import AnalysisController
+from metric_analysis import AnalysisController
 
 from data_types import Recording, RecordingEnvironment, Event, WalkPath
 
@@ -111,4 +111,4 @@ if __name__ == "__main__":
     # rec.to_yaml(f'datasets/{timestamp}.yaml')
     model_data = Recording.from_file('datasets/2023-11-09_18-42-33.yaml')
     controller = AnalysisController(model_data)
-    controller.analyze_recording(rec)
+    print(controller.get_recording_metrics(rec, plot=True))
