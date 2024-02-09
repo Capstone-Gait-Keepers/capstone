@@ -256,8 +256,9 @@ class StepDetector(TimeSeriesProcessor):
             freqs = self.get_window_fft_freqs()
             fig.add_heatmap(x=timestamps, y=freqs, z=amps, row=2, col=1)
             fig.add_scatter(x=timestamps, y=energy, name='energy', showlegend=False, row=3, col=1)
-            for threshold in (confirmed_threshold, uncertain_threshold, reset_threshold):
+            for i, (symbol, threshold) in enumerate({'C': confirmed_threshold, 'U': uncertain_threshold, 'R': reset_threshold}.items()):
                 fig.add_hline(y=threshold, row=3, col=1)
+                fig.add_annotation(x=i/20, y=threshold + 0.05, text=symbol, showarrow=False, row=3, col=1)
             if truth:
                 for timestamp in truth:
                     fig.add_vline(x=timestamp + 0.05, line_color='green', row=1, col=1)
@@ -291,10 +292,9 @@ class StepDetector(TimeSeriesProcessor):
             self.logger.debug(f"Reset threshold ({reset_threshold:.3f}) is greater than uncertain threshold ({uncertain_threshold:.3f})")
             reset_threshold = uncertain_threshold
         self.logger.debug(f"Thresholds: confirmed={confirmed_threshold:.3f}, uncertain={uncertain_threshold:.3f}, reset={reset_threshold:.3f}")
-        return uncertain_threshold, confirmed_threshold, reset_threshold
+        return confirmed_threshold, uncertain_threshold, reset_threshold
 
-    @staticmethod
-    def _resolve_step_sections(confirmed_stamps: np.ndarray, uncertain_stamps: np.ndarray = []) -> List[np.ndarray]:
+    def _resolve_step_sections(self, confirmed_stamps: np.ndarray, uncertain_stamps: np.ndarray = []) -> List[np.ndarray]:
         """Groups confirmed steps into sections, ignoring unconfirmed steps. Sections must have at least 3 steps."""
         all_steps = np.concatenate([confirmed_stamps, uncertain_stamps])
         if len(set(all_steps)) != len(all_steps):
@@ -309,6 +309,7 @@ class StepDetector(TimeSeriesProcessor):
         # Upgrading unconfirmed steps to confirmed steps if there's only one unconfirmed step between two confirmed steps
         for prev_step, current_step, next_step in zip(confirmed.index[:-2], confirmed.index[1:-1], confirmed.index[2:]):
             if not confirmed[current_step] and confirmed[prev_step] and confirmed[next_step]:
+                self.logger.debug(f"Upgrading unconfirmed step at {current_step}")
                 confirmed[current_step] = True
 
         # Grouping confirmed steps into sections
@@ -319,6 +320,7 @@ class StepDetector(TimeSeriesProcessor):
                 current_section += 1
             section_indices[i] = current_section
         steps = pd.DataFrame({'confirmed': confirmed, 'section': section_indices}, index=confirmed.index)
+        self.logger.debug(f"Ignoring {steps.confirmed.value_counts()[False]} unconfirmed steps")
         steps = steps[steps.confirmed] # Ignore unconfirmed steps that were not upgraded
         if not len(steps):
             return []
