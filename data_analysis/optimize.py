@@ -88,7 +88,3 @@ def optimize_step_detection(datasets: List[Recording], missing_punish_factor=10,
 if __name__ == '__main__':
     datasets = DataHandler().get(user='ron', location='Aarons Studio')
     print(optimize_step_detection(datasets))
-
-    # from step_detection import ParsedRecording
-    # model = ParsedRecording.from_file('datasets/2023-11-09_18-42-33.yaml')
-    # print(model.get_frequency_weights(0.3731458248292704))

@@ -112,9 +112,11 @@ class AnalysisController:
 
     def get_recording_metrics(self, data: Recording, abort_on_limit=False, plot=False) -> Tuple[Metrics, Metrics, pd.DataFrame]:
         """Analyzes a recording and returns metrics"""
+        if data.env.fs != self.model.env.fs:
+            raise ValueError(f"Recording fs ({data.env.fs}) does not match model fs ({self.model.env.fs})")
         correct_steps = self._get_true_step_timestamps(data)
         abort_limit = None if not abort_on_limit else len(correct_steps)
-        step_groups = self._detector.get_step_groups(data.ts, abort_limit, plot, truth=correct_steps)
+        step_groups = self._detector.get_step_groups(np.array(data.ts), abort_limit, plot, truth=correct_steps)
         if len(step_groups):
             self.logger.info(f"Found {len(step_groups)} step groups in {data.filepath}")
         predicted_steps = np.concatenate(step_groups) if len(step_groups) else []

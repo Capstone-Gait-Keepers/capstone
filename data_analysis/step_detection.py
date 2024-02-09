@@ -170,9 +170,7 @@ class StepDetector(TimeSeriesProcessor):
         """
         super().__init__(fs)
         self.logger = logger if logger is not None else getLogger(__name__)
-        self.logger.debug(f"StepDetector initialized with the following parameters:\n{locals()}")
         self._window_duration = window_duration
-        # Tresholds
         self._min_signal = min_signal
         if min_step_delta > max_step_delta:
             raise ValueError(f"min_step_delta ({min_step_delta}) must be less than max_step_delta ({max_step_delta})")
@@ -243,8 +241,6 @@ class StepDetector(TimeSeriesProcessor):
             model_autocorr = np.correlate(self._step_model, self._step_model, mode='valid')
             energy /= np.max(model_autocorr)
         max_sig = np.max(energy)
-        if max_sig < self._min_signal:
-            return [], []
         # Step detection
         confirmed_threshold, uncertain_threshold, reset_threshold = self._get_energy_thresholds(max_sig)
         confirmed_indices = self.get_peak_indices(energy, confirmed_threshold, reset_threshold)
@@ -274,6 +270,8 @@ class StepDetector(TimeSeriesProcessor):
                 fig.add_annotation(x=uncertain, y=-0.3, xshift=-10, text="U", showarrow=False, row=1, col=1)
             # fig.write_html("normal_detection.html")
             fig.show()
+        if max_sig < self._min_signal:
+            return [], []
         return confirmed_stamps, uncertain_stamps
 
     def _get_energy_thresholds(self, max_sig: float):
@@ -444,6 +442,8 @@ class ParsedRecording(Recording):
         amp_per_step_freq_time = []
 
         for step in step_data:
+            if not len(step):
+                raise ValueError(f"Step data is empty: {step_data}")
             amps = self.processor.rolling_window_fft(step - DC, window_duration, stride=1)
             amp_per_step_freq_time.append(amps)
         amp_per_step_freq_time = np.asarray(amp_per_step_freq_time)
