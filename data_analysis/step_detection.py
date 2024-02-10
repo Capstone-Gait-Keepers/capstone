@@ -16,7 +16,7 @@ class DataHandler:
 
     def get(self, **filters) -> List[Recording]:
         """Walk through datasets folder and return all records that match the filters"""
-        filepaths = [file for root, dirs, files in os.walk(self.folder) for file in files if file.endswith(".yaml")]
+        filepaths = [file for file in os.listdir(self.folder) if file.endswith(".yaml")]
         filepaths.remove('example.yaml')
         datasets = [Recording.from_file(os.path.join(self.folder, filename)) for filename in filepaths]
         for key, value in filters.items():
@@ -200,12 +200,13 @@ class StepDetector(TimeSeriesProcessor):
             self.logger.warning(f"Too many steps detected, aborting. Found {len(steps)} confirmed steps and {len(uncertain_steps)} uncertain steps")
             return []
         self.logger.debug(f"Found {len(steps)} confirmed steps and {len(uncertain_steps)} uncertain steps")
-        if len(steps):
+        if len(steps) > 1: # We need at least two confirmed steps to do anything
             step_groups = self._resolve_step_sections(steps, uncertain_steps)
             self.logger.info(f"Resolved {len(steps)} steps into {len(step_groups)} step groups of lengths {[len(group) for group in step_groups]}")
             if len(step_groups):
-                step_groups = self._enforce_step_delta_bounds(step_groups)
-                self.logger.debug(f"Enforced step delta bounds, now have {len(step_groups)} step groups")
+                step_groups = self._enforce_min_step_delta(step_groups)
+                step_groups = self._enforce_max_step_delta(step_groups)
+            # TODO: Set hard bounds on metrics?
             return step_groups
         return []
 
@@ -320,7 +321,9 @@ class StepDetector(TimeSeriesProcessor):
                 current_section += 1
             section_indices[i] = current_section
         steps = pd.DataFrame({'confirmed': confirmed, 'section': section_indices}, index=confirmed.index)
-        self.logger.debug(f"Ignoring {steps.confirmed.value_counts()[False]} unconfirmed steps")
+        step_dist = steps.confirmed.value_counts()
+        if False in step_dist:
+            self.logger.debug(f"Ignoring {step_dist[False]} unconfirmed steps")
         steps = steps[steps.confirmed] # Ignore unconfirmed steps that were not upgraded
         if not len(steps):
             return []
@@ -328,26 +331,32 @@ class StepDetector(TimeSeriesProcessor):
         sections = [group.index.values for _, group in steps.groupby('section')]
         return sections
 
-    def _enforce_step_delta_bounds(self, step_groups: List[np.ndarray]) -> List[np.ndarray]:
-        """Splits up steps that are too far apart, and drop steps that are too close together"""
+    def _enforce_min_step_delta(self, step_groups: List[np.ndarray]) -> List[np.ndarray]:
+        """Drop steps that are too close together"""
+        new_step_groups = [self._enforce_min_step_delta_single_group(steps, i) for i, steps in enumerate(step_groups)]
+        return new_step_groups
+
+    def _enforce_min_step_delta_single_group(self, steps: np.ndarray, group_index: int):
+        steps_too_close = np.diff(steps) < self._min_step_delta
+        if np.any(steps_too_close):
+            self.logger.debug(f"Enforcing min step delta, removed {steps_too_close.sum()} step(s) in group {group_index}")
+            return steps[~np.insert(steps_too_close, 0, False)]
+        return steps
+
+    def _enforce_max_step_delta(self, step_groups: List[np.ndarray]) -> List[np.ndarray]:
+        """Splits up steps that are too far apart"""
         new_step_groups = []
-        for steps in step_groups:
+        for i, steps in enumerate(step_groups):
             step_diffs = np.diff(steps)
-            # Drop steps that are too close together
-            steps_too_close = step_diffs < self._min_step_delta
-            if np.any(steps_too_close):
-                steps = steps[~np.insert(steps_too_close, 0, False)]
-                step_diffs = np.diff(steps)
-            # Split steps that are too far apart
-            split_indices = np.where(step_diffs > self._max_step_delta)[0]
+            split_indices = np.where(step_diffs > self._max_step_delta)[0] + 1
             if len(split_indices):
-                split_indices = np.insert(split_indices, 0, 0)
+                self.logger.debug(f"Enforcing max step delta: splitting up group {i} before steps {split_indices}")
+                split_indices = np.insert(split_indices, 0, 0) # Add outer bounds so the data can be sliced properly
                 split_indices = np.append(split_indices, len(steps))
                 for start, end in zip(split_indices[:-1], split_indices[1:]):
                     new_step_groups.append(steps[start:end])
             else:
                 new_step_groups.append(steps)
-        # TODO: Set hard bounds on metrics?
         return new_step_groups
 
 

@@ -119,9 +119,9 @@ class Metrics:
         func_map = {
             'step_count': len,
             'STGA': self._get_STGA,
-            'stride_time': lambda x: np.mean(self._get_stride_times(x)),
+            'stride_time': self._get_stride_time,
             'cadence': self._get_cadence,
-            'var_coef': lambda x: self._get_var_coef(self._get_stride_times(x)),
+            'var_coef': self._get_stride_time_CV,
             'phase_sync': self._get_phase_sync,
             'conditional_entropy': self._get_conditional_entropy,
         }
@@ -158,16 +158,27 @@ class Metrics:
         if len(timestamps) < 2:
             return np.nan
         return 1 / np.mean(np.diff(timestamps))
-    
+
+    def _get_stride_time(self, timestamps):
+        stride_times = self._get_stride_times(timestamps)
+        if len(stride_times):
+            return np.mean(stride_times)
+        return np.nan
+
+    def _get_stride_time_CV(self, timestamps: np.ndarray):
+        return self._get_var_coef(self._get_stride_times(timestamps))
+
     @staticmethod
-    def _get_stride_times(timestamps: np.ndarray):
+    def _get_stride_times(timestamps: np.ndarray) -> np.ndarray:
         if len(timestamps) < 2:
-            return np.nan
+            return np.empty((0))
         # TODO: Update stride time definition
         return np.diff(timestamps)
 
     @staticmethod
     def _get_var_coef(dist):
+        if len(dist) < 3:
+            return np.nan
         """General formula for coefficient of variation"""
         return np.std(dist) / np.mean(dist)
 

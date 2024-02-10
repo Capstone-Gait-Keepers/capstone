@@ -119,6 +119,7 @@ class AnalysisController:
         step_groups = self._detector.get_step_groups(np.array(data.ts), abort_limit, plot, truth=correct_steps)
         if len(step_groups):
             self.logger.info(f"Found {len(step_groups)} step groups in {data.filepath}")
+            self.logger.debug(f"Step groups: {step_groups}")
         predicted_steps = np.concatenate(step_groups) if len(step_groups) else []
         measured = Metrics(*step_groups)
         source_of_truth = Metrics(correct_steps)
@@ -179,16 +180,14 @@ if __name__ == "__main__":
     # DataHandler().plot(walk_speed='normal', user='ron', footwear='socks', wall_radius=1.89)
 
     model_data = Recording.from_file('datasets/2023-11-09_18-42-33.yaml')
-    params = {'window_duration': 0.09610293596218258, 'min_signal': 0.9255774291395902, 'min_step_delta': 0.3473642689296651, 'max_step_delta': 1.3466980759130174, 'confirm_coefs': [0.06441405583227566, 1.721246167409189, 0.34013823260166054, 0.007652060221684964], 'unconfirm_coefs': [0.027288371317633953, 0.38371428061888646, 1.7425691202573512, 0.781486599075381], 'reset_coefs': [0.7469581128236926, 1.291174847574172, 1.786924086990361, 1.4176149229234183]}
+    params = {'window_duration': 0.4558220356093706, 'min_signal': 0.131000112769734, 'min_step_delta': 0.9212122948066906, 'max_step_delta': 1.6370718038099157, 'confirm_coefs': [0.16401514085114627, 0.055831419552260196, 0.28476117024700387, 0.0569945100053784], 'unconfirm_coefs': [0.17650961045100888, 0.501364797928255, 0.6015107783378899, 1.6760948438678247], 'reset_coefs': [0.6204889532645383, 1.3506929241467955, 0.35357124459601197, 0.4909622065728781]}
     controller = AnalysisController(model_data, **params)
     datasets = DataHandler().get(user='ron', location='Aarons Studio')
-    print(controller.get_metrics(datasets, plot_dist=True, plot_title=str(params)))
+    print(controller.get_metrics(datasets, plot_dist=True, plot_title=str(params))[0])
 
     # bad_recordings = [
-    #     'datasets/2023-11-09_18-54-28.yaml',
-    #     # 'datasets/2023-11-09_18-42-33.yaml',
-    #     'datasets/2023-11-09_18-44-35.yaml',
+    #     'datasets/2023-11-09_18-49-41.yaml',
     # ]
 
     # datasets = [Recording.from_file(f) for f in bad_recordings]
-    # controller.get_metrics(datasets, plot_signals=True)
+    # print(controller.get_metrics(datasets, plot_signals=True)[0])

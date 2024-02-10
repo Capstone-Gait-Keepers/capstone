@@ -35,7 +35,7 @@ def parse_args(x, round_digits=None) -> dict:
     return params
 
 
-def optimize_step_detection(datasets: List[Recording], missing_punish_factor=10, maxiter=3, popsize=15) -> dict:
+def optimize_step_detection(datasets: List[Recording], missing_punish_factor=10, maxiter=20, popsize=15) -> dict:
     """Optimizes step detection parameters using differential evolution algorithm."""
     # TODO: Cross fold validation (sklearn.model_selection.StratifiedKFold)
     model_data = Recording.from_file('datasets/2023-11-09_18-42-33.yaml')
@@ -45,14 +45,12 @@ def optimize_step_detection(datasets: List[Recording], missing_punish_factor=10,
 
     def objective_function(x):
         params = parse_args(x)
-        if np.any(x < 0) or np.any(np.isnan(x)):
+        if np.any(np.isnan(x)):
             logger.warning(f"Invalid parameters: {params}")
             return np.inf
-        logger.info(f'Running with parameters: {parse_args(x, round_digits=4)}')
-        if params['min_step_delta'] > params['max_step_delta']:
-            return np.inf
+        logger.info(f'Running with parameters: {params}')
         ctrl = AnalysisController(model_data, logger=logger, **params)
-        measured, truth, alg = ctrl.get_metrics(datasets)
+        measured, truth, _ = ctrl.get_metrics(datasets)
         pbar.update(1)
         err = measured.error(truth)
         all_metrics_represented = err.notna().any(axis=0).all()
@@ -65,8 +63,9 @@ def optimize_step_detection(datasets: List[Recording], missing_punish_factor=10,
             return loss
         return np.inf
 
+    min_window, max_window = 0.05, 0.5
     bounds = [
-        (0.05, 0.5), # window_duration
+        (min_window, max_window), # window_duration
         (1e-9, 1),  # min_signal
         (0.01, 2),  # min_step_delta
         (0.01, 2),  # max_step_delta
@@ -77,6 +76,11 @@ def optimize_step_detection(datasets: List[Recording], missing_punish_factor=10,
         bounds,
         maxiter=maxiter,
         popsize=popsize,
+        constraints=[
+            LinearConstraint([1] + [0] * 15, min_window, max_window, keep_feasible=True), # Window duration must be enforced
+            LinearConstraint([0] * 2 + [-1, 1] + [0] * 12, lb=0, keep_feasible=True), # min_step_delta < max_step_delta
+            LinearConstraint(np.eye(len(bounds)), lb=np.zeros(len(bounds)), keep_feasible=True), # All values must be positive
+        ],
     )
     pbar.close()
     logger.info(f'Optimization result: {res}')
