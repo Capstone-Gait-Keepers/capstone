@@ -1,5 +1,7 @@
 import numpy as np
+import pandas as pd
 
+from sklearn.model_selection import KFold
 from scipy.optimize import differential_evolution, LinearConstraint
 from tqdm import tqdm
 from typing import List
@@ -35,13 +37,26 @@ def parse_args(x, round_digits=None) -> dict:
     return params
 
 
-def optimize_step_detection(datasets: List[Recording], missing_punish_factor=10, maxiter=20, popsize=15) -> dict:
+def get_loss(err: pd.DataFrame, missing_punish_factor=10) -> float:
+    all_metrics_represented = err.notna().any(axis=0).all()
+    if all_metrics_represented:
+        num_missing_rows = err['step_count'].isna().sum()
+        missing_data_loss = num_missing_rows*(missing_punish_factor + err.max(axis=None))
+        err.fillna(missing_data_loss, inplace=True) # Punish missing data
+        loss = err.mean(axis=None)
+        return loss
+    return np.inf
+
+
+def optimize_step_detection(datasets: List[Recording], model=None, logger=None, maxiter=20, popsize=15) -> dict:
     """Optimizes step detection parameters using differential evolution algorithm."""
-    # TODO: Cross fold validation (sklearn.model_selection.StratifiedKFold)
-    model_data = Recording.from_file('datasets/2023-11-09_18-42-33.yaml')
-    logger = AnalysisController.init_logger('optimize.log')
-    logger.setLevel('INFO')
     pbar = tqdm(total=(maxiter + 1) * popsize * 10)
+    if model is None:
+        model = Recording.from_file('datasets/2023-11-09_18-42-33.yaml')
+
+    if logger is None:
+        logger = AnalysisController.init_logger('optimize.log')
+        logger.setLevel('INFO')
 
     def objective_function(x):
         params = parse_args(x)
@@ -49,19 +64,14 @@ def optimize_step_detection(datasets: List[Recording], missing_punish_factor=10,
             logger.warning(f"Invalid parameters: {params}")
             return np.inf
         logger.info(f'Running with parameters: {params}')
-        ctrl = AnalysisController(model_data, logger=logger, **params)
-        measured, truth, _ = ctrl.get_metrics(datasets)
+        ctrl = AnalysisController(model, logger=logger, **params)
         pbar.update(1)
+        measured, truth, _ = ctrl.get_metrics(datasets)
         err = measured.error(truth)
-        all_metrics_represented = err.notna().any(axis=0).all()
-        if all_metrics_represented:
-            num_missing_rows = err['step_count'].isna().sum()
-            missing_data_loss = num_missing_rows*(missing_punish_factor + err.max(axis=None))
-            err.fillna(missing_data_loss, inplace=True) # Punish missing data
-            loss = err.mean(axis=None)
-            logger.info(f'Cumulative Error: {loss}')
-            return loss
-        return np.inf
+        loss = get_loss(err)
+        if loss != np.inf:
+            logger.info(f'Loss: {loss}')
+        return loss
 
     min_window, max_window = 0.05, 0.5
     bounds = [
@@ -86,9 +96,37 @@ def optimize_step_detection(datasets: List[Recording], missing_punish_factor=10,
     logger.info(f'Optimization result: {res}')
     params = parse_args(res.x)
     logger.info(f'Optimized parameters: {params}')
-    return params
+    return res.x
 
+def kfold_optimize(datasets: List[Recording], splits=5, seed=0, **kwargs):
+    kf = KFold(splits, shuffle=True, random_state=seed)
+    logger = AnalysisController.init_logger('optimize.log')
+    logger.setLevel('INFO')
+    model = Recording.from_file('datasets/2023-11-09_18-42-33.yaml')
+    X = np.asarray(datasets)
+
+    final_params = []
+    final_losses = []
+    for train_index, test_index in kf.split(X):
+        training_set = X[train_index]
+        test_set = X[test_index]
+        logger.info(f"Training size: {len(train_index)}, test size: {len(test_index)}")
+        params = optimize_step_detection(training_set, model, logger, **kwargs)
+        params = parse_args(params)
+        ctrl = AnalysisController(model, logger=logger, **params)
+        measured, truth, _ = ctrl.get_metrics(test_set)
+        err = measured.error(truth)
+        loss = get_loss(err)
+        final_params.append(params)
+        final_losses.append(loss)
+
+    logger.info(f"Losses = {final_losses}")
+    logger.info(f"Params = {final_params}")
+    best_i = np.argmin(final_losses)
+    best_params = final_params[best_i]
+    logger.info(f"Best Params: {best_params}")
+    return best_params
 
 if __name__ == '__main__':
     datasets = DataHandler().get(user='ron', location='Aarons Studio')
-    print(optimize_step_detection(datasets))
+    print(kfold_optimize(datasets, splits=5, maxiter=10))
