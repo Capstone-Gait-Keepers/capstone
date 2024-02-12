@@ -48,6 +48,8 @@ class DataHandler:
 
 class TimeSeriesProcessor:
     def __init__(self, fs: float) -> None:
+        if not isinstance(fs, (int, float)):
+            raise TypeError(f"fs must be a number, not {type(fs)}")
         self.fs = fs
 
     def timestamp_to_index(self, timestamp: float) -> int:

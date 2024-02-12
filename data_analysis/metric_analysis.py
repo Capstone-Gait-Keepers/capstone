@@ -11,18 +11,19 @@ from step_detection import DataHandler, StepDetector, ParsedRecording
 
 
 class AnalysisController:
-    def __init__(self, model: Recording, window_duration=0.2, logger: Optional[Logger]=None, log_file='latest.log', **kwargs) -> None:
+    def __init__(self, model: Recording=None, fs=None, window_duration=0.2, logger: Optional[Logger]=None, log_file='latest.log', **kwargs) -> None:
         self.logger = self.init_logger(log_file) if logger is None else logger
-        self.model = ParsedRecording.from_recording(model, logger=self.logger)
-        weights = self.model.get_frequency_weights(window_duration, plot=False)
-        noise = self.model.get_noise()
-        # step_model = self.model.get_step_model(window_duration, plot_model=False, plot_steps=False)
+        if model:
+            parsed_model = ParsedRecording.from_recording(model, logger=self.logger)
+            weights = parsed_model.get_frequency_weights(window_duration, plot=False)
+            noise = parsed_model.get_noise()
+            # step_model = parsed_model.get_step_model(window_duration, plot_model=False, plot_steps=False)
         self._detector = StepDetector(
-            fs=self.model.env.fs,
+            fs=parsed_model.env.fs if model else fs,
             window_duration=window_duration,
-            noise_profile=noise,
+            noise_profile=noise if model else np.random.rand(10) * 0.1,
             # step_model=step_model,
-            freq_weights=weights,
+            freq_weights=weights if model else None,
             logger=self.logger,
             **kwargs
         )
@@ -42,6 +43,7 @@ class AnalysisController:
             raise ValueError("No datasets provided")
         if not all(isinstance(data, Recording) for data in datasets):
             raise TypeError("All datasets must be of type Recording")
+        self.logger.debug(f"Analyzing {len(datasets)} datasets")
         results = []
         for data in datasets:
             try:
@@ -112,7 +114,7 @@ class AnalysisController:
 
     def get_recording_metrics(self, data: Recording, abort_on_limit=False, plot=False) -> Tuple[Metrics, Metrics, pd.DataFrame]:
         """Analyzes a recording and returns metrics"""
-        if data.env.fs != self.model.env.fs:
+        if data.env.fs != self._detector.fs:
             raise ValueError(f"Recording fs ({data.env.fs}) does not match model fs ({self.model.env.fs})")
         correct_steps = self._get_true_step_timestamps(data)
         abort_limit = None if not abort_on_limit else len(correct_steps)
@@ -180,14 +182,14 @@ if __name__ == "__main__":
     # DataHandler().plot(walk_speed='normal', user='ron', footwear='socks', wall_radius=1.89)
 
     model_data = Recording.from_file('datasets/2023-11-09_18-42-33.yaml')
-    params = {'window_duration': 0.4558220356093706, 'min_signal': 0.131000112769734, 'min_step_delta': 0.9212122948066906, 'max_step_delta': 1.6370718038099157, 'confirm_coefs': [0.16401514085114627, 0.055831419552260196, 0.28476117024700387, 0.0569945100053784], 'unconfirm_coefs': [0.17650961045100888, 0.501364797928255, 0.6015107783378899, 1.6760948438678247], 'reset_coefs': [0.6204889532645383, 1.3506929241467955, 0.35357124459601197, 0.4909622065728781]}
+    params = {'window_duration': 0.2927981091746967, 'min_signal': 0.06902195485649608, 'min_step_delta': 0.7005074596681514, 'max_step_delta': 1.7103077671127291, 'confirm_coefs': [0.13795802814939168, 0.056480535457810385, 1.2703933010798438, 0.0384835095362413], 'unconfirm_coefs': [1.0670316188983877, 1.0511076985832117, 1.160496215083792, 1.6484084554908836], 'reset_coefs': [0.7869793593332175, 1.6112694921747566, 0.12464680752843472, 1.1399207966364366]}
     controller = AnalysisController(model_data, **params)
-    datasets = DataHandler().get(user='ron', location='Aarons Studio')
-    print(controller.get_metrics(datasets, plot_dist=True, plot_title=str(params))[0])
+    # datasets = DataHandler().get(user='ron', location='Aarons Studio')
+    # print(controller.get_metrics(datasets, plot_dist=True, plot_title=str(params))[0])
 
-    # bad_recordings = [
-    #     'datasets/2023-11-09_18-49-41.yaml',
-    # ]
+    bad_recordings = [
+        'datasets/2023-11-09_18-50-50.yaml',
+    ]
 
-    # datasets = [Recording.from_file(f) for f in bad_recordings]
-    # print(controller.get_metrics(datasets, plot_signals=True)[0])
+    datasets = [Recording.from_file(f) for f in bad_recordings]
+    print(controller.get_metrics(datasets, plot_signals=True)[0])

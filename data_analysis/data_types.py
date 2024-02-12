@@ -45,7 +45,8 @@ class RecordingEnvironment:
     walk_type: str
     obstacle_radius: float
     wall_radius: float
-    path: WalkPath
+    path: Optional[WalkPath] = None
+    quality: str = 'normal'
     walk_speed: str = 'normal'
     temperature: Optional[float] = None # in Celsius
     notes: str = ''
@@ -84,7 +85,8 @@ class Recording:
     @classmethod
     def from_dict(cls, data: dict):
         env = RecordingEnvironment(**data['env'])
-        env.path = WalkPath(**data['env']['path'])
+        if data['env']['path'] is not None:
+            env.path = WalkPath(**data['env']['path'])
         events = [Event(**event) for event in data['events']]
         return cls(env, events, np.asarray(data['ts']))
 
@@ -96,7 +98,7 @@ class Recording:
         return {
             'env': self.env.to_dict(),
             'events': [event.to_dict() for event in self.events],
-            'ts': self.ts
+            'ts': self.ts.tolist()
         }
 
 

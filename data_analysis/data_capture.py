@@ -4,111 +4,156 @@
 #INSTRUCTIONS: 
 #  1. Connect the ESP8266 to your computer via USB.
 #  2. Upload the 'arduino_data_capture_accel.ino' sketch to the ESP8266. You should see data coming in the serial monitor in arduino IDE.
-#  3. Modify the 'serial_port' variaxble below to match the serial port of your ESP8266. You can find the serial port by looking at the bottom right corner of the arduino IDE. It will be something like '/dev/cu.usbserial-0001' or 'COM5'.
+#  3. Modify the 'serial_port' variable below to match the serial port of your ESP8266. You can find the serial port by looking at the bottom right corner of the arduino IDE. It will be something like '/dev/cu.usbserial-0001' or 'COM5'.
 #  4. Run this script to collect data. You will be prompted to enter the number of seconds to collect data and verify that the environment variables are correct. Change them in the code if they are not.
 
 # NOTE: You can stop the data collection early by pressing Ctrl+C.
 
 import serial
-import time
-from json import dumps
+import numpy as np
 from datetime import datetime
+from copy import deepcopy
 from metric_analysis import AnalysisController
+from typing import Dict, List
 
 from data_types import Recording, RecordingEnvironment, Event, WalkPath
 
-# Name of your serial port (e.g., '/dev/cu.usbserial-0001', or COM5).
-def collect_data(seconds: float = None, serial_port = '/dev/cu.usbserial-0001', fs=None, error_threshold=0.5):
-    # Open the serial port for communication with the ESP8266.
-    ser = serial.Serial(serial_port, 115200)
-    t_end = time.time() + seconds if seconds else None # Data collection will run for this many seconds
-    vibes = [] # Raw accelerometer data
-    events = [] # Timestamps of button presses
+
+def get_samples(columns: int, serial_port: str, baudrate=115200):
+    try:
+        with serial.Serial(serial_port, baudrate) as ser:
+            while True:
+                inp = ser.readline()
+                try:
+                    line = inp.decode().strip().split(',')
+                    if len(line) == columns:
+                        entries = []
+                        for entry in line:
+                            try:
+                                entries.append(float(entry))
+                            except ValueError:
+                                entries.append(entry)
+                        yield entries
+                    else:
+                        print(f"Received {len(line)} samples, expected {columns}: {line}")
+                except UnicodeDecodeError as e:
+                    if inp != '':
+                        print(e)
+                        yield None
+    except KeyboardInterrupt:
+        print("Ending recording")
+
+
+def collect_data(fs: float, serial_port: str, num_sensors=1, error_threshold=0.5):
     start_time = None
     last_time = None
+    measurements, events = [], []
     expected_period = 1 / fs
-
-    try:
-        while not t_end or time.time() < t_end:
-            try:
-                timestamp, accel, event = ser.readline().decode().strip().split(',')
-            except ValueError as e:
-                if last_time is not None: # Ignore the first sample being bad
-                    raise ValueError('Unable to decode: ' + ser.readline().decode()) from e
-            else:
-                timestamp = int(timestamp) / 1000
-                if last_time is not None and fs is not None:
-                    fs_error = (timestamp - last_time) - expected_period
-                    if fs_error >= expected_period * error_threshold:
-                        raise EnvironmentError(f'Expected {expected_period} sampling period, received {timestamp - last_time}')
-                last_time = timestamp
-                vibes.append(float(accel))
-                if start_time is None:
-                    start_time = timestamp
-                if event == "BUTTON":
-                    events.append(Event('step', timestamp - start_time))
-    except KeyboardInterrupt:
-        # Close the serial port and the file when you interrupt the script.
-        ser.close()
-    return vibes, events
+    for line in get_samples(2 + num_sensors, serial_port=serial_port):
+        if line is not None:
+            timestamp, *samples, event = line
+            timestamp = int(timestamp) / 1000
+            if last_time is not None and fs is not None:
+                fs_error = (timestamp - last_time) - expected_period
+                if fs_error >= expected_period * error_threshold:
+                    raise EnvironmentError(f'Expected {expected_period} sampling period, received {timestamp - last_time}')
+            last_time = timestamp
+            samples = [s if isinstance(s, float) else np.nan for s in samples]
+            measurements.append(samples)
+            if start_time is None:
+                start_time = timestamp
+            if event == "BUTTON":
+                events.append(Event('step', timestamp - start_time))
+    measurements = np.array(measurements).T
+    return measurements, events
 
 
-def collect_readings(serial_port='COM8', expected_columns=9):
-    # Open the serial port for communication with the ESP8266.
-    ser = serial.Serial(serial_port, 115200)
-    readings = [[] for _ in range(expected_columns)]
-    try:
-        while True:
-            try:
-                line = ser.readline().decode().strip().split(',')
-                if len(line) == expected_columns:
-                    for i, sample in enumerate(line):
-                        readings[i].append(float(sample))
-                else:
-                    print(f"Received {len(line)} samples, expected {len(readings)}: {line}")
-            except UnicodeDecodeError:
-                print("Unable to decode")
-    except KeyboardInterrupt:
-        ser.close()
-    return readings
+def record_single_test(env: RecordingEnvironment, port='COM8', filename=None):
+    measurements, events = collect_data(env.fs, port)
+    rec = Recording(env, events, measurements)
+    if filename:
+        rec.to_yaml(f'datasets/{filename}.yaml')
+    return rec
+
+
+def record_dual_test(env: RecordingEnvironment, port='COM8', filename=None, accel_rate=100, piezo_rate=200):
+    (piezo, accel), events = collect_data(max(accel_rate, piezo_rate), port, num_sensors=2)
+    accel = accel[~np.isnan(accel)]
+    accel_rec = Recording(deepcopy(env), events, accel)
+    accel_rec.env.fs = accel_rate
+    if filename:
+        accel_rec.to_yaml(f'datasets/{filename}.yaml')
+    piezo = piezo[~np.isnan(piezo)]
+    piezo_rec = Recording(deepcopy(env), events, piezo)
+    piezo_rec.env.fs = piezo_rate
+    if filename:
+        piezo_rec.to_yaml(f'datasets/piezo/{filename}.yaml')
+    return accel_rec, piezo_rec
+
+
+def permute_envs(base_env: RecordingEnvironment, **params: Dict[str, list]):
+    """Permute all possible combinations of parameters."""
+    from itertools import product
+    for vals in product(*params.values()):
+        env = deepcopy(base_env)
+        for key, val in zip(params.keys(), vals):
+            setattr(env, key, val)
+        yield env
+
+
+
+def sweep_dual_tests(envs: List[RecordingEnvironment], accel_rate=100, piezo_rate=200):
+    for env in envs:
+        redo = True
+        while redo:
+            print(env)
+            timestamp = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
+            # timestamp = None # Remove this line to save the recordings
+            if input("Start recording?") == 'n':
+                continue
+            accel_rec, piezo_rec = record_dual_test(env, filename=timestamp, accel_rate=accel_rate, piezo_rate=piezo_rate)
+            if input("Plot?") != 'n':
+                print(AnalysisController(fs=accel_rate).get_recording_metrics(accel_rec, plot=True)[0])
+                print(AnalysisController(fs=piezo_rate).get_recording_metrics(piezo_rec, plot=True)[0])
+            if input("Redo?") != 'y':
+                redo = False
 
 
 if __name__ == "__main__":
-    # close_path = WalkPath(start=1.77, stop=2.16, length=3.65)
-    # middle_path = WalkPath(start=2.69, stop=3.07, length=3.72)
-    # far_path = WalkPath(start=4.28, stop=4.49, length=3.65)
-
-    close_path = WalkPath(start=1.72, stop=1.95, length=3.72)
-    middle_path = WalkPath(start=2.74, stop=2.85, length=3.65)
-    # ! Change as needed
     env = RecordingEnvironment(
-        location='Living Room Table',
-        fs=100,
-        floor='table',
-        # obstacle_radius=0.04,
-        obstacle_radius=1.38,
-        # wall_radius=0.04,
-        wall_radius=1.89,
+        location='Aarons Studio',
+        fs=100, # Ignored
+        floor='cork',
+        obstacle_radius=0,
+        wall_radius=0,
         walk_type='normal',
-        # walk_type='shuffle',
-        # walk_type='limp',
-        # walk_speed='normal',
-        walk_speed='slow',
-        user='hand',
+        walk_speed='normal',
+        user='ron',
         footwear='socks',
-        # footwear='slippers',
-        path=close_path,
-        # path=middle_path,
+        path=None,
+        quality='normal'
     )
 
-    # seconds = input('Input the number of seconds to collect data: ')
-    seconds = 100
-    # assert input(f'Is this environment correct? \n{dumps(env.to_dict(), sort_keys=True, indent=2)}\n (y/n) ') == 'y', 'Please update the environment in data_capture.py'
-    timestamp = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
-    vibes, events = collect_data(int(seconds), fs=env.fs)
-
-    rec = Recording(env, events, vibes)
-    # rec.to_yaml(f'datasets/{timestamp}.yaml')
-    model_data = Recording.from_file('datasets/2023-11-09_18-42-33.yaml')
-    controller = AnalysisController(model_data)
-    print(controller.get_recording_metrics(rec, plot=True))
+    start_dists = [
+        2.090840061,
+        2.199119678,
+        2.342316938,
+        2.514473305,
+        2.710075541,
+        2.924422842,
+        3.153695382,
+        3.394870578,
+        3.645586921,
+        3.904006639,
+        4.168697370,
+        4.438537345,
+        4.712642129,
+    ]
+    paths = [WalkPath(d, d, 4) for d in start_dists]
+    qualities = [
+        'normal',
+        'pause',
+        'turn',
+        'chaotic',
+    ]
+    sweep_dual_tests(permute_envs(env, path=paths, quality=qualities))
