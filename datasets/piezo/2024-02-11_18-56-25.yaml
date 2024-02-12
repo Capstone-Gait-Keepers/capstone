@@ -27,9 +27,7 @@ events:
 - category: step
   timestamp: 6.518
 - category: step
-  timestamp: 7.048
-- category: step
-  timestamp: 7.263
+  timestamp: 7.148
 - category: step
   timestamp: 7.748
 ts:
