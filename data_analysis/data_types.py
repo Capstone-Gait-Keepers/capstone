@@ -24,6 +24,7 @@ class Event:
             del data['distance']
         if self.duration is None:
             del data['duration']
+        data['timestamp'] = round(float(data['timestamp']), 5)
         return data
 
 

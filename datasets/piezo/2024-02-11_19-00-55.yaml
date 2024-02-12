@@ -19,13 +19,13 @@ events:
 - category: step
   timestamp: 1.33
 - category: step
-  timestamp: 1.9100000000000001
+  timestamp: 1.91
 - category: step
-  timestamp: 2.533999999999999
+  timestamp: 2.534
 - category: step
   timestamp: 8.168
 - category: step
-  timestamp: 8.826999999999998
+  timestamp: 8.827
 ts:
 - 0.47
 - 0.46

@@ -17,21 +17,17 @@ env:
   notes: ''
 events:
 - category: step
-  timestamp: 1.1089999999999947
+  timestamp: 1.109
 - category: step
-  timestamp: 1.2639999999999958
+  timestamp: 1.799
 - category: step
-  timestamp: 1.7989999999999995
+  timestamp: 2.449
 - category: step
-  timestamp: 2.448999999999998
+  timestamp: 5.343
 - category: step
-  timestamp: 2.5789999999999935
+  timestamp: 5.953
 - category: step
-  timestamp: 5.342999999999996
-- category: step
-  timestamp: 5.952999999999996
-- category: step
-  timestamp: 6.547999999999995
+  timestamp: 6.548
 ts:
 - -0.46
 - -0.48

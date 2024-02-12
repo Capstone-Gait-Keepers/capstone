@@ -17,7 +17,8 @@ class DataHandler:
     def get(self, **filters) -> List[Recording]:
         """Walk through datasets folder and return all records that match the filters"""
         filepaths = [file for file in os.listdir(self.folder) if file.endswith(".yaml")]
-        filepaths.remove('example.yaml')
+        if 'example.yaml' in filepaths:
+            filepaths.remove('example.yaml')
         datasets = [Recording.from_file(os.path.join(self.folder, filename)) for filename in filepaths]
         for key, value in filters.items():
             datasets = [d for d in datasets if getattr(d.env, key) == value]

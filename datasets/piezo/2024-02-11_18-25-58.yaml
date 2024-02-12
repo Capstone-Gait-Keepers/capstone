@@ -17,31 +17,21 @@ env:
   notes: ''
 events:
 - category: step
-  timestamp: 1.4590000000000032
+  timestamp: 1.459
 - category: step
-  timestamp: 1.6189999999999998
+  timestamp: 2.084
 - category: step
-  timestamp: 2.084000000000003
+  timestamp: 2.684
 - category: step
-  timestamp: 2.684000000000026
+  timestamp: 3.283
 - category: step
-  timestamp: 2.8689999999999998
+  timestamp: 3.883
 - category: step
-  timestamp: 3.2830000000000155
+  timestamp: 4.533
 - category: step
-  timestamp: 3.4380000000000166
+  timestamp: 5.128
 - category: step
-  timestamp: 3.8830000000000098
-- category: step
-  timestamp: 4.038000000000011
-- category: step
-  timestamp: 4.5330000000000155
-- category: step
-  timestamp: 5.128000000000014
-- category: step
-  timestamp: 5.27800000000002
-- category: step
-  timestamp: 5.788000000000011
+  timestamp: 5.788
 ts:
 - 0.47
 - 0.46
