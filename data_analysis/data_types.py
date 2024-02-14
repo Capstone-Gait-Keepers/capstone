@@ -4,6 +4,7 @@ import pandas as pd
 from copy import deepcopy
 from dataclasses import dataclass, field, asdict
 from pathlib import Path
+from plotly import graph_objects as go
 from ruamel.yaml import YAML
 from scipy.signal import hilbert
 from scipy.stats import entropy
@@ -101,6 +102,20 @@ class Recording:
             'events': [event.to_dict() for event in self.events],
             'ts': self.ts.tolist()
         }
+    
+    def plot(self, show=True):
+        """Plot a recording"""
+        timestamps = np.linspace(0, len(self.ts) / self.env.fs, len(self.ts))
+        fig = go.Figure()
+        if self.filepath:
+            fig.update_layout(title=self.filepath, showlegend=False)
+        fig.add_scatter(x=timestamps, y=self.ts, name='vibes')
+        for event in self.events:
+            fig.add_vline(x=event.timestamp, line_color='green')
+            fig.add_annotation(x=event.timestamp, y=0, xshift=-17, text=event.category, showarrow=False)
+        if show:
+            fig.show()
+        return fig
 
 
 class Metrics:

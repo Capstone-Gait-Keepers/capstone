@@ -3,30 +3,163 @@ import pandas as pd
 import plotly.express as px
 import sys
 from plotly.subplots import make_subplots
+from plotly import graph_objects as go
 from typing import List, Tuple, Optional
 from logging import Logger, getLogger, StreamHandler, FileHandler, Formatter
 
 from data_types import Metrics, Recording, RecordingEnvironment, concat_metrics
-from step_detection import DataHandler, StepDetector, ParsedRecording
+from step_detection import DataHandler, StepDetector, TimeSeriesProcessor
+
+
+class RecordingProcessor:
+    """Collection of methods for processing recordings"""
+    def __init__(self) -> None: ...
+
+    @staticmethod
+    def get_steps_from_truth(rec: Recording, step_duration=0.4, shift_percent=0.2, align_peak=True, plot=False) -> List[np.ndarray]:
+        """
+        Uses the source of truth to parse the accelerometer data pertaining to steps
+        """
+        proc = TimeSeriesProcessor(rec.env.fs)
+        offset = int(shift_percent * rec.env.fs / 2)
+        window_size = proc.timestamp_to_index(step_duration)
+        step_measurements = []
+        for event in rec.events:
+            if event.category == 'step':
+                start = proc.timestamp_to_index(event.timestamp) - offset
+                step_data = rec.ts[start : start+window_size]
+                if align_peak:
+                    energy = proc.get_energy(step_data, step_duration / 5)
+                    start += np.argmax(energy) - offset
+                    step_data = rec.ts[start : start+window_size]
+                if start + window_size > len(rec.ts):
+                    continue
+                if len(step_data) != window_size:
+                    raise ValueError(f"Step data is the wrong size: {len(step_data)} != {window_size}")
+                step_measurements.append(step_data)
+        if plot:
+            fig = go.Figure()
+            fig.update_layout(title="Step Data", showlegend=False)
+            for step in step_measurements:
+                fig.add_scatter(x=np.linspace(0, step_duration, len(step)), y=step)
+            fig.show()
+        return step_measurements
+
+    @staticmethod
+    def get_noise(rec: Recording, plot=False) -> np.ndarray:
+        """
+        Find the noise floor of the accelerometer data
+        """
+        proc = TimeSeriesProcessor(rec.env.fs)
+        first_event = rec.events[0].timestamp
+        noise = rec.ts[:proc.timestamp_to_index(first_event)]
+        if plot:
+            timestamps = np.linspace(0, len(noise) / rec.fs, len(noise))
+            fig = go.Figure()
+            fig.update_layout(title="Noise", showlegend=False)
+            fig.add_scatter(x=timestamps, y=noise)
+            fig.show()
+        return noise
+
+    @staticmethod
+    def get_frequency_weights(rec: Recording, window_duration=0.2, plot=False) -> Tuple[np.ndarray, np.ndarray]:
+        """
+        Find the dominant frequencies pertaining to steps
+        """
+        proc = TimeSeriesProcessor(rec.env.fs)
+        DC = np.mean(rec.ts, axis=0)
+        step_data = RecordingProcessor.get_steps_from_truth(rec, window_duration*2)
+        freqs = proc.get_window_fft_freqs(window_duration)
+        amp_per_step_freq_time = []
+
+        for step in step_data:
+            if not len(step):
+                raise ValueError(f"Step data is empty: {step_data}")
+            amps = proc.rolling_window_fft(step - DC, window_duration, stride=1)
+            amp_per_step_freq_time.append(amps)
+        amp_per_step_freq_time = np.asarray(amp_per_step_freq_time)
+        amp_per_step_freq = np.mean(amp_per_step_freq_time, axis=-1)
+        amp_per_freq = np.mean(amp_per_step_freq, axis=0)
+
+        noise = RecordingProcessor.get_noise(rec)
+        noise_amp_per_freq_time = proc.rolling_window_fft(noise - DC, window_duration, stride=1)
+        noise_amp_per_freq = np.mean(noise_amp_per_freq_time, axis=-1)
+        freq_weights = amp_per_freq / noise_amp_per_freq # Noise of zero?
+        freq_weights /= np.max(freq_weights)
+
+        if plot:
+            timestamps = np.linspace(0, window_duration, len(amp_per_step_freq_time[0]))
+            num_rows = int(np.ceil(np.sqrt(len(step_data))))
+            fig = make_subplots(rows=num_rows, cols=num_rows, column_titles=['Step Heat Maps (Freq vs Time)'])
+            for i, amps in enumerate(amp_per_step_freq_time, start=1):
+                fig.add_heatmap(x=timestamps, y=freqs, z=amps, row=(i // num_rows) + 1, col=(i % num_rows) + 1)
+            fig.show()
+            fig = go.Figure()
+            fig.update_layout(title="Amplitude vs Frequency For Each Step", showlegend=False)
+            for step_amp_per_freq in amp_per_step_freq:
+                fig.add_scatter(x=freqs, y=step_amp_per_freq)
+            fig.show()
+            fig = go.Figure()
+            fig.update_layout(title="Noise Amplitude vs Frequency", showlegend=False)
+            fig.add_scatter(x=freqs, y=noise_amp_per_freq)
+            fig.show()
+            fig = go.Figure()
+            fig.update_layout(title="Amplitude vs Frequency (Average of all steps)", showlegend=False)
+            fig.add_scatter(x=freqs, y=freq_weights)
+            fig.show()
+        return freq_weights
+
+    @staticmethod
+    def get_step_model(rec: Recording, window_duration=0.2, plot_model=False, plot_steps=False) -> np.ndarray:
+        """Creates a model of step energy vs time"""
+        proc = TimeSeriesProcessor(rec.env.fs)
+        step_data = RecordingProcessor.get_steps_from_truth(rec)
+        energy_per_step = []
+        for step in step_data:
+            # TODO: Use weights from get_frequency_weights
+            energy = proc.get_energy(step, window_duration)
+            energy_per_step.append(energy / np.max(energy))
+        step_model = np.mean(energy_per_step, axis=0)
+        timestamps = np.linspace(0, window_duration, len(energy_per_step[0]))
+        if plot_steps:
+            fig = go.Figure()
+            fig.update_layout(title="Energy vs Time")
+            for energy in energy_per_step:
+                fig.add_scatter(x=timestamps, y=energy)
+            fig.update_xaxes(title_text="Time (s)")
+            fig.update_yaxes(title_text="Energy")
+            fig.show()
+        if plot_model:
+            fig = go.Figure()
+            fig.update_layout(title="Model Step", showlegend=False)
+            fig.add_scatter(x=timestamps, y=step_model)
+            fig.update_xaxes(title_text="Time (s)")
+            fig.update_yaxes(title_text="Energy")
+            fig.show()
+        return step_model
+
 
 
 class AnalysisController:
     def __init__(self, model: Recording=None, fs=None, window_duration=0.2, logger: Optional[Logger]=None, log_file='latest.log', **kwargs) -> None:
         self.logger = self.init_logger(log_file) if logger is None else logger
         if model:
-            parsed_model = ParsedRecording.from_recording(model, logger=self.logger)
-            weights = parsed_model.get_frequency_weights(window_duration, plot=False)
-            noise = parsed_model.get_noise()
-            # step_model = parsed_model.get_step_model(window_duration, plot_model=False, plot_steps=False)
-        self._detector = StepDetector(
-            fs=parsed_model.env.fs if model else fs,
-            window_duration=window_duration,
-            noise_profile=noise if model else np.random.rand(10) * 0.1,
-            # step_model=step_model,
-            freq_weights=weights if model else None,
-            logger=self.logger,
-            **kwargs
-        )
+            noise = RecordingProcessor.get_noise(model)
+            weights = RecordingProcessor.get_frequency_weights(model, window_duration, plot=False)
+            # step_model = RecordingProcessor.get_step_model(model, window_duration, plot_model=False, plot_steps=False)
+            self._detector = StepDetector(
+                fs=model.env.fs,
+                window_duration=window_duration,
+                noise_profile=noise,
+                # step_model=step_model,
+                freq_weights=weights,
+                logger=self.logger,
+                **kwargs
+            )
+        elif fs is None:
+            raise ValueError("Must provide either a model or a sampling frequency (fs)")
+        else:
+            self._detector = StepDetector(fs, window_duration, noise_profile=np.random.rand(10) * 0.1, logger=self.logger, **kwargs)
 
     @staticmethod
     def init_logger(log_file: Optional[str] = None) -> Logger:
@@ -127,6 +260,21 @@ class AnalysisController:
         source_of_truth = Metrics(correct_steps)
         algorithm_error = self._get_algorithm_error(predicted_steps, correct_steps)
         return measured, source_of_truth, algorithm_error
+    
+    def get_snrs(self, recs: List[Recording]):
+        """Calculates the signal to noise ratio of a list of recordings"""
+        return np.array([self.get_snr(rec) for rec in recs])
+
+    def get_snr(self, rec: Recording):
+        """Calculates the energy signal to noise ratio of a single recording"""
+        if np.all(rec.ts == 0):
+            self.logger.debug("Bad recording, skipping")
+            return np.nan
+        steps = RecordingProcessor.get_steps_from_truth(rec)
+        noise_energy = self._detector.get_energy(RecordingProcessor.get_noise(rec))
+        step_energy = np.concatenate([self._detector.get_energy(ts) for ts in steps])
+        snr = np.var(step_energy) / np.var(noise_energy)
+        return snr
 
     @staticmethod
     def _get_true_step_timestamps(data: Recording) -> List[float]:
@@ -181,15 +329,39 @@ class AnalysisController:
 if __name__ == "__main__":
     # DataHandler().plot(walk_speed='normal', user='ron', footwear='socks', wall_radius=1.89)
 
-    model_data = Recording.from_file('datasets/2023-11-09_18-42-33.yaml')
-    params = {'window_duration': 0.2927981091746967, 'min_signal': 0.06902195485649608, 'min_step_delta': 0.7005074596681514, 'max_step_delta': 1.7103077671127291, 'confirm_coefs': [0.13795802814939168, 0.056480535457810385, 1.2703933010798438, 0.0384835095362413], 'unconfirm_coefs': [1.0670316188983877, 1.0511076985832117, 1.160496215083792, 1.6484084554908836], 'reset_coefs': [0.7869793593332175, 1.6112694921747566, 0.12464680752843472, 1.1399207966364366]}
-    controller = AnalysisController(model_data, **params)
-    # datasets = DataHandler().get(user='ron', location='Aarons Studio')
+    # model_data = Recording.from_file('datasets/piezo/2024-02-11_18-25-58.yaml')
+    # params = {'window_duration': 0.2927981091746967, 'min_signal': 0.06902195485649608, 'min_step_delta': 0.7005074596681514, 'max_step_delta': 1.7103077671127291, 'confirm_coefs': [0.13795802814939168, 0.056480535457810385, 1.2703933010798438, 0.0384835095362413], 'unconfirm_coefs': [1.0670316188983877, 1.0511076985832117, 1.160496215083792, 1.6484084554908836], 'reset_coefs': [0.7869793593332175, 1.6112694921747566, 0.12464680752843472, 1.1399207966364366]}
+    # controller = AnalysisController(model_data, **params)
+    # datasets = DataHandler('datasets/piezo').get(user='ron', quality='normal', location='Aarons Studio')
     # print(controller.get_metrics(datasets, plot_dist=True, plot_title=str(params))[0])
 
-    bad_recordings = [
-        'datasets/2023-11-09_18-50-50.yaml',
-    ]
+    # bad_recordings = [
+    #     'datasets/2023-11-09_18-50-50.yaml',
+    # ]
 
-    datasets = [Recording.from_file(f) for f in bad_recordings]
-    print(controller.get_metrics(datasets, plot_signals=True)[0])
+    # datasets = [Recording.from_file(f) for f in bad_recordings]
+    # print(controller.get_metrics(datasets, plot_signals=True)[0])
+
+
+    import os
+    filenames = os.listdir('datasets/piezo')
+    recs = [Recording.from_file(f'datasets/piezo/{f}') for f in filenames]
+    recs = [rec for rec in recs if rec.env.quality == 'normal']
+    recs[7].plot()
+    piezo_snrs = AnalysisController(fs=200).get_snrs(recs)
+    recs = [Recording.from_file(f'datasets/bno055/{f}') for f in filenames]
+    recs = [rec for rec in recs if rec.env.quality == 'normal']
+    accel_snrs = AnalysisController(fs=100).get_snrs(recs)
+    print("PIEZO", piezo_snrs)
+    print("ACCEL", accel_snrs)
+    # piezo_snrs = np.array([3.36974115, 13.61065417, 5.37789373, 7.55089892, 21.08090573, 9.47965978, 16.36465708, 74.52204072, 17.72814486, 7.79124806, 14.61452827, 7.06848406, 31.06078381, 4.44996595, 1.50661642])
+    # accel_snrs = np.array([4.81670763, 21.33415927, 9.07196076, 6.45991302, 20.18779894, 13.93160762, 16.69189488, 12.19429879, 8.88872669, 5.64036533, 8.13385481, 8.54873945, 14.92628553, np.nan, 6.50486782])
+    print(np.nanmean(piezo_snrs))
+    print(np.nanmean(accel_snrs))
+
+    snr_diff = piezo_snrs - accel_snrs
+    print(snr_diff)
+    fig = go.Figure()
+    fig.update_layout(title="SNR Comparison", showlegend=False)
+    fig.add_histogram(x=snr_diff, nbinsx=20, histnorm='probability')
+    fig.show()
