@@ -189,7 +189,7 @@ class StepDetector(TimeSeriesProcessor):
             raise ValueError(f"Length of freq_weights ({len(freq_weights)}) must match the window duration ({window_duration})")
         self._noise = self.get_energy(noise_profile)
 
-    def get_step_groups(self, ts: np.ndarray, abort_limit=None, plot=False, truth=None) -> List[np.ndarray]:
+    def get_step_groups(self, ts: np.ndarray, abort_limit=None, plot=False, truth=None, plot_title=None) -> List[np.ndarray]:
         """
         Analyzes time series and returns a list of step groups
         """
@@ -198,7 +198,7 @@ class StepDetector(TimeSeriesProcessor):
             self.logger.warning("Removed last value from time series because it was None")
         if None in ts:
             raise ValueError("Time series must not contain None values")
-        steps, uncertain_steps = self._find_steps(ts, plot, truth)
+        steps, uncertain_steps = self._find_steps(ts, plot, truth, plot_title)
         if abort_limit and len(steps) > abort_limit:
             self.logger.warning(f"Too many steps detected, aborting. Found {len(steps)} confirmed steps and {len(uncertain_steps)} uncertain steps")
             return []
@@ -215,11 +215,11 @@ class StepDetector(TimeSeriesProcessor):
 
     def get_energy(self, vibes: np.ndarray) -> np.ndarray:
         return super().get_energy(vibes, self._window_duration, weights=self._freq_weights)
-    
+
     def get_window_fft_freqs(self) -> np.ndarray:
         return super().get_window_fft_freqs(self._window_duration)
 
-    def _find_steps(self, vibes: np.ndarray, plot=False, truth=None) -> Tuple[np.ndarray, np.ndarray]:
+    def _find_steps(self, vibes: np.ndarray, plot=False, truth=None, plot_title=None) -> Tuple[np.ndarray, np.ndarray]:
         """
         Counts the number of steps in a time series of accelerometer data. This function should not use
         anything from `data.events` except for plotting purposes. This is because it is meant to mimic
@@ -238,7 +238,9 @@ class StepDetector(TimeSeriesProcessor):
         timestamps = np.linspace(0, len(vibes) / self.fs, len(vibes))
         amps = self.rolling_window_fft(vibes, self._window_duration, stride=1, ignore_dc=True)
         # Weight average based on shape of frequency spectrum
-        energy = np.average(amps, axis=0, weights=self._freq_weights)
+        if self._freq_weights is not None:
+            amps = amps * self._freq_weights[:, np.newaxis]
+        energy = np.average(amps, axis=0)
         # Cross correlate step model with energy
         if self._step_model is not None:
             energy = np.correlate(energy, self._step_model, mode='same')
@@ -256,23 +258,27 @@ class StepDetector(TimeSeriesProcessor):
         if plot:
             titles = ("Raw Timeseries", "Scrolling FFT", "Average Energy")
             fig = make_subplots(rows=3, cols=1, shared_xaxes=True, subplot_titles=titles)
-            fig.add_scatter(x=timestamps, y=vibes, name='vibes', showlegend=False, row=1, col=1)
+            if plot_title is not None:
+                fig.update_layout(title=plot_title, showlegend=False)
+            fig.add_scatter(x=timestamps, y=vibes, name='vibes', row=1, col=1)
             freqs = self.get_window_fft_freqs()
             fig.add_heatmap(x=timestamps, y=freqs, z=amps, row=2, col=1)
-            fig.add_scatter(x=timestamps, y=energy, name='energy', showlegend=False, row=3, col=1)
-            for i, (symbol, threshold) in enumerate({'C': confirmed_threshold, 'U': uncertain_threshold, 'R': reset_threshold}.items()):
+            fig.add_scatter(x=timestamps, y=energy, name='energy', row=3, col=1)
+            for i, (symbol, threshold) in enumerate({'C': confirmed_threshold, 'U': uncertain_threshold, 'R': reset_threshold}.items(), 2):
                 fig.add_hline(y=threshold, row=3, col=1)
-                fig.add_annotation(x=i/20, y=threshold + 0.05, text=symbol, showarrow=False, row=3, col=1)
+                fig.add_annotation(x=i/20, y=threshold + max_sig/20, text=symbol, showarrow=False, row=3, col=1)
+            DC = np.mean(vibes)
+            offset = 0.05 * np.max(vibes)
             if truth:
                 for timestamp in truth:
                     fig.add_vline(x=timestamp + 0.05, line_color='green', row=1, col=1)
-                    fig.add_annotation(x=timestamp + 0.05, y=0, xshift=-17, text="Step", showarrow=False, row=1, col=1)
+                    fig.add_annotation(x=timestamp, y=DC + offset, xshift=-17, text="Step", showarrow=False, row=1, col=1)
             for confirmed in confirmed_stamps:
                 fig.add_vline(x=confirmed, line_dash="dash", row=1, col=1)
-                fig.add_annotation(x=confirmed, y=-0.3, xshift=-10, text="C", showarrow=False, row=1, col=1)
+                fig.add_annotation(x=confirmed, y=DC - offset, xshift=-10, text="C", showarrow=False, row=1, col=1)
             for uncertain in uncertain_stamps:
                 fig.add_vline(x=uncertain, line_dash="dot", row=1, col=1)
-                fig.add_annotation(x=uncertain, y=-0.3, xshift=-10, text="U", showarrow=False, row=1, col=1)
+                fig.add_annotation(x=uncertain, y=DC - offset, xshift=-10, text="U", showarrow=False, row=1, col=1)
             # fig.write_html("normal_detection.html")
             fig.show()
         if max_sig < self._min_signal:

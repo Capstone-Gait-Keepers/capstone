@@ -39,9 +39,10 @@ class RecordingProcessor:
                 step_measurements.append(step_data)
         if plot:
             fig = go.Figure()
-            fig.update_layout(title="Step Data", showlegend=False)
+            fig.update_layout(title="Step Data")
+            timestamps = np.linspace(0, step_duration, len(step_measurements[0]))
             for step in step_measurements:
-                fig.add_scatter(x=np.linspace(0, step_duration, len(step)), y=step)
+                fig.add_scatter(x=timestamps, y=proc.get_energy(step, step_duration/2))
             fig.show()
         return step_measurements
 
@@ -67,22 +68,21 @@ class RecordingProcessor:
         Find the dominant frequencies pertaining to steps
         """
         proc = TimeSeriesProcessor(rec.env.fs)
-        DC = np.mean(rec.ts, axis=0)
-        step_data = RecordingProcessor.get_steps_from_truth(rec, window_duration*2)
+        step_data = RecordingProcessor.get_steps_from_truth(rec, window_duration*2, align_peak=True, plot=plot)
         freqs = proc.get_window_fft_freqs(window_duration)
         amp_per_step_freq_time = []
 
         for step in step_data:
             if not len(step):
                 raise ValueError(f"Step data is empty: {step_data}")
-            amps = proc.rolling_window_fft(step - DC, window_duration, stride=1)
+            amps = proc.rolling_window_fft(step, window_duration, stride=1, ignore_dc=True)
             amp_per_step_freq_time.append(amps)
         amp_per_step_freq_time = np.asarray(amp_per_step_freq_time)
         amp_per_step_freq = np.mean(amp_per_step_freq_time, axis=-1)
         amp_per_freq = np.mean(amp_per_step_freq, axis=0)
 
         noise = RecordingProcessor.get_noise(rec)
-        noise_amp_per_freq_time = proc.rolling_window_fft(noise - DC, window_duration, stride=1)
+        noise_amp_per_freq_time = proc.rolling_window_fft(noise, window_duration, stride=1, ignore_dc=True)
         noise_amp_per_freq = np.mean(noise_amp_per_freq_time, axis=-1)
         freq_weights = amp_per_freq / noise_amp_per_freq # Noise of zero?
         freq_weights /= np.max(freq_weights)
@@ -251,7 +251,7 @@ class AnalysisController:
             raise ValueError(f"Recording fs ({data.env.fs}) does not match model fs ({self.model.env.fs})")
         correct_steps = self._get_true_step_timestamps(data)
         abort_limit = None if not abort_on_limit else len(correct_steps)
-        step_groups = self._detector.get_step_groups(np.array(data.ts), abort_limit, plot, truth=correct_steps)
+        step_groups = self._detector.get_step_groups(np.array(data.ts), abort_limit, plot, truth=correct_steps, plot_title=data.filepath)
         if len(step_groups):
             self.logger.info(f"Found {len(step_groups)} step groups in {data.filepath}")
             self.logger.debug(f"Step groups: {step_groups}")
@@ -329,11 +329,11 @@ class AnalysisController:
 if __name__ == "__main__":
     # DataHandler().plot(walk_speed='normal', user='ron', footwear='socks', wall_radius=1.89)
 
-    # model_data = Recording.from_file('datasets/piezo/2024-02-11_18-25-58.yaml')
-    # params = {'window_duration': 0.2927981091746967, 'min_signal': 0.06902195485649608, 'min_step_delta': 0.7005074596681514, 'max_step_delta': 1.7103077671127291, 'confirm_coefs': [0.13795802814939168, 0.056480535457810385, 1.2703933010798438, 0.0384835095362413], 'unconfirm_coefs': [1.0670316188983877, 1.0511076985832117, 1.160496215083792, 1.6484084554908836], 'reset_coefs': [0.7869793593332175, 1.6112694921747566, 0.12464680752843472, 1.1399207966364366]}
-    # controller = AnalysisController(model_data, **params)
-    # datasets = DataHandler('datasets/piezo').get(user='ron', quality='normal', location='Aarons Studio')
-    # print(controller.get_metrics(datasets, plot_dist=True, plot_title=str(params))[0])
+    model_data = Recording.from_file('datasets/piezo/2024-02-11_19-04-16.yaml')
+    params = {'window_duration': 0.2927981091746967, 'min_signal': 0.06902195485649608, 'min_step_delta': 0.7005074596681514, 'max_step_delta': 1.7103077671127291, 'confirm_coefs': [0.13795802814939168, 0.056480535457810385, 1.2703933010798438, 0.0384835095362413], 'unconfirm_coefs': [1.0670316188983877, 1.0511076985832117, 1.160496215083792, 1.6484084554908836], 'reset_coefs': [0.7869793593332175, 1.6112694921747566, 0.12464680752843472, 1.1399207966364366]}
+    controller = AnalysisController(model_data, **params)
+    datasets = DataHandler('datasets/piezo').get(user='ron', quality='normal', location='Aarons Studio')
+    print(controller.get_metrics(datasets, plot_dist=True, plot_title=str(params))[0])
 
     # bad_recordings = [
     #     'datasets/2023-11-09_18-50-50.yaml',
@@ -341,27 +341,3 @@ if __name__ == "__main__":
 
     # datasets = [Recording.from_file(f) for f in bad_recordings]
     # print(controller.get_metrics(datasets, plot_signals=True)[0])
-
-
-    import os
-    filenames = os.listdir('datasets/piezo')
-    recs = [Recording.from_file(f'datasets/piezo/{f}') for f in filenames]
-    recs = [rec for rec in recs if rec.env.quality == 'normal']
-    recs[7].plot()
-    piezo_snrs = AnalysisController(fs=200).get_snrs(recs)
-    recs = [Recording.from_file(f'datasets/bno055/{f}') for f in filenames]
-    recs = [rec for rec in recs if rec.env.quality == 'normal']
-    accel_snrs = AnalysisController(fs=100).get_snrs(recs)
-    print("PIEZO", piezo_snrs)
-    print("ACCEL", accel_snrs)
-    # piezo_snrs = np.array([3.36974115, 13.61065417, 5.37789373, 7.55089892, 21.08090573, 9.47965978, 16.36465708, 74.52204072, 17.72814486, 7.79124806, 14.61452827, 7.06848406, 31.06078381, 4.44996595, 1.50661642])
-    # accel_snrs = np.array([4.81670763, 21.33415927, 9.07196076, 6.45991302, 20.18779894, 13.93160762, 16.69189488, 12.19429879, 8.88872669, 5.64036533, 8.13385481, 8.54873945, 14.92628553, np.nan, 6.50486782])
-    print(np.nanmean(piezo_snrs))
-    print(np.nanmean(accel_snrs))
-
-    snr_diff = piezo_snrs - accel_snrs
-    print(snr_diff)
-    fig = go.Figure()
-    fig.update_layout(title="SNR Comparison", showlegend=False)
-    fig.add_histogram(x=snr_diff, nbinsx=20, histnorm='probability')
-    fig.show()
