@@ -17,7 +17,7 @@ load_dotenv()
 # init db
 db = SQLAlchemy()
 
-app = Flask(__name__, static_folder="../build/frontend", template_folder="../build/frontend")
+app = Flask(__name__, static_folder="static", template_folder="static")
 
 # database connection
 url = os.getenv("DATABSE_URL") 

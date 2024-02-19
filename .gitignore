@@ -3,4 +3,5 @@
 .vscode/
 build/
 dump/
+backend/static/
 *.log
