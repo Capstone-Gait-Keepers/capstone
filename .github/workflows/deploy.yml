@@ -7,7 +7,11 @@ on:
     paths:
       - 'backend/**'
       - 'frontend/**'
+      - '.github/workflows/deploy.yml'
   workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
   build:
@@ -30,6 +34,8 @@ jobs:
         npm run build
     - name: Push build artifacts to prod branch
       run: |
+        git config --global user.name 'Daniel Raymond'
+        git config --global user.email 'draymond63@users.noreply.github.com'
         git checkout -b prod
         git add -f backend/static
         git commit -m "Build artifacts for production"
