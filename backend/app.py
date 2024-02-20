@@ -1,7 +1,7 @@
 import os
 import time
 from dotenv import load_dotenv
-from flask import Flask, jsonify, request, render_template
+from flask import Flask, jsonify, request, render_template, send_from_directory
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import create_engine, func, ForeignKey
 from sqlalchemy.orm import sessionmaker, relationship
@@ -17,15 +17,14 @@ load_dotenv()
 # init db
 db = SQLAlchemy()
 
-app = Flask(__name__)
+app = Flask(__name__, static_folder="static", template_folder="static")
 
 # database connection
 url = os.getenv("DATABSE_URL") 
 DBUSER = os.getenv("PRODUSER") 
 DBID = os.getenv("DB_ID") 
-DBPASS = os.getenv("PRODPASS") 
-DBREGION = os.getenv("DB_REGION") 
-DBNAME = os.getenv("PRODHOST") 
+DBPASS = os.getenv("DB_PASS") 
+DBREGION = os.getenv("DB_REGION")
 
 SQLALCHEMY_DATABASE_URI = f"postgresql://postgres.{DBID}:{DBPASS}@aws-0-us-east-1.pooler.supabase.com:6543/postgres"
 #SQLALCHEMY_DATABASE_URI = f"postgresql://postgres:{prodpass}@{prodhost}:5432/postgres" #old
@@ -276,11 +275,6 @@ def database_wakeup():
 #     #print(ids)
 #     return ids
 
-# Hello World (Daniel)
-@app.route('/')
-def hello_world():
-    return render_template('hello.html')
-
 # protected by username and password
 @app.route('/documentation')
 @basic_auth.required
@@ -327,6 +321,21 @@ def sensor_page():
         session.close()
 
     return render_template('status.html', sensors=sensors)
+
+
+@app.route('/', defaults={'path': ''})
+@app.route('/<path:path>')
+def serve(path):
+    if path != "" and os.path.exists(app.static_folder + '/' + path):
+        return send_from_directory(app.static_folder, path)
+    else:
+        return send_from_directory(app.static_folder, 'index.html')
+
+@app.errorhandler(404)
+def handle_404(e):
+    if request.path.startswith("/api/"):
+        return jsonify(message="Resource not found"), 404
+    return """Frontend not found. Did you run `npm run build` in the frontend/ directory? See the README for more details""", HTTPStatus.NOT_FOUND
 
 
 if __name__ == '__main__':
