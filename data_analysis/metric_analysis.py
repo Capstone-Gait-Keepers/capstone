@@ -141,7 +141,7 @@ class RecordingProcessor:
 
 
 class AnalysisController:
-    def __init__(self, model: Recording=None, fs=None, window_duration=0.2, logger: Optional[Logger]=None, log_file='latest.log', **kwargs) -> None:
+    def __init__(self, model: Recording=None, fs=None, noise_amp=None, window_duration=0.2, logger: Optional[Logger]=None, log_file='latest.log', **kwargs) -> None:
         self.logger = self.init_logger(log_file) if logger is None else logger
         if model:
             noise = RecordingProcessor.get_noise(model)
@@ -152,14 +152,16 @@ class AnalysisController:
                 window_duration=window_duration,
                 noise_profile=noise,
                 # step_model=step_model,
-                freq_weights=weights,
+                # freq_weights=weights,
                 logger=self.logger,
                 **kwargs
             )
-        elif fs is None:
-            raise ValueError("Must provide either a model or a sampling frequency (fs)")
+            self.fs = model.env.fs
+        elif fs is None or noise_amp is None:
+            raise ValueError("Must provide either a model or a sampling frequency (fs) and a noise amplitude (noise_amp)")
         else:
-            self._detector = StepDetector(fs, window_duration, noise_profile=np.random.rand(10) * 0.1, logger=self.logger, **kwargs)
+            self.fs = fs
+            self._detector = StepDetector(fs, window_duration, noise_profile=np.random.rand(10) * noise_amp, logger=self.logger, **kwargs)
 
     @staticmethod
     def init_logger(log_file: Optional[str] = None) -> Logger:
@@ -248,7 +250,7 @@ class AnalysisController:
     def get_recording_metrics(self, data: Recording, abort_on_limit=False, plot=False) -> Tuple[Metrics, Metrics, pd.DataFrame]:
         """Analyzes a recording and returns metrics"""
         if data.env.fs != self._detector.fs:
-            raise ValueError(f"Recording fs ({data.env.fs}) does not match model fs ({self.model.env.fs})")
+            raise ValueError(f"Recording fs ({data.env.fs}) does not match model fs ({self.fs})")
         correct_steps = self._get_true_step_timestamps(data)
         abort_limit = None if not abort_on_limit else len(correct_steps)
         step_groups = self._detector.get_step_groups(np.array(data.ts), abort_limit, plot, truth=correct_steps, plot_title=data.filepath)
@@ -260,7 +262,7 @@ class AnalysisController:
         source_of_truth = Metrics(correct_steps)
         algorithm_error = self._get_algorithm_error(predicted_steps, correct_steps)
         return measured, source_of_truth, algorithm_error
-    
+
     def get_snrs(self, recs: List[Recording]):
         """Calculates the signal to noise ratio of a list of recordings"""
         return np.array([self.get_snr(rec) for rec in recs])
@@ -279,6 +281,21 @@ class AnalysisController:
     @staticmethod
     def _get_true_step_timestamps(data: Recording) -> List[float]:
         return [event.timestamp for event in data.events if event.category == 'step']
+
+    def get_algorithm_error(self, datasets: List[Recording], plot_signals=False) -> pd.DataFrame:
+        """Calculates the algorithm error of a list of recordings"""
+        df = pd.concat([self.get_recording_algorithm_error(data, plot=plot_signals) for data in datasets])
+        df.index = [d.filepath for d in datasets]
+        return df
+
+    def get_recording_algorithm_error(self, data: Recording, plot=False) -> pd.DataFrame:
+        """Calculates the algorithm error of a single recording"""
+        if data.env.fs != self._detector.fs:
+            raise ValueError(f"Recording fs ({data.env.fs}) does not match model fs ({self.model.env.fs})")
+        correct_steps = self._get_true_step_timestamps(data)
+        step_groups = self._detector.get_step_groups(np.array(data.ts), plot=plot, truth=correct_steps)
+        predicted_steps = np.concatenate(step_groups) if len(step_groups) else []
+        return self._get_algorithm_error(predicted_steps, correct_steps)
 
     @staticmethod
     def _get_algorithm_error(measured_times: np.ndarray, correct_times: np.ndarray) -> pd.DataFrame:
@@ -329,15 +346,21 @@ class AnalysisController:
 if __name__ == "__main__":
     # DataHandler().plot(walk_speed='normal', user='ron', footwear='socks', wall_radius=1.89)
 
-    model_data = Recording.from_file('datasets/piezo/2024-02-11_19-04-16.yaml')
-    params = {'window_duration': 0.2927981091746967, 'min_signal': 0.06902195485649608, 'min_step_delta': 0.7005074596681514, 'max_step_delta': 1.7103077671127291, 'confirm_coefs': [0.13795802814939168, 0.056480535457810385, 1.2703933010798438, 0.0384835095362413], 'unconfirm_coefs': [1.0670316188983877, 1.0511076985832117, 1.160496215083792, 1.6484084554908836], 'reset_coefs': [0.7869793593332175, 1.6112694921747566, 0.12464680752843472, 1.1399207966364366]}
-    controller = AnalysisController(model_data, **params)
-    datasets = DataHandler('datasets/piezo').get(user='ron', quality='normal', location='Aarons Studio')
-    print(controller.get_metrics(datasets, plot_dist=True, plot_title=str(params))[0])
+    # model_data = Recording.from_file('datasets/piezo/2024-02-11_19-04-16.yaml')
+    # params = {'window_duration': 0.2927981091746967, 'min_signal': 0.06902195485649608, 'min_step_delta': 0.7005074596681514, 'max_step_delta': 1.7103077671127291, 'confirm_coefs': [0.13795802814939168, 0.056480535457810385, 1.2703933010798438, 0.0384835095362413], 'unconfirm_coefs': [1.0670316188983877, 1.0511076985832117, 1.160496215083792, 1.6484084554908836], 'reset_coefs': [0.7869793593332175, 1.6112694921747566, 0.12464680752843472, 1.1399207966364366]}
+    # controller = AnalysisController(model_data, **params)
+    # datasets = DataHandler('datasets/piezo').get(user='ron', quality='normal', location='Aarons Studio')
+    # print(controller.get_metrics(datasets, plot_dist=True, plot_title=str(params))[0])
 
-    # bad_recordings = [
-    #     'datasets/2023-11-09_18-50-50.yaml',
-    # ]
-
-    # datasets = [Recording.from_file(f) for f in bad_recordings]
-    # print(controller.get_metrics(datasets, plot_signals=True)[0])
+    import os
+    filenames = os.listdir('datasets/piezo')
+    recs = [Recording.from_file(f'datasets/piezo/{f}') for f in filenames]
+    recs = [rec for rec in recs if rec.env.quality == 'normal']
+    normal_dists = [rec.env.path.tangent_distance for rec in recs]
+    print(normal_dists)
+    errors = AnalysisController(model=recs[1]).get_algorithm_error(recs)
+    print(errors)
+    recs = [Recording.from_file(f'datasets/bno055/{f}') for f in filenames]
+    recs = [rec for rec in recs if rec.env.quality == 'normal']
+    errors = AnalysisController(model=recs[1]).get_algorithm_error(recs)
+    print(errors)

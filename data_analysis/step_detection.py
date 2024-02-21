@@ -151,11 +151,11 @@ class StepDetector(TimeSeriesProcessor):
                  fs: float,
                  window_duration: float,
                  noise_profile: np.ndarray,
-                 min_signal: float = 0.1,
+                 min_signal: float = None,
                  min_step_delta: float = 0,
                  max_step_delta: float = 2,
-                 confirm_coefs: Tuple[float, float, float, float] = (0.7, 0.3, 0, 0),
-                 unconfirm_coefs: Tuple[float, float, float, float] = (0.5, 0.5, 0, 0),
+                 confirm_coefs: Tuple[float, float, float, float] = (0.5, 0.3, 0, 0),
+                 unconfirm_coefs: Tuple[float, float, float, float] = (0.25, 0.65, 0, 0),
                  reset_coefs: Tuple[float, float, float, float] = (0, 1, 0, 0),
                  step_model=None,
                  freq_weights=None,
@@ -281,7 +281,7 @@ class StepDetector(TimeSeriesProcessor):
                 fig.add_annotation(x=uncertain, y=DC - offset, xshift=-10, text="U", showarrow=False, row=1, col=1)
             # fig.write_html("normal_detection.html")
             fig.show()
-        if max_sig < self._min_signal:
+        if self._min_signal is not None and max_sig < self._min_signal:
             return [], []
         return confirmed_stamps, uncertain_stamps
 
@@ -292,9 +292,10 @@ class StepDetector(TimeSeriesProcessor):
         """
         noise_max = np.max(self._noise)
         noise_std = np.std(self._noise)
-        confirmed_threshold = np.dot(self._confirm_coefs, [max_sig, noise_max, noise_std, 1])
-        uncertain_threshold = np.dot(self._unconfirm_coefs, [max_sig, noise_max, noise_std, 1])
-        reset_threshold = np.dot(self._reset_coefs, [max_sig, noise_max, noise_std, 1])
+        parameters = (max_sig, noise_max, noise_std, 1)
+        confirmed_threshold = np.dot(self._confirm_coefs, parameters)
+        uncertain_threshold = np.dot(self._unconfirm_coefs, parameters)
+        reset_threshold = np.dot(self._reset_coefs, parameters)
         if uncertain_threshold > confirmed_threshold:
             self.logger.debug(f"Uncertain threshold ({uncertain_threshold:.3f}) is greater than confirmed threshold ({confirmed_threshold:.3f})")
             uncertain_threshold = confirmed_threshold

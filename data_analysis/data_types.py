@@ -36,6 +36,14 @@ class WalkPath:
     stop: float # End distance from sensor (m)
     length: float # Total length of the walk (m)
 
+    @property
+    def tangent_distance(self) -> float:
+        """Compute the closest distance to the sensor along the path using Heron's Formula."""
+        # h=0.5*sqrt(a+b+c)*sqrt(-a+b+c)*sqrt(a-b+c)*sqrt(a+b-c)/b
+        a, b, c = self.start, self.length, self.stop
+        return 0.5 * np.sqrt(a + b + c) * np.sqrt(-a + b + c) * np.sqrt(a - b + c) * np.sqrt(a + b - c) / b
+
+
 
 @dataclass
 class RecordingEnvironment:
