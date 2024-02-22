@@ -72,6 +72,10 @@ class RecordingEnvironment:
     def to_dict(self):
         return asdict(self)
 
+    @staticmethod
+    def keys():
+        return RecordingEnvironment.__dataclass_fields__.keys()
+
 
 @dataclass
 class Recording:

@@ -239,7 +239,7 @@ class AnalysisController:
     @staticmethod
     def _get_varied_env_vars(datasets: List[Recording], exclude=['notes']) -> dict[str, list[str]]:
         """Returns a dictionary of environmental variables that vary across datasets"""
-        env_vars = {key: [] for key in RecordingEnvironment.__annotations__}
+        env_vars = {key: [] for key in RecordingEnvironment.keys()}
         for data in datasets:
             for key, value in data.env.to_dict().items():
                 if value is not None and value not in env_vars[key] and key not in exclude:
@@ -249,7 +249,7 @@ class AnalysisController:
 
     def get_recording_metrics(self, data: Recording, abort_on_limit=False, plot=False) -> Tuple[Metrics, Metrics, pd.DataFrame]:
         """Analyzes a recording and returns metrics"""
-        if data.env.fs != self._detector.fs:
+        if data.env.fs != self.fs:
             raise ValueError(f"Recording fs ({data.env.fs}) does not match model fs ({self.fs})")
         correct_steps = self._get_true_step_timestamps(data)
         abort_limit = None if not abort_on_limit else len(correct_steps)
@@ -344,23 +344,8 @@ class AnalysisController:
 
 
 if __name__ == "__main__":
-    # DataHandler().plot(walk_speed='normal', user='ron', footwear='socks', wall_radius=1.89)
-
-    # model_data = Recording.from_file('datasets/piezo/2024-02-11_19-04-16.yaml')
-    # params = {'window_duration': 0.2927981091746967, 'min_signal': 0.06902195485649608, 'min_step_delta': 0.7005074596681514, 'max_step_delta': 1.7103077671127291, 'confirm_coefs': [0.13795802814939168, 0.056480535457810385, 1.2703933010798438, 0.0384835095362413], 'unconfirm_coefs': [1.0670316188983877, 1.0511076985832117, 1.160496215083792, 1.6484084554908836], 'reset_coefs': [0.7869793593332175, 1.6112694921747566, 0.12464680752843472, 1.1399207966364366]}
-    # controller = AnalysisController(model_data, **params)
-    # datasets = DataHandler('datasets/piezo').get(user='ron', quality='normal', location='Aarons Studio')
-    # print(controller.get_metrics(datasets, plot_dist=True, plot_title=str(params))[0])
-
-    import os
-    filenames = os.listdir('datasets/piezo')
-    recs = [Recording.from_file(f'datasets/piezo/{f}') for f in filenames]
-    recs = [rec for rec in recs if rec.env.quality == 'normal']
-    normal_dists = [rec.env.path.tangent_distance for rec in recs]
-    print(normal_dists)
-    errors = AnalysisController(model=recs[1]).get_algorithm_error(recs)
-    print(errors)
-    recs = [Recording.from_file(f'datasets/bno055/{f}') for f in filenames]
-    recs = [rec for rec in recs if rec.env.quality == 'normal']
-    errors = AnalysisController(model=recs[1]).get_algorithm_error(recs)
-    print(errors)
+    model_data = Recording.from_file('datasets/piezo/2024-02-11_18-28-53.yaml')
+    params = {'window_duration': 0.2927981091746967, 'min_signal': 0.06902195485649608, 'min_step_delta': 0.7005074596681514, 'max_step_delta': 1.7103077671127291, 'confirm_coefs': [0.13795802814939168, 0.056480535457810385, 1.2703933010798438, 0.0384835095362413], 'unconfirm_coefs': [1.0670316188983877, 1.0511076985832117, 1.160496215083792, 1.6484084554908836], 'reset_coefs': [0.7869793593332175, 1.6112694921747566, 0.12464680752843472, 1.1399207966364366]}
+    controller = AnalysisController(model_data, **params)
+    datasets = DataHandler('datasets/piezo').get(user='ron', quality='normal', location='Aarons Studio')
+    print(controller.get_metrics(datasets, plot_dist=True, plot_title=str(params))[0])
