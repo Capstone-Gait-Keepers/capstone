@@ -40,5 +40,5 @@ jobs:
         git config --global user.email 'draymond63@users.noreply.github.com'
         git checkout -b prod
         git add -f backend/static
-        git commit -m "Build artifacts for production"
+        git commit -m "${{ github.event.head_commit.message }}"
         git push origin prod --force
