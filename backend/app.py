@@ -328,16 +328,12 @@ def get_sensor_status():
 @app.route('/', defaults={'path': ''})
 @app.route('/<path:path>')
 def serve(path):
-    if path != "" and os.path.exists(app.static_folder + '/' + path):
+    if 'api' in path:
+        return jsonify(message="Resource not found"), HTTPStatus.NOT_FOUND
+    elif path != "" and os.path.exists(app.static_folder + '/' + path):
         return send_from_directory(app.static_folder, path)
     else:
         return send_from_directory(app.static_folder, 'index.html')
-
-@app.errorhandler(404)
-def handle_404(e):
-    if request.path.startswith("/api/"):
-        return jsonify(message="Resource not found"), 404
-    return jsonify(message="""Frontend not found. Did you run `npm run build` in the frontend/ directory? See the README for more details"""), HTTPStatus.NOT_FOUND
 
 
 if __name__ == '__main__':
