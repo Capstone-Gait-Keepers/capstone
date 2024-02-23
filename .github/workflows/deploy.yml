@@ -1,0 +1,44 @@
+name: Build and Push to Production Branch
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'backend/**'
+      - 'frontend/**'
+      - '.github/workflows/deploy.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+      with:
+        fetch-depth: 0  # Fetch all history for all tags and branches
+    - name: Set up Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '16'
+    - name: Install dependencies
+      run: |
+        cd frontend
+        npm install
+    - name: Build
+      env:
+        VITE_BACKEND_URL: https://capstone-backend-f6qu.onrender.com
+      run:  |
+        cd frontend
+        npm run build
+    - name: Push build artifacts to prod branch
+      run: |
+        git config --global user.name 'Daniel Raymond'
+        git config --global user.email 'draymond63@users.noreply.github.com'
+        git checkout -b prod
+        git add -f backend/static
+        git commit -m "${{ github.event.head_commit.message }}"
+        git push origin prod --force

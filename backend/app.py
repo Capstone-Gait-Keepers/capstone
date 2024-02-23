@@ -1,7 +1,8 @@
 import os
+import sys
 import time
 from dotenv import load_dotenv
-from flask import Flask, jsonify, request, render_template
+from flask import Flask, jsonify, request, render_template, send_from_directory
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import create_engine, func, ForeignKey
 from sqlalchemy.orm import sessionmaker, relationship
@@ -11,21 +12,25 @@ from datetime import datetime
 from sqlalchemy.exc import OperationalError
 from flask_sslify import SSLify
 
+# This is hack, but it's the simplest way to get things to work without changing things - Daniel
+sys.path.append(os.path.join(os.path.dirname(__file__), 'data_analysis'))
+from data_analysis.step_detection import StepDetector
+from data_analysis.data_types import Recording, RecordingEnvironment
+
 # .env
 load_dotenv()
 
 # init db
 db = SQLAlchemy()
 
-app = Flask(__name__)
+app = Flask(__name__, static_folder="static", template_folder="static")
 
 # database connection
 url = os.getenv("DATABSE_URL") 
 DBUSER = os.getenv("PRODUSER") 
 DBID = os.getenv("DB_ID") 
-DBPASS = os.getenv("PRODPASS") 
-DBREGION = os.getenv("DB_REGION") 
-DBNAME = os.getenv("PRODHOST") 
+DBPASS = os.getenv("DB_PASS") 
+DBREGION = os.getenv("DB_REGION")
 
 SQLALCHEMY_DATABASE_URI = f"postgresql://postgres.{DBID}:{DBPASS}@aws-0-us-east-1.pooler.supabase.com:6543/postgres"
 #SQLALCHEMY_DATABASE_URI = f"postgresql://postgres:{prodpass}@{prodhost}:5432/postgres" #old
@@ -276,11 +281,6 @@ def database_wakeup():
 #     #print(ids)
 #     return ids
 
-# Hello World (Daniel)
-@app.route('/')
-def hello_world():
-    return render_template('hello.html')
-
 # protected by username and password
 @app.route('/documentation')
 @basic_auth.required
@@ -288,8 +288,8 @@ def documentation():
     return render_template('documentation.html')
 
 # shows status of each sensor
-@app.route('/status')
-def sensor_page():
+@app.route('/api/sensor_status')
+def get_sensor_status():
 
     # create unique session for each query
     engine = create_engine(SQLALCHEMY_DATABASE_URI, pool_pre_ping=True)
@@ -326,7 +326,51 @@ def sensor_page():
     finally: 
         session.close()
 
-    return render_template('status.html', sensors=sensors)
+    response = jsonify(sensors)
+    response.headers.add('Access-Control-Allow-Origin', '*')
+    return response
+
+
+@app.route('/api/list_recordings/<int:sensor_id>')
+def get_recording_ids(sensor_id: int):
+    try:
+        recordings = db.session.query(Recordings).filter(Recordings.sensorid == sensor_id).all()
+        recording_ids = [recording._id for recording in recordings]
+        response = jsonify(recording_ids)
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        return response
+    except Exception as e:
+        return jsonify(error=f"Error processing request: {str(e)}"), HTTPStatus.BAD_REQUEST
+
+
+@app.route('/recording/<int:recording_id>')
+def plot_recording(recording_id: int):
+    recording = db.session.query(Recordings).filter(Recordings._id == recording_id).first()
+    sensor = db.session.query(NewSensor).filter(NewSensor._id == recording.sensorid).first()
+    env = RecordingEnvironment(
+        sensor._id,
+        sensor.fs,
+        user='',
+        floor=sensor.floor,
+        footwear='socks',
+        walk_type='normal',
+        wall_radius=sensor.wall_radius,
+        obstacle_radius=sensor.obstacle_radius
+    )
+    rec = Recording(env, [], recording.ts_data)
+    return rec.plot(show=False).to_html()
+
+
+
+@app.route('/', defaults={'path': ''})
+@app.route('/<path:path>')
+def serve(path):
+    if 'api' in path:
+        return jsonify(message="Resource not found"), HTTPStatus.NOT_FOUND
+    elif path != "" and os.path.exists(app.static_folder + '/' + path):
+        return send_from_directory(app.static_folder, path)
+    else:
+        return send_from_directory(app.static_folder, 'index.html')
 
 
 if __name__ == '__main__':

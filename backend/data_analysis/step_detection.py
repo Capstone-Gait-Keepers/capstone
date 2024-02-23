@@ -1,0 +1,369 @@
+import os
+import numpy as np
+import pandas as pd
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
+from typing import List, Tuple, Optional
+from logging import Logger, getLogger
+
+from data_types import Recording
+
+
+class DataHandler:
+    def __init__(self, folder = "datasets") -> None:
+        self.folder = folder
+
+    def get(self, **filters) -> List[Recording]:
+        """Walk through datasets folder and return all records that match the filters"""
+        filepaths = [file for file in os.listdir(self.folder) if file.endswith(".yaml")]
+        if 'example.yaml' in filepaths:
+            filepaths.remove('example.yaml')
+        datasets = [Recording.from_file(os.path.join(self.folder, filename)) for filename in filepaths]
+        for key, value in filters.items():
+            datasets = [d for d in datasets if getattr(d.env, key) == value]
+        return datasets
+
+    def plot(self, clip=False, truth=True, **filters):
+        """Walk through datasets folder and plot all recording that match the filters"""
+        datasets = self.get(**filters)
+        fig = make_subplots(rows=len(datasets), cols=1, subplot_titles=[*datasets.keys()], shared_xaxes=True)
+        fig.update_layout(title=str(filters), showlegend=False)
+        len_shortest = min([len(data.ts) for data in datasets.values()])
+        for i, data in enumerate(datasets.values(), start=1):
+            if clip:
+                data.ts = data.ts[:len_shortest]
+            timestamps = np.linspace(0, len(data.ts) / data.env.fs, len(data.ts))
+            fig.add_trace(go.Scatter(x=timestamps, y=data.ts, name='vibes'), row=i, col=1)
+            if truth:
+                for event in data.events:
+                    fig.add_vline(x=event.timestamp, line_color='green', row=i, col=1)
+                    fig.add_annotation(x=event.timestamp, y=0, xshift=-17, yshift=15, text=event.category, showarrow=False, row=i, col=1)
+            # TODO: Better text to identify between datasets
+            # env_vars = data.env.to_dict()
+            # env_vars = {key: value for key, value in env_vars.items() if value is not None and key not in filters}
+            # for y, (key, value) in enumerate(env_vars.items(), start=-len(env_vars) // 2):
+            #     fig.add_annotation(x=timestamps[len(timestamps)//2], y=y/80, text=f"{key} = {value}", xshift=0, showarrow=False, row=i, col=1)
+        fig.show()
+
+
+class TimeSeriesProcessor:
+    def __init__(self, fs: float) -> None:
+        if not isinstance(fs, (int, float)):
+            raise TypeError(f"fs must be a number, not {type(fs)}")
+        self.fs = fs
+
+    def timestamp_to_index(self, timestamp: float) -> int:
+        """
+        Converts a timestamp to an index in a time series
+
+        Parameters
+        ----------
+        timestamp : float
+            Timestamp in seconds
+        fs : float
+            Sampling frequency in Hz
+
+        Returns
+        -------
+        int
+            Index of the timestamp in the time series
+        """
+        return np.floor(timestamp * self.fs).astype(int)
+
+    @staticmethod
+    def rolling_window(a: np.ndarray, window_size: int, stride: int = None) -> np.ndarray:
+        """
+        Creates a rolling window of a time series
+
+        Parameters
+        ----------
+        a : np.ndarray
+            Time series to be windowed
+        window_size : int
+            Size of the window in samples
+        stride : int, optional
+            Number of samples to move the window by. If None, stride is equal to window size
+
+        Returns
+        -------
+        np.ndarray
+            Windowed time series, of shape (n_windows, window_size)
+        """
+        if stride is None:
+            stride = window_size
+        return np.asarray([a[i:i + window_size] for i in range(0, len(a) - window_size, stride)])
+
+    def rolling_window_fft(self, a: np.ndarray, window_duration: int, stride: int, ignore_dc=False) -> np.ndarray:
+        """
+        Creates a rolling window of a time series and computes the FFT of each window
+        """
+        window_size = self.timestamp_to_index(window_duration)
+        padded_a = np.pad(a, (window_size // 2, window_size // 2), mode='edge')
+        intervals = TimeSeriesProcessor.rolling_window(padded_a, window_size, stride)
+        if ignore_dc:
+            intervals -= np.mean(intervals, axis=1, keepdims=True)
+        # TODO: Better condition for tapering?
+        if stride < window_size:
+            tapering_window = np.vstack([np.blackman(window_size)] * len(intervals))
+            intervals *= tapering_window
+        rolling_fft = np.fft.fft(intervals, axis=-1).T[:window_size//2]
+        # Edge case when the window size is odd
+        if len(a) == rolling_fft.shape[-1] + 1:
+            rolling_fft = np.pad(rolling_fft, ((0, 0), (0, 1)), mode='constant')
+        return np.abs(rolling_fft)
+
+    def get_window_fft_freqs(self, window_duration) -> np.ndarray:
+        window_size = self.timestamp_to_index(window_duration)
+        return np.fft.fftfreq(window_size, 1/self.fs)[:window_size//2] # Ignore negative frequencies
+
+    def get_energy(self, vibes: np.ndarray, window_duration=0.2, stride=1, weights=None) -> np.ndarray:
+        """
+        Find the energy of the accelerometer data
+        """
+        p_vibes = vibes - np.mean(vibes, axis=0) # Subtract DC offset
+        amps = self.rolling_window_fft(p_vibes, window_duration, stride)
+        energy = np.average(amps, axis=0, weights=weights)
+        if energy.shape != vibes.shape:
+            raise ValueError(f"Energy is the wrong shape: {energy.shape} != {vibes.shape}")
+        return energy
+
+    @staticmethod
+    def get_peak_indices(signal: np.ndarray, threshold: float, reset_threshold: float = None) -> np.ndarray:
+        """
+        Find the indices of the peaks in a time series above a certain threshold. 
+        If a reset threshold is provided, the signal must drop below it before finding another peak
+        """
+        de_dt = np.gradient(signal)
+        optima = np.diff(np.sign(de_dt), prepend=[0]) != 0
+        peak_indices = np.where((signal > threshold) & optima)[0]
+        bad_peaks = []
+        if reset_threshold is not None:
+            for peak1, peak2 in zip(peak_indices[:-1], peak_indices[1:]):
+                if not np.any(signal[peak1:peak2] < reset_threshold):
+                    bad_peaks.append(peak2)
+            peak_indices = np.setdiff1d(peak_indices, bad_peaks)
+        return peak_indices
+
+
+class StepDetector(TimeSeriesProcessor):
+    def __init__(self,
+                 fs: float,
+                 window_duration: float,
+                 noise_profile: np.ndarray,
+                 min_signal: float = None,
+                 min_step_delta: float = 0,
+                 max_step_delta: float = 2,
+                 confirm_coefs: Tuple[float, float, float, float] = (0.5, 0.3, 0, 0),
+                 unconfirm_coefs: Tuple[float, float, float, float] = (0.25, 0.65, 0, 0),
+                 reset_coefs: Tuple[float, float, float, float] = (0, 1, 0, 0),
+                 step_model=None,
+                 freq_weights=None,
+                 logger: Optional[Logger]=None,
+    ) -> None:
+        """
+        Parameters
+        ----------
+        window_duration : float
+            Duration of the rolling window in seconds
+        step_model : np.ndarray, optional
+            Model of step energy vs time. Model is cross correlated with the energy of the time series
+        freq_weights : np.ndarray, optional
+            Weights to apply to each frequency when averaging the frequency spectrum
+        """
+        super().__init__(fs)
+        self.logger = logger if logger is not None else getLogger(__name__)
+        self._window_duration = window_duration
+        self._min_signal = min_signal
+        if min_step_delta > max_step_delta:
+            raise ValueError(f"min_step_delta ({min_step_delta}) must be less than max_step_delta ({max_step_delta})")
+        self._min_step_delta = min_step_delta
+        self._max_step_delta = max_step_delta
+        self._confirm_coefs = confirm_coefs
+        self._unconfirm_coefs = unconfirm_coefs
+        self._reset_coefs = reset_coefs
+        # Modelling
+        self._step_model = step_model
+        self._freq_weights = freq_weights
+        if freq_weights is not None and len(freq_weights) != len(self.get_window_fft_freqs()):
+            raise ValueError(f"Length of freq_weights ({len(freq_weights)}) must match the window duration ({window_duration})")
+        self._noise = self.get_energy(noise_profile)
+
+    def get_step_groups(self, ts: np.ndarray, abort_limit=None, plot=False, truth=None, plot_title=None) -> List[np.ndarray]:
+        """
+        Analyzes time series and returns a list of step groups
+        """
+        if ts[-1] is None:
+            ts = ts[:-1]
+            self.logger.warning("Removed last value from time series because it was None")
+        if None in ts:
+            raise ValueError("Time series must not contain None values")
+        steps, uncertain_steps = self._find_steps(ts, plot, truth, plot_title)
+        if abort_limit and len(steps) > abort_limit:
+            self.logger.warning(f"Too many steps detected, aborting. Found {len(steps)} confirmed steps and {len(uncertain_steps)} uncertain steps")
+            return []
+        self.logger.debug(f"Found {len(steps)} confirmed steps and {len(uncertain_steps)} uncertain steps")
+        if len(steps) > 1: # We need at least two confirmed steps to do anything
+            step_groups = self._resolve_step_sections(steps, uncertain_steps)
+            self.logger.info(f"Resolved {len(steps)} steps into {len(step_groups)} step groups of lengths {[len(group) for group in step_groups]}")
+            if len(step_groups):
+                step_groups = self._enforce_min_step_delta(step_groups)
+                step_groups = self._enforce_max_step_delta(step_groups)
+            # TODO: Set hard bounds on metrics?
+            return step_groups
+        return []
+
+    def get_energy(self, vibes: np.ndarray) -> np.ndarray:
+        return super().get_energy(vibes, self._window_duration, weights=self._freq_weights)
+
+    def get_window_fft_freqs(self) -> np.ndarray:
+        return super().get_window_fft_freqs(self._window_duration)
+
+    def _find_steps(self, vibes: np.ndarray, plot=False, truth=None, plot_title=None) -> Tuple[np.ndarray, np.ndarray]:
+        """
+        Counts the number of steps in a time series of accelerometer data. This function should not use
+        anything from `data.events` except for plotting purposes. This is because it is meant to mimic
+        a blind step detection algorithm.
+
+        Parameters
+        ----------
+        data : Recording
+            Time series of accelerometer data, plus the environmental data
+        plot : bool
+            Whether or not to plot the results
+        truth: Optional[List[float]]
+            Source of truth for the steps. Only used for plotting
+        """
+        # Time series processing
+        timestamps = np.linspace(0, len(vibes) / self.fs, len(vibes))
+        amps = self.rolling_window_fft(vibes, self._window_duration, stride=1, ignore_dc=True)
+        # Weight average based on shape of frequency spectrum
+        if self._freq_weights is not None:
+            amps = amps * self._freq_weights[:, np.newaxis]
+        energy = np.average(amps, axis=0)
+        # Cross correlate step model with energy
+        if self._step_model is not None:
+            energy = np.correlate(energy, self._step_model, mode='same')
+            model_autocorr = np.correlate(self._step_model, self._step_model, mode='valid')
+            energy /= np.max(model_autocorr)
+        max_sig = np.max(energy)
+        # Step detection
+        confirmed_threshold, uncertain_threshold, reset_threshold = self._get_energy_thresholds(max_sig)
+        confirmed_indices = self.get_peak_indices(energy, confirmed_threshold, reset_threshold)
+        uncertain_indices = self.get_peak_indices(energy, uncertain_threshold, reset_threshold)
+        uncertain_indices = np.setdiff1d(uncertain_indices, confirmed_indices)    
+        confirmed_stamps = timestamps[confirmed_indices]
+        uncertain_stamps = timestamps[uncertain_indices]
+        # TODO: Find start of step within confirmed window?
+        if plot:
+            titles = ("Raw Timeseries", "Scrolling FFT", "Average Energy")
+            fig = make_subplots(rows=3, cols=1, shared_xaxes=True, subplot_titles=titles)
+            if plot_title is not None:
+                fig.update_layout(title=plot_title, showlegend=False)
+            fig.add_scatter(x=timestamps, y=vibes, name='vibes', row=1, col=1)
+            freqs = self.get_window_fft_freqs()
+            fig.add_heatmap(x=timestamps, y=freqs, z=amps, row=2, col=1)
+            fig.add_scatter(x=timestamps, y=energy, name='energy', row=3, col=1)
+            for i, (symbol, threshold) in enumerate({'C': confirmed_threshold, 'U': uncertain_threshold, 'R': reset_threshold}.items(), 2):
+                fig.add_hline(y=threshold, row=3, col=1)
+                fig.add_annotation(x=i/20, y=threshold + max_sig/20, text=symbol, showarrow=False, row=3, col=1)
+            DC = np.mean(vibes)
+            offset = 0.05 * np.max(vibes)
+            if truth:
+                for timestamp in truth:
+                    fig.add_vline(x=timestamp + 0.05, line_color='green', row=1, col=1)
+                    fig.add_annotation(x=timestamp, y=DC + offset, xshift=-17, text="Step", showarrow=False, row=1, col=1)
+            for confirmed in confirmed_stamps:
+                fig.add_vline(x=confirmed, line_dash="dash", row=1, col=1)
+                fig.add_annotation(x=confirmed, y=DC - offset, xshift=-10, text="C", showarrow=False, row=1, col=1)
+            for uncertain in uncertain_stamps:
+                fig.add_vline(x=uncertain, line_dash="dot", row=1, col=1)
+                fig.add_annotation(x=uncertain, y=DC - offset, xshift=-10, text="U", showarrow=False, row=1, col=1)
+            # fig.write_html("normal_detection.html")
+            fig.show()
+        if self._min_signal is not None and max_sig < self._min_signal:
+            return [], []
+        return confirmed_stamps, uncertain_stamps
+
+    def _get_energy_thresholds(self, max_sig: float):
+        """
+        Calculates the thresholds for confirmed, uncertain and reset steps
+        based on the energy of the time series and the noise floor
+        """
+        noise_max = np.max(self._noise)
+        noise_std = np.std(self._noise)
+        parameters = (max_sig, noise_max, noise_std, 1)
+        confirmed_threshold = np.dot(self._confirm_coefs, parameters)
+        uncertain_threshold = np.dot(self._unconfirm_coefs, parameters)
+        reset_threshold = np.dot(self._reset_coefs, parameters)
+        if uncertain_threshold > confirmed_threshold:
+            self.logger.debug(f"Uncertain threshold ({uncertain_threshold:.3f}) is greater than confirmed threshold ({confirmed_threshold:.3f})")
+            uncertain_threshold = confirmed_threshold
+        if reset_threshold > uncertain_threshold:
+            self.logger.debug(f"Reset threshold ({reset_threshold:.3f}) is greater than uncertain threshold ({uncertain_threshold:.3f})")
+            reset_threshold = uncertain_threshold
+        self.logger.debug(f"Thresholds: confirmed={confirmed_threshold:.3f}, uncertain={uncertain_threshold:.3f}, reset={reset_threshold:.3f}")
+        return confirmed_threshold, uncertain_threshold, reset_threshold
+
+    def _resolve_step_sections(self, confirmed_stamps: np.ndarray, uncertain_stamps: np.ndarray = []) -> List[np.ndarray]:
+        """Groups confirmed steps into sections, ignoring unconfirmed steps. Sections must have at least 3 steps."""
+        all_steps = np.concatenate([confirmed_stamps, uncertain_stamps])
+        if len(set(all_steps)) != len(all_steps):
+            raise ValueError("All step stamps must be unique")
+        # Creating a series of confirmed steps
+        confirmed = pd.Series([True] * len(confirmed_stamps), index=confirmed_stamps)
+        if len(uncertain_stamps):
+            unconfirmed_steps = pd.Series([False] * len(uncertain_stamps), index=uncertain_stamps)
+            confirmed = pd.concat([confirmed, unconfirmed_steps])
+        confirmed = confirmed.sort_index()
+
+        # Upgrading unconfirmed steps to confirmed steps if there's only one unconfirmed step between two confirmed steps
+        for prev_step, current_step, next_step in zip(confirmed.index[:-2], confirmed.index[1:-1], confirmed.index[2:]):
+            if not confirmed[current_step] and confirmed[prev_step] and confirmed[next_step]:
+                self.logger.debug(f"Upgrading unconfirmed step at {current_step}")
+                confirmed[current_step] = True
+
+        # Grouping confirmed steps into sections
+        current_section = 0
+        section_indices = [current_section] * len(confirmed)
+        for i, (prev_step, current_step) in enumerate(zip(confirmed.iloc[:-1], confirmed.iloc[1:]), 1):
+            if current_step and not prev_step:
+                current_section += 1
+            section_indices[i] = current_section
+        steps = pd.DataFrame({'confirmed': confirmed, 'section': section_indices}, index=confirmed.index)
+        step_dist = steps.confirmed.value_counts()
+        if False in step_dist:
+            self.logger.debug(f"Ignoring {step_dist[False]} unconfirmed steps")
+        steps = steps[steps.confirmed] # Ignore unconfirmed steps that were not upgraded
+        if not len(steps):
+            return []
+        steps = steps.groupby('section').filter(lambda x: len(x) >= 3) # Ignore sections with less than 3 steps
+        sections = [group.index.values for _, group in steps.groupby('section')]
+        return sections
+
+    def _enforce_min_step_delta(self, step_groups: List[np.ndarray]) -> List[np.ndarray]:
+        """Drop steps that are too close together"""
+        new_step_groups = [self._enforce_min_step_delta_single_group(steps, i) for i, steps in enumerate(step_groups)]
+        return new_step_groups
+
+    def _enforce_min_step_delta_single_group(self, steps: np.ndarray, group_index: int):
+        steps_too_close = np.diff(steps) < self._min_step_delta
+        if np.any(steps_too_close):
+            self.logger.debug(f"Enforcing min step delta, removed {steps_too_close.sum()} step(s) in group {group_index}")
+            return steps[~np.insert(steps_too_close, 0, False)]
+        return steps
+
+    def _enforce_max_step_delta(self, step_groups: List[np.ndarray]) -> List[np.ndarray]:
+        """Splits up steps that are too far apart"""
+        new_step_groups = []
+        for i, steps in enumerate(step_groups):
+            step_diffs = np.diff(steps)
+            split_indices = np.where(step_diffs > self._max_step_delta)[0] + 1
+            if len(split_indices):
+                self.logger.debug(f"Enforcing max step delta: splitting up group {i} before steps {split_indices}")
+                split_indices = np.insert(split_indices, 0, 0) # Add outer bounds so the data can be sliced properly
+                split_indices = np.append(split_indices, len(steps))
+                for start, end in zip(split_indices[:-1], split_indices[1:]):
+                    new_step_groups.append(steps[start:end])
+            else:
+                new_step_groups.append(steps)
+        return new_step_groups
