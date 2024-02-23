@@ -1,4 +1,5 @@
 import os
+import sys
 import time
 from dotenv import load_dotenv
 from flask import Flask, jsonify, request, render_template, send_from_directory
@@ -10,6 +11,11 @@ from flask_basicauth import BasicAuth
 from datetime import datetime
 from sqlalchemy.exc import OperationalError
 from flask_sslify import SSLify
+
+# This is hack, but it's the simplest way to get things to work without changing things - Daniel
+sys.path.append(os.path.join(os.path.dirname(__file__), 'data_analysis'))
+from data_analysis.step_detection import StepDetector
+from data_analysis.data_types import Recording, RecordingEnvironment
 
 # .env
 load_dotenv()
@@ -323,6 +329,35 @@ def get_sensor_status():
     response = jsonify(sensors)
     response.headers.add('Access-Control-Allow-Origin', '*')
     return response
+
+
+@app.route('/api/list_recordings/<int:sensor_id>')
+def get_recording_ids(sensor_id: int):
+    try:
+        recordings = db.session.query(Recordings).filter(Recordings.sensorid == sensor_id).all()
+        recording_ids = [recording._id for recording in recordings]
+        return jsonify(recording_ids)
+    except Exception as e:
+        return jsonify(error=f"Error processing request: {str(e)}"), HTTPStatus.BAD_REQUEST
+
+
+@app.route('/recording/<int:recording_id>')
+def plot_recording(recording_id: int):
+    recording = db.session.query(Recordings).filter(Recordings._id == recording_id).first()
+    sensor = db.session.query(NewSensor).filter(NewSensor._id == recording.sensorid).first()
+    env = RecordingEnvironment(
+        sensor._id,
+        sensor.fs,
+        user='',
+        floor=sensor.floor,
+        footwear='socks',
+        walk_type='normal',
+        wall_radius=sensor.wall_radius,
+        obstacle_radius=sensor.obstacle_radius
+    )
+    rec = Recording(env, [], recording.ts_data)
+    return rec.plot(show=False).to_html()
+
 
 
 @app.route('/', defaults={'path': ''})
