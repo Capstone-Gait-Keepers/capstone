@@ -1,15 +1,10 @@
+<script setup lang="ts">
+import BasePage from '@/components/BasePage.vue'
+</script>
+
 <template>
-  <div class="about">
+  <BasePage>
     <h1>This is an about page</h1>
-  </div>
+  </BasePage>
 </template>
 
-<style>
-@media (min-width: 1024px) {
-  .about {
-    min-height: 100vh;
-    display: flex;
-    align-items: center;
-  }
-}
-</style>
