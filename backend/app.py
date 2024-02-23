@@ -336,7 +336,9 @@ def get_recording_ids(sensor_id: int):
     try:
         recordings = db.session.query(Recordings).filter(Recordings.sensorid == sensor_id).all()
         recording_ids = [recording._id for recording in recordings]
-        return jsonify(recording_ids)
+        response = jsonify(recording_ids)
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        return response
     except Exception as e:
         return jsonify(error=f"Error processing request: {str(e)}"), HTTPStatus.BAD_REQUEST
 

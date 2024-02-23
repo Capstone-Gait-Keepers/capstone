@@ -10,7 +10,7 @@
         <th>Last Timestamp</th>
         <th># of Recordings</th>
       </tr>
-      <tr v-for="sensor in sensors">
+      <tr v-for="sensor in sensors" @click="selectSensor">
         <td>{{ sensor.id }}</td>
         <td>{{ sensor.userid }}</td>
         <td>{{ sensor.model }}</td>
@@ -21,6 +21,14 @@
     </table>
     <p v-else-if="sensors !== null">No sensors loaded. Check console</p>
     <p v-else>Loading...</p>
+
+    <div v-if="recordingIds !== null && recordingIds.length">
+      <h2>Recordings</h2>
+      <div v-for="recordingId in recordingIds">
+        <a target="_blank" :href="getPlotUrl(recordingId)">{{ recordingId }}</a>
+      </div>
+    </div>
+    <p v-else-if="recordingIds !== null">No recordings loaded. Available</p>
   </BasePage>
 </template>
 
@@ -30,8 +38,28 @@ import BasePage from '@/components/BasePage.vue'
 import type { SensorConfig } from '@/types';
 import { queryBackend } from '@/backend_interface';
 const sensors = ref<SensorConfig[] | null>(null);
+const recordingIds = ref<Number[] | null>(null);
 
 onMounted(async () => {
   sensors.value = await queryBackend('/api/sensor_status') || [];
 });
+
+async function selectSensor(event: MouseEvent) {
+  if (event.currentTarget instanceof HTMLTableRowElement) {
+    const sensor = sensors.value?.[event.currentTarget.rowIndex - 1];
+    console.debug('Selected sensor:', sensor);
+    if (sensor && sensor.id) {
+      recordingIds.value = await queryRecordings(sensor.id);
+    }
+  }
+}
+
+async function queryRecordings(sensor_id: Number): Promise<Array<Number> | null> {
+  const response = await queryBackend<Array<Number>>(`/api/list_recordings/${sensor_id}`);
+  return response || null;
+}
+
+function getPlotUrl(rec_id: Number): string {
+  return import.meta.env.VITE_BACKEND_URL + `/recording/${rec_id}`;
+}
 </script>
