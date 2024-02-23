@@ -30,7 +30,7 @@ jobs:
         npm install
     - name: Build
       env:
-        VITE_BACKEND_URL: https://capstone-backend-f6qu.onrender.com/
+        VITE_BACKEND_URL: https://capstone-backend-f6qu.onrender.com
       run:  |
         cd frontend
         npm run build
