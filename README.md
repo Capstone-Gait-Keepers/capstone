@@ -18,7 +18,8 @@
 1. Install [Node](https://nodejs.org/en)
    - Check box to automatically install all dependencies, if applicable 
    - Verify installation with `npm -v`
-2. Install dependencies and run a local development server:
+2. Add `frontend/.env` file (get it from Dan)
+3. Install dependencies and run a local development server:
 ```
 cd frontend
 npm install

@@ -282,8 +282,8 @@ def documentation():
     return render_template('documentation.html')
 
 # shows status of each sensor
-@app.route('/status')
-def sensor_page():
+@app.route('/api/sensor_status')
+def get_sensor_status():
 
     # create unique session for each query
     engine = create_engine(SQLALCHEMY_DATABASE_URI, pool_pre_ping=True)
@@ -320,7 +320,9 @@ def sensor_page():
     finally: 
         session.close()
 
-    return render_template('status.html', sensors=sensors)
+    response = jsonify(sensors)
+    response.headers.add('Access-Control-Allow-Origin', '*')
+    return response
 
 
 @app.route('/', defaults={'path': ''})
@@ -335,7 +337,7 @@ def serve(path):
 def handle_404(e):
     if request.path.startswith("/api/"):
         return jsonify(message="Resource not found"), 404
-    return """Frontend not found. Did you run `npm run build` in the frontend/ directory? See the README for more details""", HTTPStatus.NOT_FOUND
+    return jsonify(message="""Frontend not found. Did you run `npm run build` in the frontend/ directory? See the README for more details"""), HTTPStatus.NOT_FOUND
 
 
 if __name__ == '__main__':
