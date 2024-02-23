@@ -11,7 +11,7 @@
         <th># of Recordings</th>
       </tr>
       <tr v-for="sensor in sensors" @click="selectSensor">
-        <td>{{ sensor.id }}</td>
+        <td><a>{{ sensor.id }}</a></td>
         <td>{{ sensor.userid }}</td>
         <td>{{ sensor.model }}</td>
         <td>{{ sensor.floor }}</td>
@@ -28,7 +28,7 @@
         <a target="_blank" :href="getPlotUrl(recordingId)">{{ recordingId }}</a>
       </div>
     </div>
-    <p v-else-if="recordingIds !== null">No recordings loaded. Available</p>
+    <p v-else-if="recordingIds !== null">No available recordings</p>
   </BasePage>
 </template>
 
@@ -63,3 +63,9 @@ function getPlotUrl(rec_id: Number): string {
   return import.meta.env.VITE_BACKEND_URL + `/recording/${rec_id}`;
 }
 </script>
+
+<style scoped>
+a {
+  cursor: pointer;
+}
+</style>
