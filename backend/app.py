@@ -179,6 +179,8 @@ def process_json2_withdb():
 # TO DO: curl 
 @app.route('/api/send_recording', methods=['POST'])
 def add_recording():
+    start_time = time.time() # for performance testing
+
     data = request.get_json()
 
 
@@ -206,6 +208,9 @@ def add_recording():
 
             print("Omg girls I did it")
 
+            time_taken = time.time() - start_time
+            print(time_taken) # will print to server logs for performance testing
+
             return jsonify({"message": "Data added successfully"}), HTTPStatus.CREATED
 
         except OperationalError as e:
@@ -228,6 +233,8 @@ def add_recording():
 # for setting up a new sensor
 @app.route('/api/add_sensorconfig', methods=['POST'])
 def add_sensorconfig():
+    start_time = time.time() # for performance testing
+
     database_wakeup()
     data = request.get_json()
     print(type(data['obstacle_radius']))
@@ -249,6 +256,9 @@ def add_sensorconfig():
 
             db.session.add(new_data)
             db.session.commit() # add to database
+
+            time_taken = time.time() - start_time
+            print(time_taken) # will print to server log for performance testing
 
             return jsonify({"message": "Sensor record created","sensorid": new_sensor_id})
         
