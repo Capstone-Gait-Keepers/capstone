@@ -72,6 +72,16 @@ Tutorial link that I found helpful: https://www.youtube.com/watch?v=RdPYA-wDhTA&
 8. Click 'Test Connection' -> you should see a success image.
 9. If connection works, hit finish
 
+#### FLASK APP
+- Run app.py, app will be live locally
+- Run client.py in dedicated terminal to test
+- Terminal should display success message + data should appear in 'sensors' db table
+
+## Current backend + DB status:
+- POST API endpoint set up for testing purposes in Flask app
+- PostgreSQL locally hosted on Docker image
+- Can receive data from POST endpoint and push it to said database.
+
 ### Viewing Frontend Pages from Flask
 If you'd like to host the frontend using Flask, you need to build a static version of the frontend.
 ```
