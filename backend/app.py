@@ -10,7 +10,6 @@ from http import HTTPStatus
 from flask_basicauth import BasicAuth
 from datetime import datetime
 from sqlalchemy.exc import OperationalError
-from flask_sslify import SSLify
 
 # This is hack, but it's the simplest way to get things to work without changing things - Daniel
 sys.path.append(os.path.join(os.path.dirname(__file__), 'data_analysis'))
@@ -40,10 +39,6 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 # database init
 db.init_app(app)
-
-# SSLify - for TLS security
-## forces endpoints to use HTTPS instead of defaulting to HTTP based on client
-# sslify = SSLify(app)
 
 # BasicAuth configuration
 # for documentation page
