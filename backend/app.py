@@ -183,7 +183,15 @@ def add_recording():
 
     data = request.get_json()
 
-
+    # accept recording data if the sensorid sent exists in NewSensor 
+    id_to_check = data['sensorid']
+    existing_id = db.session.query(NewSensor).filter(NewSensor.sensorid == id_to_check).first()
+    if existing_id:
+        print("Sensor is authorized.") # will proceed
+    else: 
+        err = "Unauthorized sensorid provided."
+        return jsonify({"error": str(err)}), HTTPStatus.UNAUTHORIZED # will stop process here
+    
     max_retries = 3
 
     for attempt in range(max_retries): # retry twice
@@ -387,7 +395,7 @@ if __name__ == '__main__':
     with app.app_context():
         #print("YAY")
         db.create_all()
-        print("Here's the query!")
+        #print("Here's the query!")
         #print(query_sensors())
         #db.drop_all() #deletes all existing tables
     app.run(debug=True, ssl_context='adhoc')
