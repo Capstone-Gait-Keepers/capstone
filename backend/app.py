@@ -43,7 +43,7 @@ db.init_app(app)
 
 # SSLify - for TLS security
 ## forces endpoints to use HTTPS instead of defaulting to HTTP based on client
-sslify = SSLify(app)
+# sslify = SSLify(app)
 
 # BasicAuth configuration
 # for documentation page
@@ -185,7 +185,7 @@ def add_recording():
 
     # accept recording data if the sensorid sent exists in NewSensor 
     id_to_check = data['sensorid']
-    existing_id = db.session.query(NewSensor).filter(NewSensor.sensorid == id_to_check).first()
+    existing_id = db.session.query(NewSensor).filter(NewSensor._id == id_to_check).first()
     if existing_id:
         print("Sensor is authorized.") # will proceed
     else: 
