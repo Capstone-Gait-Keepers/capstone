@@ -6,7 +6,7 @@ from scipy.optimize import differential_evolution, LinearConstraint
 from tqdm import tqdm
 from typing import List
 
-from data_types import Recording
+from data_types import Recording, SensorType, get_model_recording
 from step_detection import DataHandler
 from metric_analysis import AnalysisController
 
@@ -48,16 +48,18 @@ def get_loss(err: pd.DataFrame, missing_punish_factor=10) -> float:
     return np.inf
 
 
-def optimize_step_detection(datasets: List[Recording], model=None, logger=None, maxiter=20, popsize=15) -> dict:
+def optimize_step_detection(datasets: List[Recording], model=None, sensor_type=None, logger=None, maxiter=20, popsize=15) -> dict:
     """Optimizes step detection parameters using differential evolution algorithm."""
+    if not len(datasets):
+        raise ValueError("No datasets provided.")
     pbar = tqdm(total=(maxiter + 1) * popsize * 10)
     if model is None:
-        model = Recording.from_file('datasets/2023-11-09_18-42-33.yaml')
+        model = get_model_recording(datasets[0].sensor_type if sensor_type is None else sensor_type)
 
     if logger is None:
         logger = AnalysisController.init_logger('optimize.log')
         logger.setLevel('INFO')
-
+  
     def objective_function(x):
         params = parse_args(x)
         if np.any(np.isnan(x)):
@@ -98,11 +100,13 @@ def optimize_step_detection(datasets: List[Recording], model=None, logger=None, 
     logger.info(f'Optimized parameters: {params}')
     return res.x
 
-def kfold_optimize(datasets: List[Recording], splits=5, seed=0, **kwargs):
+def kfold_optimize(datasets: List[Recording], sensor_type=None, splits=5, seed=0, **kwargs):
+    if len(datasets) < splits:
+        raise ValueError("Number of datasets must be greater than the number of splits.")
     kf = KFold(splits, shuffle=True, random_state=seed)
     logger = AnalysisController.init_logger('optimize.log')
     logger.setLevel('INFO')
-    model = Recording.from_file('datasets/2023-11-09_18-42-33.yaml')
+    model = get_model_recording(datasets[0].sensor_type if sensor_type is None else sensor_type)
     X = np.asarray(datasets)
 
     final_params = []
@@ -128,5 +132,6 @@ def kfold_optimize(datasets: List[Recording], splits=5, seed=0, **kwargs):
     return best_params
 
 if __name__ == '__main__':
-    datasets = DataHandler().get(user='ron', location='Aarons Studio')
-    print(kfold_optimize(datasets, splits=5, maxiter=10))
+    datasets = DataHandler.from_sensor_type(SensorType.PIEZO).get(user='ron', location='Aarons Studio')
+    optimize_step_detection(datasets, maxiter=10, popsize=10)
+    # print(kfold_optimize(datasets, splits=5, maxiter=10))

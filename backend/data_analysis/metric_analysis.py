@@ -7,7 +7,7 @@ from plotly import graph_objects as go
 from typing import List, Tuple, Optional
 from logging import Logger, getLogger, StreamHandler, FileHandler, Formatter
 
-from data_types import Metrics, Recording, RecordingEnvironment, concat_metrics
+from data_types import Metrics, Recording, RecordingEnvironment, SensorType, get_optimal_analysis_params
 from step_detection import DataHandler, StepDetector, TimeSeriesProcessor
 
 
@@ -172,8 +172,9 @@ class AnalysisController:
         logger.addHandler(handler)
         return logger
 
-    def get_metrics(self, datasets: List[Recording], abort_on_limit=False, plot_title=None, plot_dist=False, plot_vs_env=False, plot_signals=False) -> Tuple[Metrics, Metrics, pd.DataFrame]:
+    def get_metrics(self, datasets: List[Recording], plot_title=None, plot_dist=False, plot_vs_env=False, plot_signals=False) -> Tuple[Metrics, Metrics, pd.DataFrame]:
         """Analyzes a sequence of recordings and returns metrics"""
+        # TODO: Allow lazy loading of datasets
         if not len(datasets):
             raise ValueError("No datasets provided")
         if not all(isinstance(data, Recording) for data in datasets):
@@ -182,13 +183,13 @@ class AnalysisController:
         results = []
         for data in datasets:
             try:
-                results.append(self.get_recording_metrics(data, abort_on_limit, plot=plot_signals))
+                results.append(self.get_recording_metrics(data, plot=plot_signals))
             except Exception as e:
                 self.logger.error(f"Failed to get metrics for {data.filepath}: {e}")
                 raise e
         measured_sets, source_of_truth_sets, algorithm_errors = zip(*results)
-        measured = concat_metrics(measured_sets)
-        source_of_truth = concat_metrics(source_of_truth_sets)
+        measured = sum(measured_sets)
+        source_of_truth = sum(source_of_truth_sets)
         algorithm_error = pd.concat(algorithm_errors)
         if plot_dist:
             err = measured.error(source_of_truth)
@@ -247,20 +248,20 @@ class AnalysisController:
         varied_vars = {key: value for key, value in env_vars.items() if len(value) > 1}
         return varied_vars
 
-    def get_recording_metrics(self, data: Recording, abort_on_limit=False, plot=False) -> Tuple[Metrics, Metrics, pd.DataFrame]:
+    def get_recording_metrics(self, data: Recording, plot=False) -> Tuple[Metrics, Metrics, pd.DataFrame]:
         """Analyzes a recording and returns metrics"""
         if data.env.fs != self.fs:
             raise ValueError(f"Recording fs ({data.env.fs}) does not match model fs ({self.fs})")
-        correct_steps = self._get_true_step_timestamps(data)
-        abort_limit = None if not abort_on_limit else len(correct_steps)
-        step_groups = self._detector.get_step_groups(np.array(data.ts), abort_limit, plot, truth=correct_steps, plot_title=data.filepath)
+        true_step_groups = self._get_true_step_timestamps(data)
+        true_steps = self.merge_step_groups(true_step_groups)
+        step_groups = self._detector.get_step_groups(np.array(data.ts), plot, truth=true_steps, plot_title=data.filepath)
         if len(step_groups):
             self.logger.info(f"Found {len(step_groups)} step groups in {data.filepath}")
             self.logger.debug(f"Step groups: {step_groups}")
-        predicted_steps = np.concatenate(step_groups) if len(step_groups) else []
-        measured = Metrics(*step_groups)
-        source_of_truth = Metrics(correct_steps)
-        algorithm_error = self._get_algorithm_error(predicted_steps, correct_steps)
+        predicted_steps = self.merge_step_groups(step_groups)
+        measured = Metrics(step_groups)
+        source_of_truth = Metrics(true_step_groups)
+        algorithm_error = self._get_algorithm_error(predicted_steps, true_steps)
         return measured, source_of_truth, algorithm_error
 
     def get_snrs(self, recs: List[Recording]):
@@ -278,9 +279,12 @@ class AnalysisController:
         snr = np.var(step_energy) / np.var(noise_energy)
         return snr
 
-    @staticmethod
-    def _get_true_step_timestamps(data: Recording) -> List[float]:
-        return [event.timestamp for event in data.events if event.category == 'step']
+    def _get_true_step_timestamps(self, data: Recording, ignore_quality=False, max_step_delta=2) -> List[np.ndarray]:
+        """Returns the true step timestamps of a recording, enforcing a maximum step delta if the recording quality is not normal"""
+        timestamps = [np.array([event.timestamp for event in data.events if event.category == 'step'])]
+        if not ignore_quality and data.env.quality != 'normal':
+            return self._detector._enforce_max_step_delta(timestamps, max_step_delta)
+        return timestamps
 
     def get_algorithm_error(self, datasets: List[Recording], plot_signals=False) -> pd.DataFrame:
         """Calculates the algorithm error of a list of recordings"""
@@ -292,10 +296,16 @@ class AnalysisController:
         """Calculates the algorithm error of a single recording"""
         if data.env.fs != self._detector.fs:
             raise ValueError(f"Recording fs ({data.env.fs}) does not match model fs ({self.model.env.fs})")
-        correct_steps = self._get_true_step_timestamps(data)
+        correct_step_groups = self._get_true_step_timestamps(data)
         step_groups = self._detector.get_step_groups(np.array(data.ts), plot=plot, truth=correct_steps)
-        predicted_steps = np.concatenate(step_groups) if len(step_groups) else []
+        predicted_steps = self.merge_step_groups(step_groups)
+        correct_steps = self.merge_step_groups(correct_step_groups)
         return self._get_algorithm_error(predicted_steps, correct_steps)
+
+    @staticmethod
+    def merge_step_groups(step_groups: List[np.ndarray]) -> np.ndarray:
+        """Merges a list of step groups into a single array"""
+        return np.concatenate(step_groups) if len(step_groups) else np.array([])
 
     @staticmethod
     def _get_algorithm_error(measured_times: np.ndarray, correct_times: np.ndarray) -> pd.DataFrame:
@@ -344,8 +354,8 @@ class AnalysisController:
 
 
 if __name__ == "__main__":
-    model_data = Recording.from_file('datasets/piezo/2024-02-11_18-28-53.yaml')
-    params = {'window_duration': 0.2927981091746967, 'min_signal': 0.06902195485649608, 'min_step_delta': 0.7005074596681514, 'max_step_delta': 1.7103077671127291, 'confirm_coefs': [0.13795802814939168, 0.056480535457810385, 1.2703933010798438, 0.0384835095362413], 'unconfirm_coefs': [1.0670316188983877, 1.0511076985832117, 1.160496215083792, 1.6484084554908836], 'reset_coefs': [0.7869793593332175, 1.6112694921747566, 0.12464680752843472, 1.1399207966364366]}
-    controller = AnalysisController(model_data, **params)
-    datasets = DataHandler('datasets/piezo').get(user='ron', quality='normal', location='Aarons Studio')
+    sensor_type = SensorType.PIEZO
+    params = get_optimal_analysis_params(sensor_type)
+    controller = AnalysisController(**params)
+    datasets = DataHandler('datasets/piezo').get(user='ron', location='Aarons Studio')
     print(controller.get_metrics(datasets, plot_dist=True, plot_title=str(params))[0])

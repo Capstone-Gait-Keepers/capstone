@@ -72,7 +72,7 @@ def record_single_test(env: RecordingEnvironment, port='COM8', filename=None):
     measurements, events = collect_data(env.fs, port)
     rec = Recording(env, events, measurements)
     if filename:
-        rec.to_yaml(f'datasets/{filename}.yaml')
+        rec.to_file(f'datasets/{filename}.yaml')
     return rec
 
 
@@ -82,12 +82,12 @@ def record_dual_test(env: RecordingEnvironment, port='COM8', filename=None, acce
     accel_rec = Recording(deepcopy(env), events, accel)
     accel_rec.env.fs = accel_rate
     if filename:
-        accel_rec.to_yaml(f'datasets/{filename}.yaml')
+        accel_rec.to_file(f'datasets/{filename}.yaml')
     piezo = piezo[~np.isnan(piezo)]
     piezo_rec = Recording(deepcopy(env), events, piezo)
     piezo_rec.env.fs = piezo_rate
     if filename:
-        piezo_rec.to_yaml(f'datasets/piezo/{filename}.yaml')
+        piezo_rec.to_file(f'datasets/piezo/{filename}.yaml')
     return accel_rec, piezo_rec
 
 

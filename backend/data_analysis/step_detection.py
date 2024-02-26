@@ -6,22 +6,39 @@ from plotly.subplots import make_subplots
 from typing import List, Tuple, Optional
 from logging import Logger, getLogger
 
-from data_types import Recording
+from data_types import Recording, SensorType
 
 
 class DataHandler:
+    folder_map = {
+        SensorType.ACCEL: "datasets/accel",
+        SensorType.PIEZO: "datasets/piezo",
+    }
+
     def __init__(self, folder = "datasets") -> None:
         self.folder = folder
+    
+    @classmethod
+    def from_sensor_type(cls, sensor_type: SensorType) -> 'DataHandler':
+        return cls(cls.folder_map[sensor_type])
 
     def get(self, **filters) -> List[Recording]:
         """Walk through datasets folder and return all records that match the filters"""
+        return list(self.get_lazy(**filters))
+
+    def get_lazy(self, limit=None, **filters):
         filepaths = [file for file in os.listdir(self.folder) if file.endswith(".yaml")]
         if 'example.yaml' in filepaths:
             filepaths.remove('example.yaml')
-        datasets = [Recording.from_file(os.path.join(self.folder, filename)) for filename in filepaths]
-        for key, value in filters.items():
-            datasets = [d for d in datasets if getattr(d.env, key) == value]
-        return datasets
+        if limit is not None:
+            filepaths = filepaths[:limit]
+        for filename in filepaths:
+            data = Recording.from_file(os.path.join(self.folder, filename))
+            for key, value in filters.items():
+                if getattr(data.env, key) != value:
+                    break
+            else:
+                yield data
 
     def plot(self, clip=False, truth=True, **filters):
         """Walk through datasets folder and plot all recording that match the filters"""
@@ -188,7 +205,7 @@ class StepDetector(TimeSeriesProcessor):
             raise ValueError(f"Length of freq_weights ({len(freq_weights)}) must match the window duration ({window_duration})")
         self._noise = self.get_energy(noise_profile)
 
-    def get_step_groups(self, ts: np.ndarray, abort_limit=None, plot=False, truth=None, plot_title=None) -> List[np.ndarray]:
+    def get_step_groups(self, ts: np.ndarray, plot=False, truth=None, plot_title=None) -> List[np.ndarray]:
         """
         Analyzes time series and returns a list of step groups
         """
@@ -198,9 +215,6 @@ class StepDetector(TimeSeriesProcessor):
         if None in ts:
             raise ValueError("Time series must not contain None values")
         steps, uncertain_steps = self._find_steps(ts, plot, truth, plot_title)
-        if abort_limit and len(steps) > abort_limit:
-            self.logger.warning(f"Too many steps detected, aborting. Found {len(steps)} confirmed steps and {len(uncertain_steps)} uncertain steps")
-            return []
         self.logger.debug(f"Found {len(steps)} confirmed steps and {len(uncertain_steps)} uncertain steps")
         if len(steps) > 1: # We need at least two confirmed steps to do anything
             step_groups = self._resolve_step_sections(steps, uncertain_steps)
@@ -352,12 +366,13 @@ class StepDetector(TimeSeriesProcessor):
             return steps[~np.insert(steps_too_close, 0, False)]
         return steps
 
-    def _enforce_max_step_delta(self, step_groups: List[np.ndarray]) -> List[np.ndarray]:
+    def _enforce_max_step_delta(self, step_groups: List[np.ndarray], max_step_delta=None) -> List[np.ndarray]:
         """Splits up steps that are too far apart"""
+        max_step_delta = max_step_delta if max_step_delta is not None else self._max_step_delta
         new_step_groups = []
         for i, steps in enumerate(step_groups):
             step_diffs = np.diff(steps)
-            split_indices = np.where(step_diffs > self._max_step_delta)[0] + 1
+            split_indices = np.where(step_diffs > max_step_delta)[0] + 1
             if len(split_indices):
                 self.logger.debug(f"Enforcing max step delta: splitting up group {i} before steps {split_indices}")
                 split_indices = np.insert(split_indices, 0, 0) # Add outer bounds so the data can be sliced properly

@@ -3,12 +3,13 @@ import numpy as np
 import pandas as pd
 from copy import deepcopy
 from dataclasses import dataclass, field, asdict
+from enum import Enum
 from pathlib import Path
 from plotly import graph_objects as go
 from ruamel.yaml import YAML
 from scipy.signal import hilbert
 from scipy.stats import entropy
-from typing import Optional
+from typing import List, Optional
 
 
 
@@ -83,6 +84,7 @@ class Recording:
     events: list[Event] = field(default_factory=list)
     ts: np.ndarray = field(default_factory=np.zeros(0))
     filepath: Optional[str] = None
+    sensor_type: Optional[str] = None
 
     @classmethod
     def from_file(cls, filename: str):
@@ -92,6 +94,7 @@ class Recording:
                 data = yaml.load(file)
             rec = cls.from_dict(data)
             rec.filepath = filename
+            rec.sensor_type = SensorType.PIEZO if 'piezo' in filename else SensorType.ACCEL
             return rec
         except Exception as e:
             raise ValueError(f'Failed to load recording from "{filename}".') from e
@@ -104,7 +107,7 @@ class Recording:
         events = [Event(**event) for event in data['events']]
         return cls(env, events, np.asarray(data['ts']))
 
-    def to_yaml(self, filename: str):
+    def to_file(self, filename: str):
         yaml = YAML()
         yaml.dump(self.to_dict(), Path(filename))
 
@@ -145,7 +148,7 @@ class Metrics:
 
     summed_vars = set(['step_count'])
 
-    def __init__(self, *timestamp_groups: np.ndarray, recording_id=0):
+    def __init__(self, timestamp_groups: List[np.ndarray], recording_id=0):
         func_map = {
             'step_count': len,
             'STGA': self._get_STGA,
@@ -158,6 +161,7 @@ class Metrics:
         self.keys = list(func_map.keys())
         if len(timestamp_groups) == 0:
             self._df = pd.DataFrame({key: [np.nan] for key in self.keys})
+            self._df['recording_id'] = [recording_id]
             return
         data = {key: [func_map[key](timestamps) for timestamps in timestamp_groups] for key in self.keys}
         self._df = pd.DataFrame.from_dict(data)
@@ -172,6 +176,10 @@ class Metrics:
 
     def __len__(self):
         return len(self._df)
+
+    @property
+    def recordings(self):
+        return self._df['recording_id'].nunique()
 
     @staticmethod
     def _get_STGA(timestamps: np.ndarray):
@@ -189,14 +197,16 @@ class Metrics:
             return np.nan
         return 1 / np.mean(np.diff(timestamps))
 
-    def _get_stride_time(self, timestamps):
-        stride_times = self._get_stride_times(timestamps)
+    @staticmethod
+    def _get_stride_time(timestamps):
+        stride_times = Metrics._get_stride_times(timestamps)
         if len(stride_times):
             return np.mean(stride_times)
         return np.nan
 
-    def _get_stride_time_CV(self, timestamps: np.ndarray):
-        return self._get_var_coef(self._get_stride_times(timestamps))
+    @staticmethod
+    def _get_stride_time_CV(timestamps: np.ndarray):
+        return Metrics._get_var_coef(Metrics._get_stride_times(timestamps))
 
     @staticmethod
     def _get_stride_times(timestamps: np.ndarray) -> np.ndarray:
@@ -251,39 +261,75 @@ class Metrics:
     def __add__(self, other: 'Metrics'):
         """Combines two Metrics objects by averaging their values."""
         if not isinstance(other, Metrics):
-            raise ValueError('Can only add Metrics to Metrics.')
+            raise ValueError(f'Can only add Metrics to Metrics, not {type(other)}. ({other})')
         if not len(self):
             return other
         if not len(other):
             return self
+        last_recording_id = self._df['recording_id'].max()
+        other._df['recording_id'] += last_recording_id + 1
         self._df = pd.concat([self._df, other._df])
         return self
+
+    def __radd__(self, other: 'Metrics | int'):
+        """Combines two Metrics objects by averaging their values."""
+        return self if other == 0 else self.__add__(other)
 
     def error(self, truth: 'Metrics') -> pd.DataFrame:
         """Returns the % error between two Metrics objects. Groups by recording_id."""
         if not isinstance(truth, Metrics):
             raise ValueError('Can only compare Metrics to Metrics.')
-        if len(truth) != self._df['recording_id'].nunique():
-            raise ValueError(f'Cannot compare Metrics of different lengths. {len(truth)} != {self._df["recording_id"].nunique()} ({len(self)})')
-        metric_groups = self._df.groupby('recording_id').mean()
-        metric_groups = metric_groups.filter(items=self.keys, axis=1)
-        truth_groups = truth._df.groupby('recording_id').mean()
-        truth_groups = truth_groups.filter(items=self.keys, axis=1)
-        error = np.abs(metric_groups - truth_groups) / truth_groups
+        if truth.recordings != self.recordings:
+            raise ValueError(f'Cannot compare Metrics of different lengths. truth.recordings ({len(truth.recordings)}) != self.recordings ({self.recordings}) (len(self) = {len(self)})')
+        self_rec_metrics = self.by_recordings()
+        truth_rec_metrics = truth.by_recordings()
+        error = abs(self_rec_metrics - truth_rec_metrics) / truth_rec_metrics
+        # Where they are both NaN, the error is 0
+        error = error.where(truth_rec_metrics.notna() | self_rec_metrics.notna(), 0)
         return error
+
+    def by_recordings(self) -> pd.DataFrame:
+        # TODO: Not all attributes should be averaged. Some should be summed.
+        rec_groups = self._df.groupby('recording_id').mean()
+        rec_metrics = rec_groups.filter(items=self.keys, axis=1)
+        return rec_metrics
 
     def __str__(self) -> str:
         return str(self._df)
 
-# TODO: Why can't I just do sum :(
-def concat_metrics(metrics_list: list[Metrics]) -> Metrics:
-    """Concatenates a list of Metrics objects into one."""
-    if not len(metrics_list):
-        raise ValueError('Cannot concatenate an empty list of Metrics.')
-    for i, m in enumerate(metrics_list):
-        if not isinstance(m, Metrics):
-            raise ValueError('Can only concatenate Metrics objects.')
-        m._df['recording_id'] = [i] * len(m._df)
-    m = metrics_list[0]
-    m._df = pd.concat([new_m._df for new_m in metrics_list])
-    return m
+
+
+class SensorType(Enum):
+    PIEZO = 'piezo'
+    ACCEL = 'bno055'
+
+
+def get_model_recording(sensor_type: SensorType) -> Recording:
+    """Returns a model recording for the given sensor type, hand picked for its quality."""
+    if not isinstance(sensor_type, SensorType):
+        raise ValueError(f'Invalid sensor type "{sensor_type}".')
+    file_map = {
+        SensorType.PIEZO: 'datasets/piezo/2024-02-11_18-28-53.yaml',
+        SensorType.ACCEL: 'datasets/bno055/2023-11-09_18-42-33.yaml',
+    }
+    return Recording.from_file(file_map[sensor_type])
+
+
+def get_optimal_analysis_params(sensor_type: SensorType, include_model=True) -> dict:
+    """Returns the optimal analysis parameters for the given sensor type, based on previous optimize.py results."""
+    param_map = {
+        SensorType.PIEZO: {},
+        SensorType.ACCEL: {
+            'window_duration': 0.2927981091746967,
+            'min_signal': 0.06902195485649608,
+            'min_step_delta': 0.7005074596681514,
+            'max_step_delta': 1.7103077671127291,
+            'confirm_coefs': [0.13795802814939168, 0.056480535457810385, 1.2703933010798438, 0.0384835095362413],
+            'unconfirm_coefs': [1.0670316188983877, 1.0511076985832117, 1.160496215083792, 1.6484084554908836],
+            'reset_coefs': [0.7869793593332175, 1.6112694921747566, 0.12464680752843472, 1.1399207966364366]
+        },
+    }
+    params = param_map[sensor_type]
+    if include_model:
+        params['model'] = get_model_recording(sensor_type)
+    return params
