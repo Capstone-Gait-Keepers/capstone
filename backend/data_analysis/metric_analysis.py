@@ -4,7 +4,7 @@ import plotly.express as px
 import sys
 from plotly.subplots import make_subplots
 from plotly import graph_objects as go
-from typing import List, Tuple, Optional
+from typing import List, Tuple, Optional, Iterable
 from logging import Logger, getLogger, StreamHandler, FileHandler, Formatter
 
 from data_types import Metrics, Recording, RecordingEnvironment, SensorType, get_optimal_analysis_params
@@ -172,28 +172,29 @@ class AnalysisController:
         logger.addHandler(handler)
         return logger
 
-    def get_metrics(self, datasets: List[Recording], plot_title=None, plot_dist=False, plot_vs_env=False, plot_signals=False) -> Tuple[Metrics, Metrics, pd.DataFrame]:
+    def get_metrics(self, datasets: Iterable[Recording], plot_title=None, plot_dist=False, plot_vs_env=False, plot_signals=False) -> Tuple[Metrics, Metrics, pd.DataFrame]:
         """Analyzes a sequence of recordings and returns metrics"""
-        # TODO: Allow lazy loading of datasets
-        if not len(datasets):
-            raise ValueError("No datasets provided")
-        if not all(isinstance(data, Recording) for data in datasets):
-            raise TypeError("All datasets must be of type Recording")
-        self.logger.debug(f"Analyzing {len(datasets)} datasets")
         results = []
+        filepaths = []
         for data in datasets:
             try:
+                if not isinstance(data, Recording):
+                    raise TypeError(f"Data must be of type Recording, not {type(data)}")
                 results.append(self.get_recording_metrics(data, plot=plot_signals))
+                filepaths.append(data.filepath)
             except Exception as e:
                 self.logger.error(f"Failed to get metrics for {data.filepath}: {e}")
                 raise e
+        if not len(results):
+            raise ValueError("No datasets provided")
+        self.logger.debug(f"Finished analyzing all {len(filepaths)} datasets")
         measured_sets, source_of_truth_sets, algorithm_errors = zip(*results)
         measured = sum(measured_sets)
         source_of_truth = sum(source_of_truth_sets)
-        algorithm_error = pd.concat(algorithm_errors)
+        algorithm_error = pd.concat(algorithm_errors, ignore_index=True)
         if plot_dist:
             err = measured.error(source_of_truth)
-            err.index = [d.filepath for d in datasets]
+            err.index = filepaths
             melted_err = err.melt(value_name="error", var_name="metric", ignore_index=False)
             melted_err.dropna(inplace=True)
             melted_err.reset_index(inplace=True)
@@ -209,7 +210,7 @@ class AnalysisController:
             fig.show()
         if plot_vs_env:
             err = measured.error(source_of_truth)
-            err.index = [d.filepath for d in datasets]
+            err.index = filepaths
             self._plot_error_vs_env(err, datasets, plot_title)
         return measured, source_of_truth, algorithm_error
 
@@ -344,8 +345,8 @@ class AnalysisController:
         errors = list(measurement_errors.values())
 
         return pd.DataFrame({
-            "error": [np.mean(errors)],
-            "stderr": [np.std(errors)],
+            "error": [np.mean(errors) if len(errors) else np.nan],
+            "stderr": [np.std(errors) if len(errors) else np.nan],
             "incorrect": [incorrect_measurements],
             "missed": [missed_steps]
         })
@@ -357,5 +358,5 @@ if __name__ == "__main__":
     sensor_type = SensorType.PIEZO
     params = get_optimal_analysis_params(sensor_type)
     controller = AnalysisController(**params)
-    datasets = DataHandler('datasets/piezo').get(user='ron', location='Aarons Studio')
+    datasets = DataHandler('datasets/piezo').get_lazy(user='ron', location='Aarons Studio')
     print(controller.get_metrics(datasets, plot_dist=True, plot_title=str(params))[0])

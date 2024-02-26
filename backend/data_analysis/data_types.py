@@ -268,7 +268,7 @@ class Metrics:
             return self
         last_recording_id = self._df['recording_id'].max()
         other._df['recording_id'] += last_recording_id + 1
-        self._df = pd.concat([self._df, other._df])
+        self._df = pd.concat([self._df, other._df], ignore_index=True, sort=False)
         return self
 
     def __radd__(self, other: 'Metrics | int'):
