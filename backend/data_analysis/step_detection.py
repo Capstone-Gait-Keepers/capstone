@@ -11,7 +11,7 @@ from data_types import Recording, SensorType
 
 class DataHandler:
     folder_map = {
-        SensorType.ACCEL: "datasets/accel",
+        SensorType.ACCEL: "datasets/bno055",
         SensorType.PIEZO: "datasets/piezo",
     }
 

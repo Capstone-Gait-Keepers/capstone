@@ -53,14 +53,15 @@ def optimize_step_detection(datasets: List[Recording], model=None, sensor_type=N
     if not len(datasets):
         raise ValueError("No datasets provided.")
     pbar = tqdm(total=(maxiter + 1) * popsize * 10)
+    best_current_loss = np.inf
     if model is None:
         model = get_model_recording(datasets[0].sensor_type if sensor_type is None else sensor_type)
-
     if logger is None:
         logger = AnalysisController.init_logger('optimize.log')
         logger.setLevel('INFO')
-  
+
     def objective_function(x):
+        nonlocal best_current_loss
         params = parse_args(x)
         if np.any(np.isnan(x)):
             logger.warning(f"Invalid parameters: {params}")
@@ -71,6 +72,9 @@ def optimize_step_detection(datasets: List[Recording], model=None, sensor_type=N
         measured, truth, _ = ctrl.get_metrics(datasets)
         err = measured.error(truth)
         loss = get_loss(err)
+        if loss <= best_current_loss:
+            best_current_loss = loss
+            pbar.set_description(f'Best Loss: {loss:.1f}')
         if loss != np.inf:
             logger.info(f'Loss: {loss}')
         return loss

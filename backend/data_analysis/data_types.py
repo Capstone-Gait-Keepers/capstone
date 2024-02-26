@@ -149,16 +149,8 @@ class Metrics:
     summed_vars = set(['step_count'])
 
     def __init__(self, timestamp_groups: List[np.ndarray], recording_id=0):
-        func_map = {
-            'step_count': len,
-            'STGA': self._get_STGA,
-            'stride_time': self._get_stride_time,
-            'cadence': self._get_cadence,
-            'var_coef': self._get_stride_time_CV,
-            'phase_sync': self._get_phase_sync,
-            'conditional_entropy': self._get_conditional_entropy,
-        }
-        self.keys = list(func_map.keys())
+        func_map = self.get_func_map()
+        self.keys = self.get_keys()
         if len(timestamp_groups) == 0:
             self._df = pd.DataFrame({key: [np.nan] for key in self.keys})
             self._df['recording_id'] = [recording_id]
@@ -166,6 +158,22 @@ class Metrics:
         data = {key: [func_map[key](timestamps) for timestamps in timestamp_groups] for key in self.keys}
         self._df = pd.DataFrame.from_dict(data)
         self._df['recording_id'] = [recording_id] * len(self._df)
+
+    @classmethod
+    def get_func_map(cls):
+        return {
+            'step_count': len,
+            'STGA': cls._get_STGA,
+            'stride_time': cls._get_stride_time,
+            'cadence': cls._get_cadence,
+            'var_coef': cls._get_stride_time_CV,
+            'phase_sync': cls._get_phase_sync,
+            'conditional_entropy': cls._get_conditional_entropy,
+        }
+
+    @classmethod
+    def get_keys(cls):
+        return list(cls.get_func_map().keys())
 
     def __getitem__(self, key):
         if len(self._df) == 0:

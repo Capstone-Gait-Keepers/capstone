@@ -172,52 +172,63 @@ class AnalysisController:
         logger.addHandler(handler)
         return logger
 
-    def get_metrics(self, datasets: Iterable[Recording], plot_title=None, plot_dist=False, plot_vs_env=False, plot_signals=False) -> Tuple[Metrics, Metrics, pd.DataFrame]:
-        """Analyzes a sequence of recordings and returns metrics"""
+    def get_metric_error(self, datasets: Iterable[Recording], append_env=False, plot_signals=False, plot_title=None, plot_dist=False, plot_vs_env=False) -> pd.DataFrame:
+        """Calculates the metric error based on a set of datasets and returns a dataframe"""
         results = []
-        filepaths = []
+        recordings = []
         for data in datasets:
-            try:
-                if not isinstance(data, Recording):
-                    raise TypeError(f"Data must be of type Recording, not {type(data)}")
-                results.append(self.get_recording_metrics(data, plot=plot_signals))
-                filepaths.append(data.filepath)
-            except Exception as e:
-                self.logger.error(f"Failed to get metrics for {data.filepath}: {e}")
-                raise e
-        if not len(results):
-            raise ValueError("No datasets provided")
-        self.logger.debug(f"Finished analyzing all {len(filepaths)} datasets")
-        measured_sets, source_of_truth_sets, algorithm_errors = zip(*results)
-        measured = sum(measured_sets)
-        source_of_truth = sum(source_of_truth_sets)
-        algorithm_error = pd.concat(algorithm_errors, ignore_index=True)
+            recordings.append(data)
+            result = self.get_recording_metrics(data, plot_signals)
+            results.append(result)
+        measured, truth, _ = self._parse_metric_results(results)
+        err = measured.error(truth)
+        err.index = [rec.filepath for rec in recordings]
         if plot_dist:
-            err = measured.error(source_of_truth)
-            err.index = filepaths
             melted_err = err.melt(value_name="error", var_name="metric", ignore_index=False)
             melted_err.dropna(inplace=True)
             melted_err.reset_index(inplace=True)
             fig = px.box(
-                melted_err,
-                x="metric",
-                y="error",
-                hover_data="index",
-                points="all",
-                title=plot_title if plot_title else "Metric Error Distribution",
-                labels={"error": "Error (%)", "metric": "Metric"}
-            )
+                    melted_err,
+                    x="metric",
+                    y="error",
+                    hover_data="index",
+                    points="all",
+                    title=plot_title if plot_title else "Metric Error Distribution",
+                    labels={"error": "Error (%)", "metric": "Metric"}
+                )
             fig.show()
         if plot_vs_env:
-            err = measured.error(source_of_truth)
-            err.index = filepaths
-            self._plot_error_vs_env(err, datasets, plot_title)
+            self._plot_error_vs_env(err, recordings, plot_title)
+        if append_env:
+            env_df = self.get_env_df(recordings)
+            err = pd.concat([env_df, err], axis=1)
+        return err
+
+    def get_metrics(self, datasets: Iterable[Recording], plot_signals=False) -> Tuple[Metrics, Metrics, pd.DataFrame]:
+        """Analyzes a sequence of recordings and returns metrics"""
+        results = []
+        for data in datasets:
+            result = self.get_recording_metrics(data, plot_signals)
+            results.append(result)
+        measured, source_of_truth, algorithm_error = self._parse_metric_results(results)
+        self.logger.debug(f"Finished analyzing all {measured.recordings} datasets")
+        return measured, source_of_truth, algorithm_error
+
+    def _parse_metric_results(self, results: Iterable[Tuple[Metrics, Metrics, pd.DataFrame]]) -> Tuple[Metrics, Metrics, pd.DataFrame]:
+        """Parses the results of a sequence of recording metrics"""
+        r = list(results)
+        if not len(r):
+            raise ValueError("No datasets provided")
+        measured_sets, source_of_truth_sets, algorithm_errors = zip(*r)
+        measured = sum(measured_sets)
+        source_of_truth = sum(source_of_truth_sets)
+        algorithm_error = pd.concat(algorithm_errors, ignore_index=True)
         return measured, source_of_truth, algorithm_error
 
     def _plot_error_vs_env(self, err, datasets: List[Recording], plot_title=None, show=True):
         """Plot showing grouped box plots of average metric error, grouped by each recording environment variables"""
         varied_vars = self._get_varied_env_vars(datasets)
-        env_df = self._get_env_df(datasets)
+        env_df = self.get_env_df(datasets)
         df = pd.concat([env_df, err], axis=1)
         fig = make_subplots(rows=len(varied_vars), cols=1, subplot_titles=[f"{key} comparison" for key in varied_vars])
         fig.update_layout(title=plot_title if plot_title else "Metric Error Distribution")
@@ -232,7 +243,7 @@ class AnalysisController:
         return fig
 
     @staticmethod
-    def _get_env_df(datasets: List[Recording]) -> pd.DataFrame:
+    def get_env_df(datasets: List[Recording]) -> pd.DataFrame:
         """Returns a dataframe of environmental variables. Each row corresponds to a recording. Each column corresponds to an environmental variable."""
         env_dicts = {d.filepath: d.env.to_dict() for d in datasets}
         env_df = pd.DataFrame(env_dicts).T
@@ -248,8 +259,18 @@ class AnalysisController:
                     env_vars[key].append(value)
         varied_vars = {key: value for key, value in env_vars.items() if len(value) > 1}
         return varied_vars
+    
+    def get_recording_metrics(self, data: Recording, plot=False):
+        """Analyzes a recording and returns metrics"""
+        if not isinstance(data, Recording):
+            raise TypeError(f"Data must be of type Recording, not {type(data)}")
+        try:
+            return self._get_recording_metrics(data, plot)
+        except Exception as e:
+            self.logger.error(f"Failed to get metrics for {data.filepath}: {e}")
+            raise e
 
-    def get_recording_metrics(self, data: Recording, plot=False) -> Tuple[Metrics, Metrics, pd.DataFrame]:
+    def _get_recording_metrics(self, data: Recording, plot=False) -> Tuple[Metrics, Metrics, pd.DataFrame]:
         """Analyzes a recording and returns metrics"""
         if data.env.fs != self.fs:
             raise ValueError(f"Recording fs ({data.env.fs}) does not match model fs ({self.fs})")
@@ -265,7 +286,7 @@ class AnalysisController:
         algorithm_error = self._get_algorithm_error(predicted_steps, true_steps)
         return measured, source_of_truth, algorithm_error
 
-    def get_snrs(self, recs: List[Recording]):
+    def get_snrs(self, recs: Iterable[Recording]):
         """Calculates the signal to noise ratio of a list of recordings"""
         return np.array([self.get_snr(rec) for rec in recs])
 
@@ -287,9 +308,17 @@ class AnalysisController:
             return self._detector._enforce_max_step_delta(timestamps, max_step_delta)
         return timestamps
 
-    def get_algorithm_error(self, datasets: List[Recording], plot_signals=False) -> pd.DataFrame:
+    def get_algorithm_error(self, datasets: Iterable[Recording], plot_signals=False) -> pd.DataFrame:
         """Calculates the algorithm error of a list of recordings"""
-        df = pd.concat([self.get_recording_algorithm_error(data, plot=plot_signals) for data in datasets])
+        errs = []
+        filepaths = []
+        for data in datasets:
+            try:
+                filepaths.append(data.filepath)
+                errs.append(self.get_recording_algorithm_error(data, plot=plot_signals))
+            except Exception as e:
+                self.logger.error(f"Failed to get algorithm error for {data.filepath}: {e}")
+        df = pd.concat(errs)
         df.index = [d.filepath for d in datasets]
         return df
 
@@ -340,7 +369,6 @@ class AnalysisController:
                 missed_steps += 1
             else:
                 measurement_errors[best_measurement] = possible_errors[best_measurement]
-        # TODO: If there is a missed step and a false positive, it will be matched and the error will be large
         incorrect_measurements = len(measured_times) - len(measurement_errors)
         errors = list(measurement_errors.values())
 
@@ -358,5 +386,9 @@ if __name__ == "__main__":
     sensor_type = SensorType.PIEZO
     params = get_optimal_analysis_params(sensor_type)
     controller = AnalysisController(**params)
-    datasets = DataHandler('datasets/piezo').get_lazy(user='ron', location='Aarons Studio')
-    print(controller.get_metrics(datasets, plot_dist=True, plot_title=str(params))[0])
+    datasets = DataHandler.from_sensor_type(sensor_type).get_lazy(user='ron', location='Aarons Studio')
+    # print(controller.get_metric_error(datasets, plot_dist=True, plot_title=str(params)))
+
+    df = controller.get_metric_error(datasets, append_env=True)
+    df = df.filter(['quality', 'step_count'], axis=1)
+    print(df)
