@@ -327,6 +327,8 @@ def get_optimal_analysis_params(sensor_type: SensorType, include_model=True) -> 
     """Returns the optimal analysis parameters for the given sensor type, based on previous optimize.py results."""
     param_map = {
         SensorType.PIEZO: {},
+        # False negative rate (completely missed recording): 27.36 %
+        # False positive rate (incorrect step occurred): 25.47 %
         SensorType.ACCEL: {
             'window_duration': 0.2927981091746967,
             'min_signal': 0.06902195485649608,
@@ -336,6 +338,17 @@ def get_optimal_analysis_params(sensor_type: SensorType, include_model=True) -> 
             'unconfirm_coefs': [1.0670316188983877, 1.0511076985832117, 1.160496215083792, 1.6484084554908836],
             'reset_coefs': [0.7869793593332175, 1.6112694921747566, 0.12464680752843472, 1.1399207966364366]
         },
+        # False negative rate (completely missed recording): 82.08 %
+        # False positive rate (incorrect step occurred): 0.94 %
+        # SensorType.ACCEL: {
+        #     'window_duration': 0.06997036182119981,
+        #     'min_signal': 0.6282611648972323,
+        #     'min_step_delta': 0.37596442685765374,
+        #     'max_step_delta': 0.49160770343425664,
+        #     'confirm_coefs': [0.11193261417632372, 0.4320858954031941, 1.893098538808411, 0.07908746553703738],
+        #     'unconfirm_coefs': [1.3976705681092856, 1.5234063263359925, 0.7101148865664979, 1.5667306931088163],
+        #     'reset_coefs': [0.9161274358669074, 1.5974889872123756, 1.5278097857114015, 0.6556597273881369]
+        # },
     }
     params = param_map[sensor_type]
     if include_model:

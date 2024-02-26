@@ -308,29 +308,38 @@ class AnalysisController:
             return self._detector._enforce_max_step_delta(timestamps, max_step_delta)
         return timestamps
 
-    def get_algorithm_error(self, datasets: Iterable[Recording], plot_signals=False) -> pd.DataFrame:
+    def get_algorithm_error(self, datasets: Iterable[Recording], missed_percent=False, plot_dist=False, plot_signals=False) -> pd.DataFrame:
         """Calculates the algorithm error of a list of recordings"""
         errs = []
-        filepaths = []
+        recordings = []
         for data in datasets:
             try:
-                filepaths.append(data.filepath)
-                errs.append(self.get_recording_algorithm_error(data, plot=plot_signals))
+                recordings.append(data)
+                errs.append(self.get_recording_algorithm_error(data, missed_percent, plot=plot_signals))
             except Exception as e:
                 self.logger.error(f"Failed to get algorithm error for {data.filepath}: {e}")
+                raise e
         df = pd.concat(errs)
-        df.index = [d.filepath for d in datasets]
+        df.index = [d.filepath for d in recordings]
+        if plot_dist:
+            env_df = self.get_env_df(recordings)
+            plot_df = pd.concat([env_df, df], axis=1)
+            plot_df = plot_df.filter(items=['quality', 'error', 'stderr', 'incorrect', 'missed'])
+            fig = make_subplots(rows=3, cols=1, subplot_titles=["Error", "Incorrect", "Missed"])
+            fig.add_box(x=plot_df['quality'], y=plot_df['error'], boxpoints='all', row=1, col=1)
+            fig.add_box(x=plot_df['quality'], y=plot_df['incorrect'], boxpoints='all', row=2, col=1)
+            fig.add_box(x=plot_df['quality'], y=plot_df['missed'], boxpoints='all', row=3, col=1)
+            fig.show()
         return df
 
-    def get_recording_algorithm_error(self, data: Recording, plot=False) -> pd.DataFrame:
+    def get_recording_algorithm_error(self, data: Recording, missed_percent=False, plot=False) -> pd.DataFrame:
         """Calculates the algorithm error of a single recording"""
         if data.env.fs != self._detector.fs:
             raise ValueError(f"Recording fs ({data.env.fs}) does not match model fs ({self.model.env.fs})")
-        correct_step_groups = self._get_true_step_timestamps(data)
+        correct_steps = self.merge_step_groups(self._get_true_step_timestamps(data))
         step_groups = self._detector.get_step_groups(np.array(data.ts), plot=plot, truth=correct_steps)
         predicted_steps = self.merge_step_groups(step_groups)
-        correct_steps = self.merge_step_groups(correct_step_groups)
-        return self._get_algorithm_error(predicted_steps, correct_steps)
+        return self._get_algorithm_error(predicted_steps, correct_steps, missed_percent=missed_percent)
 
     @staticmethod
     def merge_step_groups(step_groups: List[np.ndarray]) -> np.ndarray:
@@ -338,7 +347,7 @@ class AnalysisController:
         return np.concatenate(step_groups) if len(step_groups) else np.array([])
 
     @staticmethod
-    def _get_algorithm_error(measured_times: np.ndarray, correct_times: np.ndarray) -> pd.DataFrame:
+    def _get_algorithm_error(measured_times: np.ndarray, correct_times: np.ndarray, missed_percent=False) -> pd.DataFrame:
         """
         Calculates the algorithm error of a recording. There are three types of errors:
         - Incorrect measurements: The algorithm found a step when there was none (False Positive)
@@ -357,7 +366,7 @@ class AnalysisController:
                 "error": [np.nan],
                 "stderr": [np.nan],
                 "incorrect": [0],
-                "missed": [len(correct_times)]
+                "missed": [len(correct_times) if not missed_percent else 1]
             })
         missed_steps = 0
         measurement_errors = {}
@@ -371,6 +380,8 @@ class AnalysisController:
                 measurement_errors[best_measurement] = possible_errors[best_measurement]
         incorrect_measurements = len(measured_times) - len(measurement_errors)
         errors = list(measurement_errors.values())
+        if missed_percent and len(correct_times):
+            missed_steps = missed_steps / len(correct_times)
 
         return pd.DataFrame({
             "error": [np.mean(errors) if len(errors) else np.nan],
@@ -383,12 +394,11 @@ class AnalysisController:
 
 
 if __name__ == "__main__":
-    sensor_type = SensorType.PIEZO
+    sensor_type = SensorType.ACCEL
     params = get_optimal_analysis_params(sensor_type)
     controller = AnalysisController(**params)
     datasets = DataHandler.from_sensor_type(sensor_type).get_lazy(user='ron', location='Aarons Studio')
     # print(controller.get_metric_error(datasets, plot_dist=True, plot_title=str(params)))
-
-    df = controller.get_metric_error(datasets, append_env=True)
-    df = df.filter(['quality', 'step_count'], axis=1)
-    print(df)
+    df = controller.get_algorithm_error(datasets, missed_percent=True, plot_dist=False)
+    print("Complete miss rate:", (df['missed'] == 1).sum() / len(df))
+    print("False positive rate:", (df['incorrect'] > 0).sum() / len(df))
