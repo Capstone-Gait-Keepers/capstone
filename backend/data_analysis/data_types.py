@@ -86,6 +86,11 @@ class Recording:
     filepath: Optional[str] = None
     sensor_type: Optional[str] = None
 
+    def __post_init__(self):
+        self.ts = self.ts.squeeze()
+        if len(self.ts) and self.ts.ndim != 1:
+            raise ValueError(f'ts must be a 1D array, not {self.ts.ndim}D.')
+
     @classmethod
     def from_file(cls, filename: str):
         try:
@@ -120,7 +125,7 @@ class Recording:
     
     def plot(self, show=True):
         """Plot a recording"""
-        timestamps = np.linspace(0, len(self.ts) / self.env.fs, len(self.ts))
+        timestamps = np.linspace(0, len(self.ts) / self.env.fs, len(self.ts), endpoint=False)
         fig = go.Figure()
         if self.filepath:
             fig.update_layout(title=self.filepath, showlegend=False)
