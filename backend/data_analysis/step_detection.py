@@ -23,13 +23,31 @@ class DataHandler:
         return cls(cls.folder_map[sensor_type])
 
     def get(self, **filters) -> List[Recording]:
-        """Walk through datasets folder and return all records that match the filters"""
+        """
+        Walk through datasets folder and return all records that match the filters
+
+        See `get_lazy` for more information on parameters
+        """
         return list(self.get_lazy(**filters))
 
-    def get_lazy(self, limit=None, **filters):
+    def get_lazy(self, limit=None, session=None, **filters):
+        """
+        Walk through datasets folder and yield all records that match the filters
+
+        Parameters
+        ----------
+        limit : int, optional
+            Maximum number of records to return
+        session : str, optional
+            Session name to filter by. Typically a numeric date
+        filters : keyword arguments
+            Key-value pairs to filter the environmental variables by
+        """
         filepaths = [file for file in os.listdir(self.folder) if file.endswith(".yaml")]
         if 'example.yaml' in filepaths:
             filepaths.remove('example.yaml')
+        if session is not None:
+            filepaths = [file for file in filepaths if session in file]
         if limit is not None:
             filepaths = filepaths[:limit]
         for filename in filepaths:
@@ -282,7 +300,7 @@ class StepDetector(TimeSeriesProcessor):
                 fig.add_annotation(x=i/20, y=threshold + max_sig/20, text=symbol, showarrow=False, row=3, col=1)
             DC = np.mean(vibes)
             offset = 0.05 * np.max(vibes)
-            if truth:
+            if truth is not None:
                 for timestamp in truth:
                     fig.add_vline(x=timestamp + 0.05, line_color='green', row=1, col=1)
                     fig.add_annotation(x=timestamp, y=DC + offset, xshift=-17, text="Step", showarrow=False, row=1, col=1)
