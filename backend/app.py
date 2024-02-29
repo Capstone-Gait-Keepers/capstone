@@ -10,7 +10,6 @@ from http import HTTPStatus
 from flask_basicauth import BasicAuth
 from datetime import datetime
 from sqlalchemy.exc import OperationalError
-from flask_sslify import SSLify
 
 # This is hack, but it's the simplest way to get things to work without changing things - Daniel
 sys.path.append(os.path.join(os.path.dirname(__file__), 'data_analysis'))
@@ -40,10 +39,6 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 # database init
 db.init_app(app)
-
-# SSLify - for TLS security
-## forces endpoints to use HTTPS instead of defaulting to HTTP based on client
-sslify = SSLify(app)
 
 # BasicAuth configuration
 # for documentation page
@@ -183,7 +178,15 @@ def add_recording():
 
     data = request.get_json()
 
-
+    # accept recording data if the sensorid sent exists in NewSensor 
+    id_to_check = data['sensorid']
+    existing_id = db.session.query(NewSensor).filter(NewSensor._id == id_to_check).first()
+    if existing_id:
+        print("Sensor is authorized.") # will proceed
+    else: 
+        err = "Unauthorized sensorid provided."
+        return jsonify({"error": str(err)}), HTTPStatus.UNAUTHORIZED # will stop process here
+    
     max_retries = 3
 
     for attempt in range(max_retries): # retry twice
@@ -387,7 +390,7 @@ if __name__ == '__main__':
     with app.app_context():
         #print("YAY")
         db.create_all()
-        print("Here's the query!")
+        #print("Here's the query!")
         #print(query_sensors())
         #db.drop_all() #deletes all existing tables
     app.run(debug=True, ssl_context='adhoc')
