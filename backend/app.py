@@ -88,6 +88,22 @@ class NewSensor(db.Model):
     wall_radius = db.Column(db.Float, nullable=True)
     obstacle_radius = db.Column(db.Float, nullable=True)
     recordings = relationship('Recordings', back_populates='new_sensor')
+    users = relationship('FakeUser', back_populates='new_sensor')
+
+# for frontend log in + add user flow
+class FakeUser(db.Model):
+    __tablename__ = 'users'
+    _id = db.Column("userid", db.Integer, primary_key=True)
+    name = db.Column(db.String(255))
+    email = db.Column(db.String(255))
+    password = db.Column(db.String(255))
+    sensorid = db.Column(db.Integer, ForeignKey('new_sensor.sensorid'))
+    connected_user1_name = db.Column(db.String(255))
+    connected_user1_email = db.Column(db.String(255))
+    connected_user2_name = db.Column(db.String(255))
+    connected_user2_email = db.Column(db.String(255))
+    sensor_info = relationship('NewSensor', back_populates='users')
+
 
 # curl -X POST -d "hey" https://capstone-backend-f6qu.onrender.com/api/sarah_test1
 @app.route('/api/sarah_test1', methods=['POST'])
