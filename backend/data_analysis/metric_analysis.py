@@ -308,11 +308,22 @@ class AnalysisController:
             return self._detector._enforce_max_step_delta(timestamps, max_step_delta)
         return timestamps
     
-    def get_false_step_rates(self, datasets: Iterable[Recording], plot_dist=False, plot_signals=False) -> dict:
-        df = self.get_algorithm_error(datasets, plot_dist=plot_dist, plot_signals=plot_signals)
-        false_negative = df['missed'].sum() / df['step_count'].sum()
-        false_positive = df['incorrect'].sum() / df['step_count'].sum()
-        return {"false_negative": false_negative, "false_positive": false_positive}
+    def get_false_rates(self, datasets: Iterable[Recording], min_steps=3, plot_dist=False, plot_signals=False):
+        """Calculates the false negative and false positive rates of a list of recordings"""
+        recordings = [*datasets]
+        df = self.get_algorithm_error(recordings, plot_dist=plot_dist, plot_signals=plot_signals)
+        env_df = self.get_env_df(recordings)
+        df = pd.concat([env_df, df], axis=1)
+        # TODO: Include pause and turn? step_count > 0?
+        positives = df[df['quality'] == 'normal']
+        negatives = df[df['quality'] == 'chaotic']
+        if len(positives) == 0:
+            raise ValueError("No normal recordings provided")
+        if len(negatives) == 0:
+            raise ValueError("No chaotic recordings provided")
+        false_neg = len(positives[(positives['missed'] + min_steps) > positives['step_count']]) / len(positives)
+        false_pos = len(negatives[negatives['incorrect'] > 0]) / len(negatives)
+        return false_neg, false_pos
 
     def get_algorithm_error(self, datasets: Iterable[Recording], plot_dist=False, plot_signals=False) -> pd.DataFrame:
         """Calculates the algorithm error of a list of recordings"""
@@ -405,5 +416,5 @@ if __name__ == "__main__":
     params = get_optimal_analysis_params(sensor_type)
     controller = AnalysisController(**params)
     datasets = DataHandler.from_sensor_type(sensor_type).get_lazy(user='ron', location='Aarons Studio')
-    # print(controller.get_metric_error(datasets, plot_dist=True, plot_title=str(params)))
-    print(controller.get_false_step_rates(datasets, plot_dist=True))
+    # print(controller.get_metric_error(datasets, plot_dist=False, plot_title=str(params)))
+    print(controller.get_false_rates(datasets, plot_dist=False))
