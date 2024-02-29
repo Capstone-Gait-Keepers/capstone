@@ -133,8 +133,7 @@ class TimeSeriesProcessor:
         Creates a rolling window of a time series and computes the FFT of each window
         """
         window_size = self.timestamp_to_index(window_duration)
-        padded_a = np.pad(a, (window_size // 2, window_size // 2), mode='edge')
-        intervals = TimeSeriesProcessor.rolling_window(padded_a, window_size, stride)
+        intervals = TimeSeriesProcessor.rolling_window(a, window_size, stride)
         if ignore_dc:
             intervals -= np.mean(intervals, axis=1, keepdims=True)
         # TODO: Better condition for tapering?
@@ -142,6 +141,7 @@ class TimeSeriesProcessor:
             tapering_window = np.vstack([np.blackman(window_size)] * len(intervals))
             intervals *= tapering_window
         rolling_fft = np.fft.fft(intervals, axis=-1).T[:window_size//2]
+        rolling_fft = np.pad(rolling_fft, ((0, 0), (window_size // 2, window_size // 2)), mode='edge')
         # Edge case when the window size is odd
         if len(a) == rolling_fft.shape[-1] + 1:
             rolling_fft = np.pad(rolling_fft, ((0, 0), (0, 1)), mode='constant')
@@ -278,6 +278,10 @@ class StepDetector(TimeSeriesProcessor):
             model_autocorr = np.correlate(self._step_model, self._step_model, mode='valid')
             energy /= np.max(model_autocorr)
         max_sig = np.max(energy)
+        if self._min_signal is not None and max_sig < self._min_signal:
+            self.logger.debug(f"Signal ({max_sig:.3f}) is less than threshold ({self._min_signal:.3f})")
+            if not plot: # Cleans up the logs and speeds things up
+                return [], []
         # Step detection
         confirmed_threshold, uncertain_threshold, reset_threshold = self._get_energy_thresholds(max_sig)
         confirmed_indices = self.get_peak_indices(energy, confirmed_threshold, reset_threshold)
@@ -295,7 +299,10 @@ class StepDetector(TimeSeriesProcessor):
             freqs = self.get_window_fft_freqs()
             fig.add_heatmap(x=timestamps, y=freqs, z=amps, row=2, col=1)
             fig.add_scatter(x=timestamps, y=energy, name='energy', row=3, col=1)
-            for i, (symbol, threshold) in enumerate({'C': confirmed_threshold, 'U': uncertain_threshold, 'R': reset_threshold}.items(), 2):
+            thresholds = {'C': confirmed_threshold, 'U': uncertain_threshold, 'R': reset_threshold}
+            if self._min_signal is not None:
+                thresholds['Min'] = self._min_signal
+            for i, (symbol, threshold) in enumerate(thresholds.items(), 2):
                 fig.add_hline(y=threshold, row=3, col=1)
                 fig.add_annotation(x=i/20, y=threshold + max_sig/20, text=symbol, showarrow=False, row=3, col=1)
             DC = np.mean(vibes)
