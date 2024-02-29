@@ -176,11 +176,15 @@ class Metrics:
         return list(cls.get_func_map().keys())
 
     def __getitem__(self, key):
-        if len(self._df) == 0:
+        return self.aggregate_metric(self._df[key], weights=self._df['step_count'])
+
+    @staticmethod
+    def aggregate_metric(data: pd.Series, weights=None):
+        if len(data) == 0 or data.isna().all() or (weights is not None and weights.isna().all()):
             return np.nan
-        if key in self.summed_vars:
-            return np.sum(self._df[key].values)
-        return np.average(self._df[key].values, weights=self._df['step_count'].values)
+        if data.name in Metrics.summed_vars:
+            return data.sum()
+        return np.average(data, weights=weights)
 
     def __len__(self):
         return len(self._df)
@@ -292,15 +296,27 @@ class Metrics:
         self_rec_metrics = self.by_recordings()
         truth_rec_metrics = truth.by_recordings()
         error = abs(self_rec_metrics - truth_rec_metrics) / truth_rec_metrics
+        error = error.where(error != np.inf, np.nan)
         # Where they are both NaN, the error is 0
         error = error.where(truth_rec_metrics.notna() | self_rec_metrics.notna(), 0)
         return error
 
     def by_recordings(self) -> pd.DataFrame:
-        # TODO: Not all attributes should be averaged. Some should be summed.
-        rec_groups = self._df.groupby('recording_id').mean()
-        rec_metrics = rec_groups.filter(items=self.keys, axis=1)
-        return rec_metrics
+        return self._df.groupby('recording_id').apply(self.aggregate)
+
+    @staticmethod
+    def aggregate(data: pd.DataFrame):
+        """
+        Aggregates a group of metrics into a single row. All metrics are assumed to be
+        from the same recording. The `summed_vars` are summed, while all other metrics
+        are averaged, weighted by the step count.
+        """
+        if len(data) == 0:
+            return pd.Series({key: np.nan for key in Metrics.get_keys()})
+        results = {}
+        for metric in Metrics.get_keys():
+            results[metric] = Metrics.aggregate_metric(data[metric], weights=data['step_count'])
+        return pd.Series(results)
 
     def __str__(self) -> str:
         return str(self._df)
@@ -327,8 +343,7 @@ def get_optimal_analysis_params(sensor_type: SensorType, include_model=True) -> 
     """Returns the optimal analysis parameters for the given sensor type, based on previous optimize.py results."""
     param_map = {
         SensorType.PIEZO: {},
-        # False negative rate: 78.55 %
-        # False positive rate: 6.88 %
+        # false-negative: 27.69%, false-positive: 76.92%
         # SensorType.ACCEL: {
         #     'window_duration': 0.2927981091746967,
         #     'min_signal': 0.06902195485649608,
@@ -338,8 +353,7 @@ def get_optimal_analysis_params(sensor_type: SensorType, include_model=True) -> 
         #     'unconfirm_coefs': [1.0670316188983877, 1.0511076985832117, 1.160496215083792, 1.6484084554908836],
         #     'reset_coefs': [0.7869793593332175, 1.6112694921747566, 0.12464680752843472, 1.1399207966364366]
         # },
-        # False negative rate: 83.10 %
-        # False positive rate: 0.12 %
+        # false-negative: 70.77%, false-positive: 0%
         SensorType.ACCEL: {
             'window_duration': 0.06997036182119981,
             'min_signal': 0.6282611648972323,
