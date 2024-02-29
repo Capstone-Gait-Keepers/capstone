@@ -51,6 +51,8 @@ class RecordingProcessor:
         """
         Find the noise floor of the accelerometer data
         """
+        if len(rec.events) == 0:
+            return rec.ts
         proc = TimeSeriesProcessor(rec.env.fs)
         first_event = rec.events[0].timestamp
         noise = rec.ts[:proc.timestamp_to_index(first_event)]
@@ -81,10 +83,8 @@ class RecordingProcessor:
         amp_per_step_freq = np.mean(amp_per_step_freq_time, axis=-1)
         amp_per_freq = np.mean(amp_per_step_freq, axis=0)
 
-        noise = RecordingProcessor.get_noise(rec)
-        noise_amp_per_freq_time = proc.rolling_window_fft(noise, window_duration, stride=1, ignore_dc=True)
-        noise_amp_per_freq = np.mean(noise_amp_per_freq_time, axis=-1)
-        freq_weights = amp_per_freq / noise_amp_per_freq # Noise of zero?
+        noise_amp_per_freq = RecordingProcessor.get_noise_frequency_weights(rec, window_duration, plot=plot)
+        freq_weights = amp_per_freq / noise_amp_per_freq
         freq_weights /= np.max(freq_weights)
 
         if plot:
@@ -100,14 +100,26 @@ class RecordingProcessor:
                 fig.add_scatter(x=freqs, y=step_amp_per_freq)
             fig.show()
             fig = go.Figure()
-            fig.update_layout(title="Noise Amplitude vs Frequency", showlegend=False)
-            fig.add_scatter(x=freqs, y=noise_amp_per_freq)
-            fig.show()
-            fig = go.Figure()
             fig.update_layout(title="Amplitude vs Frequency (Average of all steps)", showlegend=False)
             fig.add_scatter(x=freqs, y=freq_weights)
             fig.show()
         return freq_weights
+
+    @staticmethod
+    def get_noise_frequency_weights(rec: Recording, window_duration=0.2, plot=False) -> np.ndarray:
+        """Creates a model of noise frequency weights, ranging from 0 to 1, where 1 is the strongest frequency component of the noise floor"""
+        proc = TimeSeriesProcessor(rec.env.fs)
+        noise = RecordingProcessor.get_noise(rec)
+        noise_amp_per_freq_time = proc.rolling_window_fft(noise, window_duration, stride=1, ignore_dc=True)
+        noise_amp_per_freq = np.mean(noise_amp_per_freq_time, axis=-1)
+        noise_amp_per_freq /= np.max(noise_amp_per_freq)
+        if plot:
+            freqs = proc.get_window_fft_freqs(window_duration)
+            fig = go.Figure()
+            fig.update_layout(title="Noise Amplitude vs Frequency", showlegend=False)
+            fig.add_scatter(x=freqs, y=noise_amp_per_freq)
+            fig.show()
+        return noise_amp_per_freq
 
     @staticmethod
     def get_step_model(rec: Recording, window_duration=0.2, plot_model=False, plot_steps=False) -> np.ndarray:
@@ -137,6 +149,28 @@ class RecordingProcessor:
             fig.update_yaxes(title_text="Energy")
             fig.show()
         return step_model
+    
+    @staticmethod
+    def get_noise_variance(rec: Recording, window=0.1, plot=True):
+        coefs = (1, 0, 0, 0) # Get thresholds out of the way
+        # noise_freqs = RecordingProcessor.get_noise_frequency_weights(rec, window_duration=window)
+        ctrl = StepDetector(
+            fs=rec.env.fs,
+            window_duration=window,
+            noise_profile=rec.ts,
+            # freq_weights=1 - noise_freqs,
+            confirm_coefs=coefs,
+            unconfirm_coefs=coefs,
+            reset_coefs=coefs
+        )
+        energy = ctrl.get_energy(rec.ts)
+        if plot:
+            avg_energy = np.mean(energy)
+            var_energy = np.var(energy)
+            title = f'Energy: {avg_energy:.4f} ± {var_energy:.2E} ({rec.filepath})'
+            ctrl.get_step_groups(rec.ts, plot=True, plot_title=title)
+            print(title)
+        return np.var(energy)
 
 
 
@@ -180,9 +214,14 @@ class AnalysisController:
             recordings.append(data)
             result = self.get_recording_metrics(data, plot_signals)
             results.append(result)
-        measured, truth, _ = self._parse_metric_results(results)
+        measured, truth, alg_err = self._parse_metric_results(results)
         err = measured.error(truth)
         err.index = [rec.filepath for rec in recordings]
+        # Log false negative and false positive rates
+        env_df = self.get_env_df(recordings)
+        alg_err = pd.concat([env_df['quality'], alg_err], axis=1)
+        false_neg, false_pos = self._get_false_rates(alg_err, min_steps=3)
+        self.logger.info(f"FNR = {false_neg:.4f}, FPR = {false_pos:.4f}")
         if plot_dist:
             melted_err = err.melt(value_name="error", var_name="metric", ignore_index=False)
             melted_err.dropna(inplace=True)
@@ -298,6 +337,7 @@ class AnalysisController:
         steps = RecordingProcessor.get_steps_from_truth(rec)
         noise_energy = self._detector.get_energy(RecordingProcessor.get_noise(rec))
         step_energy = np.concatenate([self._detector.get_energy(ts) for ts in steps])
+        # TODO: This isn't a good measure of SNR, since energy does not oscillate
         snr = np.var(step_energy) / np.var(noise_energy)
         return snr
 
@@ -307,22 +347,36 @@ class AnalysisController:
         if not ignore_quality and data.env.quality != 'normal':
             return self._detector._enforce_max_step_delta(timestamps, max_step_delta)
         return timestamps
-    
+
     def get_false_rates(self, datasets: Iterable[Recording], min_steps=3, plot_dist=False, plot_signals=False):
         """Calculates the false negative and false positive rates of a list of recordings"""
         recordings = [*datasets]
         df = self.get_algorithm_error(recordings, plot_dist=plot_dist, plot_signals=plot_signals)
         env_df = self.get_env_df(recordings)
-        df = pd.concat([env_df, df], axis=1)
+        df = pd.concat([env_df['quality'], df], axis=1)
+        return self._get_false_rates(df, min_steps)
+
+    def _get_false_rates(self, alg_err: pd.DataFrame, min_steps=3):
+        """
+        Calculates the false negative and false positive rates of a list of recordings.
+
+        Parameters
+        ----------
+        alg_err : pd.DataFrame
+            A dataframe of algorithm errors for each recording.
+            Must contain 'quality', 'missed', 'incorrect', and 'step_count' columns.
+        """
         # TODO: Include pause and turn? step_count > 0?
-        positives = df[df['quality'] == 'normal']
-        negatives = df[df['quality'] == 'chaotic']
+        positives = alg_err[alg_err['quality'] == 'normal']
+        negatives = alg_err[alg_err['quality'] == 'chaotic']
         if len(positives) == 0:
-            raise ValueError("No normal recordings provided")
+            false_neg = np.nan
+        else:
+            false_neg = len(positives[(positives['missed'] + min_steps) > positives['step_count']]) / len(positives)
         if len(negatives) == 0:
-            raise ValueError("No chaotic recordings provided")
-        false_neg = len(positives[(positives['missed'] + min_steps) > positives['step_count']]) / len(positives)
-        false_pos = len(negatives[negatives['incorrect'] > 0]) / len(negatives)
+            false_pos = np.nan
+        else:
+            false_pos = len(negatives[negatives['incorrect'] > 0]) / len(negatives)
         return false_neg, false_pos
 
     def get_algorithm_error(self, datasets: Iterable[Recording], plot_dist=False, plot_signals=False) -> pd.DataFrame:
@@ -412,9 +466,9 @@ class AnalysisController:
 
 
 if __name__ == "__main__":
-    sensor_type = SensorType.ACCEL
+    sensor_type = SensorType.PIEZO
     params = get_optimal_analysis_params(sensor_type)
     controller = AnalysisController(**params)
-    datasets = DataHandler.from_sensor_type(sensor_type).get_lazy(user='ron', location='Aarons Studio')
-    # print(controller.get_metric_error(datasets, plot_dist=False, plot_title=str(params)))
-    print(controller.get_false_rates(datasets, plot_dist=False))
+    datasets = DataHandler.from_sensor_type(sensor_type).get_lazy(user='ron', quality='normal', session="2024", location='Aarons Studio')
+    print(controller.get_metric_error(datasets, plot_dist=False, plot_signals=True, plot_title=str(params)))
+    # print(controller.get_false_rates(datasets, plot_dist=False))
