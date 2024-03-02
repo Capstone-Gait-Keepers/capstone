@@ -48,8 +48,9 @@ class DataHandler:
             filepaths.remove('example.yaml')
         if session is not None:
             filepaths = [file for file in filepaths if session in file]
-        if limit is not None:
+        if limit is not None and len(filters) == 0: # If there are no filters, all files will be valid
             filepaths = filepaths[:limit]
+        recs_yielded = 0
         for filename in filepaths:
             data = Recording.from_file(os.path.join(self.folder, filename))
             for key, value in filters.items():
@@ -57,6 +58,9 @@ class DataHandler:
                     break
             else:
                 yield data
+                recs_yielded += 1
+                if limit is not None and recs_yielded >= limit:
+                    break
 
     def plot(self, clip=False, truth=True, **filters):
         """Walk through datasets folder and plot all recording that match the filters"""
@@ -161,6 +165,21 @@ class TimeSeriesProcessor:
         if energy.shape != vibes.shape:
             raise ValueError(f"Energy is the wrong shape: {energy.shape} != {vibes.shape}")
         return energy
+    
+    def get_max_power(self, vibes: np.ndarray, window_duration=0.2, stride=1, weights=None) -> float:
+        """
+        Find the max power of the accelerometer data, given the time series data
+        """
+        energy = self.get_energy(vibes, window_duration, stride, weights)
+        return np.max(energy**2, axis=None)
+
+    def get_snr(self, signal: np.ndarray, noise: np.ndarray) -> np.ndarray:
+        """
+        Calculate the signal-to-noise ratio of a signal, given the time series data
+        """
+        signal_power = np.max(self.get_energy(signal)**2)
+        noise_power = np.max(self.get_energy(noise)**2)
+        return (signal_power - noise_power) / noise_power
 
     @staticmethod
     def get_peak_indices(signal: np.ndarray, threshold: float, reset_threshold: float = None) -> np.ndarray:

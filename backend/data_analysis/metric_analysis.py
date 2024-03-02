@@ -115,9 +115,7 @@ class RecordingProcessor:
         noise_amp_per_freq /= np.max(noise_amp_per_freq)
         if plot:
             freqs = proc.get_window_fft_freqs(window_duration)
-            fig = go.Figure()
-            fig.update_layout(title="Noise Amplitude vs Frequency", showlegend=False)
-            fig.add_scatter(x=freqs, y=noise_amp_per_freq)
+            fig = px.scatter(x=freqs, y=noise_amp_per_freq, title="Noise Amplitude vs Frequency")
             fig.show()
         return noise_amp_per_freq
 
@@ -149,28 +147,16 @@ class RecordingProcessor:
             fig.update_yaxes(title_text="Energy")
             fig.show()
         return step_model
-    
+
     @staticmethod
-    def get_noise_variance(rec: Recording, window=0.1, plot=True):
-        coefs = (1, 0, 0, 0) # Get thresholds out of the way
-        # noise_freqs = RecordingProcessor.get_noise_frequency_weights(rec, window_duration=window)
-        ctrl = StepDetector(
-            fs=rec.env.fs,
-            window_duration=window,
-            noise_profile=rec.ts,
-            # freq_weights=1 - noise_freqs,
-            confirm_coefs=coefs,
-            unconfirm_coefs=coefs,
-            reset_coefs=coefs
-        )
-        energy = ctrl.get_energy(rec.ts)
-        if plot:
-            avg_energy = np.mean(energy)
-            var_energy = np.var(energy)
-            title = f'Energy: {avg_energy:.4f} ± {var_energy:.2E} ({rec.filepath})'
-            ctrl.get_step_groups(rec.ts, plot=True, plot_title=title)
-            print(title)
-        return np.var(energy)
+    def get_snr(rec: Recording):
+        """Calculates the energy signal to noise ratio of a single recording"""
+        if np.all(rec.ts == 0):
+            raise ValueError(f"Recording {rec.filepath} is empty")
+        proc = TimeSeriesProcessor(rec.env.fs)
+        noise_ts = RecordingProcessor.get_noise(rec)
+        step_ts = np.concatenate(RecordingProcessor.get_steps_from_truth(rec))
+        return proc.get_snr(step_ts, noise_ts)
 
 
 
@@ -179,7 +165,7 @@ class AnalysisController:
         self.logger = self.init_logger(log_file) if logger is None else logger
         if model:
             noise = RecordingProcessor.get_noise(model)
-            weights = RecordingProcessor.get_frequency_weights(model, window_duration, plot=False)
+            # weights = RecordingProcessor.get_frequency_weights(model, window_duration, plot=False)
             # step_model = RecordingProcessor.get_step_model(model, window_duration, plot_model=False, plot_steps=False)
             self._detector = StepDetector(
                 fs=model.env.fs,
@@ -327,19 +313,7 @@ class AnalysisController:
 
     def get_snrs(self, recs: Iterable[Recording]):
         """Calculates the signal to noise ratio of a list of recordings"""
-        return np.array([self.get_snr(rec) for rec in recs])
-
-    def get_snr(self, rec: Recording):
-        """Calculates the energy signal to noise ratio of a single recording"""
-        if np.all(rec.ts == 0):
-            self.logger.debug("Bad recording, skipping")
-            return np.nan
-        steps = RecordingProcessor.get_steps_from_truth(rec)
-        noise_energy = self._detector.get_energy(RecordingProcessor.get_noise(rec))
-        step_energy = np.concatenate([self._detector.get_energy(ts) for ts in steps])
-        # TODO: This isn't a good measure of SNR, since energy does not oscillate
-        snr = np.var(step_energy) / np.var(noise_energy)
-        return snr
+        return np.array([RecordingProcessor.get_snr(rec) for rec in recs]) # TODO
 
     def _get_true_step_timestamps(self, data: Recording, ignore_quality=False, max_step_delta=2) -> List[np.ndarray]:
         """Returns the true step timestamps of a recording, enforcing a maximum step delta if the recording quality is not normal"""
@@ -466,9 +440,20 @@ class AnalysisController:
 
 
 if __name__ == "__main__":
-    sensor_type = SensorType.PIEZO
-    params = get_optimal_analysis_params(sensor_type)
-    controller = AnalysisController(**params)
-    datasets = DataHandler.from_sensor_type(sensor_type).get_lazy(user='ron', quality='normal', session="2024", location='Aarons Studio')
-    print(controller.get_metric_error(datasets, plot_dist=False, plot_signals=True, plot_title=str(params)))
+    # sensor_type = SensorType.PIEZO
+    # params = get_optimal_analysis_params(sensor_type)
+    # controller = AnalysisController(**params)
+    # datasets = DataHandler.from_sensor_type(sensor_type).get_lazy(user='ron', quality='normal', session="2024", location='Aarons Studio')
+    # print(controller.get_metric_error(datasets, plot_dist=False, plot_signals=True, plot_title=str(params)))
     # print(controller.get_false_rates(datasets, plot_dist=False))
+
+    short = Recording.from_file('datasets/piezo_wire_analysis/short.yaml')
+    long = Recording.from_file('datasets/piezo_wire_analysis/long.yaml')
+    ethernet = Recording.from_file('datasets/piezo_wire_analysis/ethernet.yaml')
+
+    p1 = TimeSeriesProcessor(short.env.fs).get_max_power(short.ts)
+    p2 = TimeSeriesProcessor(long.env.fs).get_max_power(long.ts)
+    p3 = TimeSeriesProcessor(ethernet.env.fs).get_max_power(ethernet.ts)
+    print(f"Results: {p1=:.2E}, {p2=:.2E}, {p3=:.2E}")
+    print(f"Ethernet noise multiplier: {p3/p1:.2f}x")
+    print(f"Length noise multiplier: {p2/p1:.2f}x")
