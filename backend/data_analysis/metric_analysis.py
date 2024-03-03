@@ -152,11 +152,16 @@ class RecordingProcessor:
     def get_snr(rec: Recording):
         """Calculates the energy signal to noise ratio of a single recording"""
         if np.all(rec.ts == 0):
-            raise ValueError(f"Recording {rec.filepath} is empty")
+            return np.nan
         proc = TimeSeriesProcessor(rec.env.fs)
         noise_ts = RecordingProcessor.get_noise(rec)
         step_ts = np.concatenate(RecordingProcessor.get_steps_from_truth(rec))
         return proc.get_snr(step_ts, noise_ts)
+
+    @staticmethod
+    def get_snrs(recs: Iterable[Recording]):
+        """Calculates the signal to noise ratio of a list of recordings"""
+        return np.array([RecordingProcessor.get_snr(rec) for rec in recs])
 
 
 
@@ -311,10 +316,6 @@ class AnalysisController:
         algorithm_error = self._get_algorithm_error(predicted_steps, true_steps)
         return measured, source_of_truth, algorithm_error
 
-    def get_snrs(self, recs: Iterable[Recording]):
-        """Calculates the signal to noise ratio of a list of recordings"""
-        return np.array([RecordingProcessor.get_snr(rec) for rec in recs]) # TODO
-
     def _get_true_step_timestamps(self, data: Recording, ignore_quality=False, max_step_delta=2) -> List[np.ndarray]:
         """Returns the true step timestamps of a recording, enforcing a maximum step delta if the recording quality is not normal"""
         timestamps = [np.array([event.timestamp for event in data.events if event.category == 'step'])]
@@ -440,20 +441,17 @@ class AnalysisController:
 
 
 if __name__ == "__main__":
-    # sensor_type = SensorType.PIEZO
-    # params = get_optimal_analysis_params(sensor_type)
-    # controller = AnalysisController(**params)
-    # datasets = DataHandler.from_sensor_type(sensor_type).get_lazy(user='ron', quality='normal', session="2024", location='Aarons Studio')
-    # print(controller.get_metric_error(datasets, plot_dist=False, plot_signals=True, plot_title=str(params)))
-    # print(controller.get_false_rates(datasets, plot_dist=False))
+    datasets = DataHandler.from_sensor_type(SensorType.PIEZO).get_lazy(user='ron', quality='normal', session="2024", location='Aarons Studio')
+    piezo_snrs = RecordingProcessor.get_snrs(datasets)
+    print(piezo_snrs)
+    datasets = DataHandler.from_sensor_type(SensorType.ACCEL).get_lazy(user='ron', quality='normal', session="2024", location='Aarons Studio')
+    accel_snrs = RecordingProcessor.get_snrs(datasets)
+    print(accel_snrs)
 
-    short = Recording.from_file('datasets/piezo_wire_analysis/short.yaml')
-    long = Recording.from_file('datasets/piezo_wire_analysis/long.yaml')
-    ethernet = Recording.from_file('datasets/piezo_wire_analysis/ethernet.yaml')
+    print(f"Avg piezo snr: {np.nanmean(piezo_snrs):.2f}, Avg accel snr: {np.nanmean(accel_snrs):.2f}")
 
-    p1 = TimeSeriesProcessor(short.env.fs).get_max_power(short.ts)
-    p2 = TimeSeriesProcessor(long.env.fs).get_max_power(long.ts)
-    p3 = TimeSeriesProcessor(ethernet.env.fs).get_max_power(ethernet.ts)
-    print(f"Results: {p1=:.2E}, {p2=:.2E}, {p3=:.2E}")
-    print(f"Ethernet noise multiplier: {p3/p1:.2f}x")
-    print(f"Length noise multiplier: {p2/p1:.2f}x")
+    # Plot histograms
+    improvement = piezo_snrs - accel_snrs
+    fig = go.Figure()
+    fig.add_histogram(x=improvement, name="Piezo SNR", histnorm='probability density')
+    fig.show()

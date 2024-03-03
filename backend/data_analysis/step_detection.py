@@ -179,7 +179,7 @@ class TimeSeriesProcessor:
         """
         signal_power = np.max(self.get_energy(signal)**2)
         noise_power = np.max(self.get_energy(noise)**2)
-        return (signal_power - noise_power) / noise_power
+        return signal_power / noise_power
 
     @staticmethod
     def get_peak_indices(signal: np.ndarray, threshold: float, reset_threshold: float = None) -> np.ndarray:
