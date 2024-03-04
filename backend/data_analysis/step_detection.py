@@ -251,6 +251,9 @@ class StepDetector(TimeSeriesProcessor):
             self.logger.warning("Removed last value from time series because it was None")
         if None in ts:
             raise ValueError("Time series must not contain None values")
+        if np.all(ts == 0):
+            self.logger.debug("Time series is all zeros, ignoring")
+            return []
         steps, uncertain_steps = self._find_steps(ts, plot, truth, plot_title)
         self.logger.debug(f"Found {len(steps)} confirmed steps and {len(uncertain_steps)} uncertain steps")
         if len(steps) > 1: # We need at least two confirmed steps to do anything
@@ -298,7 +301,7 @@ class StepDetector(TimeSeriesProcessor):
             energy /= np.max(model_autocorr)
         max_sig = np.max(energy)
         if self._min_signal is not None and max_sig < self._min_signal:
-            self.logger.debug(f"Signal ({max_sig:.3f}) is less than threshold ({self._min_signal:.3f})")
+            self.logger.debug(f"Signal ({max_sig:.3f}) is less than threshold ({self._min_signal:.3f}), ignoring")
             if not plot: # Cleans up the logs and speeds things up
                 return [], []
         # Step detection

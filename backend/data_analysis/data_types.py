@@ -158,10 +158,10 @@ class Metrics:
         self.keys = self.get_keys()
         if len(timestamp_groups) == 0:
             self._df = pd.DataFrame({key: [np.nan] for key in self.keys})
-            self._df['recording_id'] = [recording_id]
-            return
-        data = {key: [func_map[key](timestamps) for timestamps in timestamp_groups] for key in self.keys}
-        self._df = pd.DataFrame.from_dict(data)
+            self._df['step_count'] = [0]
+        else:
+            data = {key: [func_map[key](timestamps) for timestamps in timestamp_groups] for key in self.keys}
+            self._df = pd.DataFrame.from_dict(data)
         self._df['recording_id'] = [recording_id] * len(self._df)
 
     @classmethod
@@ -189,7 +189,11 @@ class Metrics:
             return np.nan
         if data.name in Metrics.summed_vars:
             return data.sum()
-        return np.average(data, weights=weights)
+        return Metrics.nanaverage(data, weights=weights)
+
+    @staticmethod
+    def nanaverage(a: np.ndarray, weights: np.ndarray):
+        return np.nansum(a*weights)/((~np.isnan(a))*weights).sum()
 
     def __len__(self):
         return len(self._df)
@@ -300,10 +304,18 @@ class Metrics:
             raise ValueError(f'Cannot compare Metrics of different lengths. truth.recordings ({len(truth.recordings)}) != self.recordings ({self.recordings}) (len(self) = {len(self)})')
         self_rec_metrics = self.by_recordings()
         truth_rec_metrics = truth.by_recordings()
-        error = abs(self_rec_metrics - truth_rec_metrics) / truth_rec_metrics
-        error = error.where(error != np.inf, np.nan)
+        error = abs(self_rec_metrics - truth_rec_metrics)
+        # Normalize for non-summed metrics
+        for key in Metrics.get_keys():
+            if key not in Metrics.summed_vars:
+                error[key] = error[key] / truth_rec_metrics[key]
         # Where they are both NaN, the error is 0
+        error = error.where(error != np.inf, np.nan)
         error = error.where(truth_rec_metrics.notna() | self_rec_metrics.notna(), 0)
+        # Add classification bool
+        correct_class = (self_rec_metrics['step_count'] > 0) ^ (truth_rec_metrics['step_count'] == 0)
+        correct_class.name = "correct_class"
+        error = pd.concat([correct_class, error], axis=1)
         return error
 
     def by_recordings(self) -> pd.DataFrame:

@@ -308,7 +308,7 @@ class AnalysisController:
         true_steps = self.merge_step_groups(true_step_groups)
         step_groups = self._detector.get_step_groups(np.array(data.ts), plot, truth=true_steps, plot_title=data.filepath)
         if len(step_groups):
-            self.logger.info(f"Found {len(step_groups)} step groups in {data.filepath}")
+            self.logger.info(f"Found {len(step_groups)} step groups in {data.filepath} ({len(true_steps)} true steps)")
             self.logger.debug(f"Step groups: {step_groups}")
         predicted_steps = self.merge_step_groups(step_groups)
         measured = Metrics(step_groups)
@@ -331,7 +331,7 @@ class AnalysisController:
         df = pd.concat([env_df['quality'], df], axis=1)
         return self._get_false_rates(df, min_steps)
 
-    def _get_false_rates(self, alg_err: pd.DataFrame, min_steps=3):
+    def _get_false_rates(self, alg_err: pd.DataFrame, min_steps=2):
         """
         Calculates the false negative and false positive rates of a list of recordings.
 
@@ -340,6 +340,10 @@ class AnalysisController:
         alg_err : pd.DataFrame
             A dataframe of algorithm errors for each recording.
             Must contain 'quality', 'missed', 'incorrect', and 'step_count' columns.
+        min_steps : int
+            The minimum number of steps required for a recording to be counted as
+            successfully detected steps. Default is 2, which is the minimum number
+            of steps for any metric.
         """
         # TODO: Include pause and turn? step_count > 0?
         positives = alg_err[alg_err['quality'] == 'normal']
@@ -347,7 +351,8 @@ class AnalysisController:
         if len(positives) == 0:
             false_neg = np.nan
         else:
-            false_neg = len(positives[(positives['missed'] + min_steps) > positives['step_count']]) / len(positives)
+            steps_detected = positives['step_count'] - positives['missed']
+            false_neg = len(positives[steps_detected < min_steps]) / len(positives)
         if len(negatives) == 0:
             false_pos = np.nan
         else:
@@ -441,17 +446,10 @@ class AnalysisController:
 
 
 if __name__ == "__main__":
-    datasets = DataHandler.from_sensor_type(SensorType.PIEZO).get_lazy(user='ron', quality='normal', session="2024", location='Aarons Studio')
-    piezo_snrs = RecordingProcessor.get_snrs(datasets)
-    print(piezo_snrs)
-    datasets = DataHandler.from_sensor_type(SensorType.ACCEL).get_lazy(user='ron', quality='normal', session="2024", location='Aarons Studio')
-    accel_snrs = RecordingProcessor.get_snrs(datasets)
-    print(accel_snrs)
-
-    print(f"Avg piezo snr: {np.nanmean(piezo_snrs):.2f}, Avg accel snr: {np.nanmean(accel_snrs):.2f}")
-
-    # Plot histograms
-    improvement = piezo_snrs - accel_snrs
-    fig = go.Figure()
-    fig.add_histogram(x=improvement, name="Piezo SNR", histnorm='probability density')
-    fig.show()
+    sensor_type = SensorType.PIEZO
+    params = get_optimal_analysis_params(sensor_type)
+    controller = AnalysisController(**params)
+    datasets = DataHandler.from_sensor_type(sensor_type).get_lazy(user='ron', session="2024", location='Aarons Studio')
+    # print(controller.get_metric_error(datasets, plot_dist=True, plot_signals=False, plot_title=str(params)))
+    print(controller.get_false_rates(datasets, plot_dist=False))
+    # print(controller.get_metrics(datasets, plot_signals=False)[0].by_recordings())

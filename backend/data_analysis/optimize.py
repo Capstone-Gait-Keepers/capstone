@@ -11,7 +11,7 @@ from step_detection import DataHandler
 from metric_analysis import AnalysisController
 
 
-def parse_args(x, round_digits=None) -> dict:
+def parse_analysis_params(x, round_digits=None) -> dict:
     """Parses the parameters from the optimization result."""
     param_names = [
         'window_duration',
@@ -37,18 +37,14 @@ def parse_args(x, round_digits=None) -> dict:
     return params
 
 
-def get_loss(err: pd.DataFrame, missing_punish_factor=10) -> float:
-    all_metrics_represented = err.notna().any(axis=0).all()
-    if all_metrics_represented:
-        num_missing_rows = err['step_count'].isna().sum()
-        missing_data_loss = num_missing_rows*(missing_punish_factor + err.max(axis=None))
-        err.fillna(missing_data_loss, inplace=True) # Punish missing data
-        loss = err.mean(axis=None)
-        return loss
-    return np.inf
+def get_loss(err: pd.DataFrame, classification_punishment=10) -> float:
+    """Calculates the loss from the error dataframe."""
+    wrong_classes = (~err['correct_class']).sum()
+    err.fillna(classification_punishment*wrong_classes + err.max(axis=None), inplace=True) # Punish missing data
+    return err.sum().sum()
 
 
-def optimize_step_detection(datasets: List[Recording], model=None, sensor_type=None, logger=None, maxiter=20, popsize=15) -> dict:
+def optimize_step_detection(datasets: List[Recording], model=None, sensor_type=None, logger=None, maxiter=20, popsize=15, step_delta_min_range=0.3) -> dict:
     """Optimizes step detection parameters using differential evolution algorithm."""
     if not len(datasets):
         raise ValueError("No datasets provided.")
@@ -62,30 +58,30 @@ def optimize_step_detection(datasets: List[Recording], model=None, sensor_type=N
 
     def objective_function(x):
         nonlocal best_current_loss
-        params = parse_args(x)
+        params = parse_analysis_params(x)
         if np.any(np.isnan(x)):
             logger.warning(f"Invalid parameters: {params}")
             return np.inf
         logger.info(f'Running with parameters: {params}')
         ctrl = AnalysisController(model, logger=logger, **params)
         pbar.update(1)
-        measured, truth, _ = ctrl.get_metrics(datasets)
-        err = measured.error(truth)
+        err = ctrl.get_metric_error(datasets)
         loss = get_loss(err)
         if loss <= best_current_loss:
             best_current_loss = loss
-            pbar.set_description(f'Best Loss: {loss:.1f}')
+            pbar.set_description(f'Best Loss={loss:.1f}')
         if loss != np.inf:
-            logger.info(f'Loss: {loss}')
+            class_percents = err['correct_class'].sum() / err['correct_class'].count()
+            logger.info(f'Loss={loss}. Correctly classified={class_percents * 100:.1f}%')
         return loss
 
     min_window, max_window = 0.05, 0.5
     bounds = [
         (min_window, max_window), # window_duration
-        (1e-9, 1),  # min_signal
-        (0.01, 2),  # min_step_delta
-        (0.01, 2),  # max_step_delta
-        *([(1e-9, 2)] * 12),  # 3x4 threshold coefs
+        (0, 0.2),  # min_signal
+        (0, 2),  # min_step_delta
+        (0, 2),  # max_step_delta
+        *([(0, 2)] * 12),  # 3x4 threshold coefs
     ]
     res = differential_evolution(
         objective_function,
@@ -93,16 +89,16 @@ def optimize_step_detection(datasets: List[Recording], model=None, sensor_type=N
         maxiter=maxiter,
         popsize=popsize,
         constraints=[
-            LinearConstraint([1] + [0] * 15, min_window, max_window, keep_feasible=True), # Window duration must be enforced
-            LinearConstraint([0] * 2 + [-1, 1] + [0] * 12, lb=0, keep_feasible=True), # min_step_delta < max_step_delta
+            LinearConstraint([1] + [0] * (len(bounds) - 1), min_window, max_window, keep_feasible=True), # Window duration must be enforced
+            LinearConstraint([0] * 2 + [-1, 1] + [0] * 12, lb=step_delta_min_range, keep_feasible=True), # max_step_delta - min_step_delta > step_delta_min_range
             LinearConstraint(np.eye(len(bounds)), lb=np.zeros(len(bounds)), keep_feasible=True), # All values must be positive
         ],
     )
     pbar.close()
     logger.info(f'Optimization result: {res}')
-    params = parse_args(res.x)
+    params = parse_analysis_params(res.x)
     logger.info(f'Optimized parameters: {params}')
-    return res.x
+    return params
 
 def kfold_optimize(datasets: List[Recording], sensor_type=None, splits=5, seed=0, **kwargs):
     if len(datasets) < splits:
@@ -120,7 +116,6 @@ def kfold_optimize(datasets: List[Recording], sensor_type=None, splits=5, seed=0
         test_set = X[test_index]
         logger.info(f"Training size: {len(train_index)}, test size: {len(test_index)}")
         params = optimize_step_detection(training_set, model, logger, **kwargs)
-        params = parse_args(params)
         ctrl = AnalysisController(model, logger=logger, **params)
         measured, truth, _ = ctrl.get_metrics(test_set)
         err = measured.error(truth)
@@ -136,6 +131,7 @@ def kfold_optimize(datasets: List[Recording], sensor_type=None, splits=5, seed=0
     return best_params
 
 if __name__ == '__main__':
-    datasets = DataHandler.from_sensor_type(SensorType.PIEZO).get(user='ron', location='Aarons Studio')
-    optimize_step_detection(datasets, maxiter=10, popsize=10)
+    datasets = DataHandler.from_sensor_type(SensorType.PIEZO).get(user='ron', session='2024-02-11', location='Aarons Studio')
+    datasets = [d for d in datasets if d.env.quality != 'chaotic']
+    print(optimize_step_detection(datasets))
     # print(kfold_optimize(datasets, splits=5, maxiter=10))
