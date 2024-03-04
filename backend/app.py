@@ -13,8 +13,8 @@ from sqlalchemy.exc import OperationalError
 
 # This is hack, but it's the simplest way to get things to work without changing things - Daniel
 sys.path.append(os.path.join(os.path.dirname(__file__), 'data_analysis'))
-from data_analysis.step_detection import StepDetector
-from data_analysis.data_types import Recording, RecordingEnvironment
+from data_analysis.metric_analysis import AnalysisController
+from data_analysis.data_types import Recording
 
 # .env
 load_dotenv()
@@ -360,17 +360,7 @@ def get_recording_ids(sensor_id: int):
 def plot_recording(recording_id: int):
     recording = db.session.query(Recordings).filter(Recordings._id == recording_id).first()
     sensor = db.session.query(NewSensor).filter(NewSensor._id == recording.sensorid).first()
-    env = RecordingEnvironment(
-        sensor._id,
-        sensor.fs,
-        user='',
-        floor=sensor.floor,
-        footwear='socks',
-        walk_type='normal',
-        wall_radius=sensor.wall_radius,
-        obstacle_radius=sensor.obstacle_radius
-    )
-    rec = Recording(env, [], recording.ts_data)
+    rec = Recording.from_real_data(sensor.fs, recording.ts_data)
     return rec.plot(show=False).to_html()
 
 

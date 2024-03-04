@@ -45,11 +45,21 @@ class WalkPath:
         return 0.5 * np.sqrt(a + b + c) * np.sqrt(-a + b + c) * np.sqrt(a - b + c) * np.sqrt(a + b - c) / b
 
 
+@dataclass
+class SensorEnvironment:
+    fs: float
+
+    def to_dict(self):
+        return asdict(self)
+
+    @staticmethod
+    def keys():
+        return RecordingEnvironment.__dataclass_fields__.keys()
+
 
 @dataclass
-class RecordingEnvironment:
+class RecordingEnvironment(SensorEnvironment):
     location: str
-    fs: float
     user: str
     floor: str
     footwear: str
@@ -70,26 +80,23 @@ class RecordingEnvironment:
         if self.footwear not in valid_footwear:
             raise ValueError(f'Invalid footwear "{self.footwear}". Valid footwear are: {valid_footwear}')
 
-    def to_dict(self):
-        return asdict(self)
-
-    @staticmethod
-    def keys():
-        return RecordingEnvironment.__dataclass_fields__.keys()
-
 
 @dataclass
 class Recording:
-    env: RecordingEnvironment
+    env: SensorEnvironment 
     events: list[Event] = field(default_factory=list)
     ts: np.ndarray = field(default_factory=np.zeros(0))
     filepath: Optional[str] = None
     sensor_type: Optional[str] = None
 
     def __post_init__(self):
-        self.ts = self.ts.squeeze()
+        self.ts = np.array(self.ts).squeeze()
         if len(self.ts) and self.ts.ndim != 1:
             raise ValueError(f'ts must be a 1D array, not {self.ts.ndim}D.')
+
+    @classmethod
+    def from_real_data(cls, fs: float, data: np.ndarray):
+        return cls(SensorEnvironment(fs), events=[], ts=data)
 
     @classmethod
     def from_file(cls, filename: str):
