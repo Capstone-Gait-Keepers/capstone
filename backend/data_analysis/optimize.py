@@ -86,8 +86,10 @@ def optimize_step_detection(datasets: List[Recording], model=None, sensor_type=N
         raise ValueError("No datasets provided.")
     pbar = tqdm(total=(maxiter + 1) * popsize * 10)
     best_current_loss = np.inf
+    if sensor_type is None:
+        sensor_type = datasets[0].sensor_type
     if model is None:
-        model = get_model_recording(datasets[0].sensor_type if sensor_type is None else sensor_type)
+        model = get_model_recording(sensor_type)
     if logger is None:
         logger = AnalysisController.init_logger('optimize.log')
         logger.setLevel('INFO')
