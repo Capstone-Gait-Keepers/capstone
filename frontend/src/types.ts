@@ -6,3 +6,10 @@ export interface SensorConfig {
   last_timestamp: string;
   num_recordings: number;
 }
+
+export interface User {
+  userid: string;
+  username: string;
+  email: string;
+  password: string;
+}

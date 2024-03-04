@@ -4,6 +4,6 @@ import BasePage from '@/components/BasePage.vue'
 
 <template>
   <BasePage>
-    <h1>Detailed Insights</h1>
+    <h1>Individual Insights</h1>
   </BasePage>
 </template>

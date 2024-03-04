@@ -1,3 +1,6 @@
+import type { User } from "./types";
+
+
 export async function queryBackend<T>(endpoint: String): Promise<T | null> {
   const url = import.meta.env.VITE_BACKEND_URL;
   if (!url) {
@@ -21,3 +24,12 @@ export async function queryBackend<T>(endpoint: String): Promise<T | null> {
     return null;
   }
 }
+
+
+export async function login(username: string, password: string) {} // Returns User object
+
+export async function getMetrics(userid: string, startDate: string | null, endDate: string | null = null) {}
+
+export async function getUserStatus(userid: string) {} // For insight page, crunches metrics on backend
+
+export async function updateSettings(user: User) {}
