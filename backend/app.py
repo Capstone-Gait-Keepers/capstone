@@ -1,43 +1,36 @@
 import os
-import sys
 import time
 from dotenv import load_dotenv
-from flask import Flask, jsonify, request, render_template, send_from_directory
-from flask_sqlalchemy import SQLAlchemy
-from sqlalchemy import create_engine, func, ForeignKey
-from sqlalchemy.orm import sessionmaker, relationship
+from flask import Flask, jsonify, request, render_template
+from sqlalchemy import create_engine, func
+from sqlalchemy.orm import sessionmaker
 from http import HTTPStatus
 from flask_basicauth import BasicAuth
 from datetime import datetime
 from sqlalchemy.exc import OperationalError
 
-# This is hack, but it's the simplest way to get things to work without changing things - Daniel
-sys.path.append(os.path.join(os.path.dirname(__file__), 'data_analysis'))
-from data_analysis.metric_analysis import AnalysisController
-from data_analysis.data_types import Recording
+from frontend_integration import endpoints, STATIC_FOLDER
+from database import *
+
 
 # .env
 load_dotenv()
 
-# init db
-db = SQLAlchemy()
-
-app = Flask(__name__, static_folder="static", template_folder="static")
+app = Flask(__name__, static_folder=STATIC_FOLDER, template_folder=STATIC_FOLDER)
+app.register_blueprint(endpoints)
 
 # database connection
-url = os.getenv("DATABSE_URL") 
 DBUSER = os.getenv("PRODUSER") 
 DBID = os.getenv("DB_ID") 
 DBPASS = os.getenv("DB_PASS") 
 DBREGION = os.getenv("DB_REGION")
 
 SQLALCHEMY_DATABASE_URI = f"postgresql://postgres.{DBID}:{DBPASS}@aws-0-us-east-1.pooler.supabase.com:6543/postgres"
-#SQLALCHEMY_DATABASE_URI = f"postgresql://postgres:{prodpass}@{prodhost}:5432/postgres" #old
 
 app.config["SQLALCHEMY_DATABASE_URI"] = SQLALCHEMY_DATABASE_URI
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-# database init
+# init db
 db.init_app(app)
 
 # BasicAuth configuration
@@ -49,45 +42,6 @@ basic_auth = BasicAuth(app)
 # max payload size
 app.config['MAX_CONTENT_LENGTH'] = 64 * 1024 * 1024
 
-# DATABASE MODELS FOR CONSISTENT DATA STRUCTURE:
-## Use a class to define a table structure.
-## Incoming data will be required to fit the class for consistency.
-## When the backend gets run, any non-existing tables 
-## that have a newly defined class will be (*)should be)
-## automatically created in the database.
-
-# not in use
-class Sensors(db.Model):
-    _id = db.Column("id", db.Integer, primary_key=True)
-    sampling = db.Column(db.Integer)
-    floor = db.Column(db.String(255))
-    user = db.Column(db.String(255))
-
-# test model - not in use
-class Test(db.Model):
-    text1 = db.Column(db.String(255), primary_key=True)
-    text2 = db.Column(db.String(255))
-
-# raw recording data
-class Recordings(db.Model):
-    __tablename__ = 'recordings'
-    _id = db.Column("recordingid",db.Integer, primary_key=True)
-    sensorid = db.Column(db.Integer, ForeignKey('new_sensor.sensorid'))
-    timestamp = db.Column(db.DateTime)
-    ts_data = db.Column(db.ARRAY(db.Float))
-    new_sensor = relationship('NewSensor', back_populates='recordings')
-
-# for sensor conflig
-class NewSensor(db.Model):
-    __tablename__ = 'new_sensor'
-    _id = db.Column("sensorid", db.Integer, primary_key=True)
-    model = db.Column(db.String(255))
-    fs = db.Column(db.Float)
-    userid = db.Column(db.Integer)
-    floor = db.Column(db.String, nullable=True)
-    wall_radius = db.Column(db.Float, nullable=True)
-    obstacle_radius = db.Column(db.Float, nullable=True)
-    recordings = relationship('Recordings', back_populates='new_sensor')
 
 # curl -X POST -d "hey" https://capstone-backend-f6qu.onrender.com/api/sarah_test1
 @app.route('/api/sarah_test1', methods=['POST'])
@@ -342,38 +296,6 @@ def get_sensor_status():
     response = jsonify(sensors)
     response.headers.add('Access-Control-Allow-Origin', '*')
     return response
-
-
-@app.route('/api/list_recordings/<int:sensor_id>')
-def get_recording_ids(sensor_id: int):
-    try:
-        recordings = db.session.query(Recordings).filter(Recordings.sensorid == sensor_id).all()
-        recording_ids = [recording._id for recording in recordings]
-        response = jsonify(recording_ids)
-        response.headers.add('Access-Control-Allow-Origin', '*')
-        return response
-    except Exception as e:
-        return jsonify(error=f"Error processing request: {str(e)}"), HTTPStatus.BAD_REQUEST
-
-
-@app.route('/recording/<int:recording_id>')
-def plot_recording(recording_id: int):
-    recording = db.session.query(Recordings).filter(Recordings._id == recording_id).first()
-    sensor = db.session.query(NewSensor).filter(NewSensor._id == recording.sensorid).first()
-    rec = Recording.from_real_data(sensor.fs, recording.ts_data)
-    return rec.plot(show=False).to_html()
-
-
-
-@app.route('/', defaults={'path': ''})
-@app.route('/<path:path>')
-def serve(path):
-    if 'api' in path:
-        return jsonify(message="Resource not found"), HTTPStatus.NOT_FOUND
-    elif path != "" and os.path.exists(app.static_folder + '/' + path):
-        return send_from_directory(app.static_folder, path)
-    else:
-        return send_from_directory(app.static_folder, 'index.html')
 
 
 if __name__ == '__main__':
