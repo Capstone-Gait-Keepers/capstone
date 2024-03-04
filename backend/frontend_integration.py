@@ -4,7 +4,7 @@ from flask import jsonify, Blueprint, send_from_directory
 from http import HTTPStatus
 
 
-from database import db, Recordings, NewSensor
+from database import db, Recordings, NewSensor, FakeUser
 # This is hack, but it's the simplest way to get things to work without changing things - Daniel
 sys.path.append(os.path.join(os.path.dirname(__file__), 'data_analysis'))
 from data_analysis.metric_analysis import AnalysisController
@@ -40,10 +40,12 @@ def plot_recording(recording_id: int):
 @endpoints.route('/api/get_metrics/<email>')
 def get_metrics(email: str):
     try:
+        # fs from NewSensor
+        # ts_data, date, sensorid from recordings
         print(email)
         analysis_controller = AnalysisController(piezo_model)
-        # user = db.session.query(NewSensor).filter(FakeUser.email == email).first()
-        sensor = db.session.query(NewSensor).filter(NewSensor.userid == user._id).first()
+        user = db.session.query(FakeUser).filter(FakeUser.email == email).first()
+        sensor = db.session.query(FakeUser).filter(NewSensor.userid == user._id).first() # sampling
         print(sensor)
         datasets = [Recording.from_real_data(sensor.fs, recording.ts_data) for recording in db.session.query(Recordings).filter(Recordings.email == email).all()]
         print(len(datasets))
