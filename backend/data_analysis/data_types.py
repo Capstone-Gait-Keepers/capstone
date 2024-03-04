@@ -356,32 +356,71 @@ def get_model_recording(sensor_type: SensorType) -> Recording:
     return Recording.from_file(file_map[sensor_type])
 
 
-def get_optimal_analysis_params(sensor_type: SensorType, include_model=True) -> dict:
-    """Returns the optimal analysis parameters for the given sensor type, based on previous optimize.py results."""
+def get_optimal_analysis_params(sensor_type: SensorType, include_model=True, version=-1) -> dict:
+    """
+    Returns the optimal analysis parameters for the given sensor type, based on previous optimize.py results.
+    False rates are based on all available data for the given sensor type.
+
+    Parameters
+    ----------
+    sensor_type : SensorType
+        The sensor type to get the optimal parameters for.
+    include_model : bool
+        Whether to include the model recording in the returned parameters.
+    version : int
+        The version of the parameters to return. -1 returns the latest version.
+    """
     param_map = {
-        SensorType.PIEZO: {},
-        # false-negative: 27.69%, false-positive: 76.92%
-        # SensorType.ACCEL: {
-        #     'window_duration': 0.2927981091746967,
-        #     'min_signal': 0.06902195485649608,
-        #     'min_step_delta': 0.7005074596681514,
-        #     'max_step_delta': 1.7103077671127291,
-        #     'confirm_coefs': [0.13795802814939168, 0.056480535457810385, 1.2703933010798438, 0.0384835095362413],
-        #     'unconfirm_coefs': [1.0670316188983877, 1.0511076985832117, 1.160496215083792, 1.6484084554908836],
-        #     'reset_coefs': [0.7869793593332175, 1.6112694921747566, 0.12464680752843472, 1.1399207966364366]
-        # },
-        # false-negative: 70.77%, false-positive: 0%
-        SensorType.ACCEL: {
-            'window_duration': 0.06997036182119981,
-            'min_signal': 0.6282611648972323,
-            'min_step_delta': 0.37596442685765374,
-            'max_step_delta': 0.49160770343425664,
-            'confirm_coefs': [0.11193261417632372, 0.4320858954031941, 1.893098538808411, 0.07908746553703738],
-            'unconfirm_coefs': [1.3976705681092856, 1.5234063263359925, 0.7101148865664979, 1.5667306931088163],
-            'reset_coefs': [0.9161274358669074, 1.5974889872123756, 1.5278097857114015, 0.6556597273881369]
-        },
+        SensorType.PIEZO: [
+            # false-negative: 46.67%, false-positive: 23.08%
+            {},
+            # false-negative: 0%, false-positive: 61.54%
+            {
+                'window_duration': 0.1139349947424978,
+                'min_signal': 0.037631118631130805,
+                'min_step_delta': 0.18095205271502524,
+                'max_step_delta': 1.950418846273037,
+                'confirm_coefs': [0.5512649631395441, 0.24808347703417744, 0.2171562044598988, 0.0],
+                'unconfirm_coefs': [0.29895567028655945, 0.7053939275078811, 0.05568592936569661, 0.0],
+                'reset_coefs': [0.25883540025668905, 0.9598419926532735, 0.03623646301128214, 1.365225936022818]
+            },
+            # false-negative: 46.67%, false-positive: 30.77%
+            {
+                'window_duration': 0.5,
+                'min_signal': 0.0,
+                'min_step_delta': 0.0,
+                'max_step_delta': 1.94702008044308,
+                'confirm_coefs': [0.2877633076936741, 0.4879086903112724, 0.9106027824886926, 0.0],
+                'unconfirm_coefs': [0.48855200391108067, 0.6020246859906139, 0.2541307658769687, 0.0],
+                'reset_coefs': [0.034887749913138366, 1.121288775057767, 0.0, 0.0]
+            },
+        ],
+        SensorType.ACCEL: [
+            # false-negative: 63.08%, false-positive: 61.54%
+            {},
+            # false-negative: 26.15%, false-positive: 76.92%
+            {
+                'window_duration': 0.39383795370402874,
+                'min_signal': 0.11874029008975184,
+                'min_step_delta': 0.006114890298333564,
+                'max_step_delta': 0.9996980505314539,
+                'confirm_coefs': [0.4634656640188022, 0.15375031628153313, 0.05074975259937076, 0.0],
+                'unconfirm_coefs': [0.19269100597190514, 0.6527249453428609, 0.7010081078892039, 0.4687034237688712],
+                'reset_coefs': [0.38434914601277703, 0.9407486648938483, 0.6447618736934766, 0.6469422341301987]
+            },
+            # false-negative: 72.31%, false-positive: 0%
+            {
+                'window_duration': 0.06997036182119981,
+                'min_signal': 0.6282611648972323,
+                'min_step_delta': 0.37596442685765374,
+                'max_step_delta': 0.49160770343425664,
+                'confirm_coefs': [0.11193261417632372, 0.4320858954031941, 1.893098538808411, 0.07908746553703738],
+                'unconfirm_coefs': [1.3976705681092856, 1.5234063263359925, 0.7101148865664979, 1.5667306931088163],
+                'reset_coefs': [0.9161274358669074, 1.5974889872123756, 1.5278097857114015, 0.6556597273881369]
+            },
+        ],
     }
-    params = param_map[sensor_type]
+    params = param_map[sensor_type][version]
     if include_model:
         params['model'] = get_model_recording(sensor_type)
     return params

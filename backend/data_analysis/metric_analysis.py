@@ -449,7 +449,7 @@ if __name__ == "__main__":
     sensor_type = SensorType.PIEZO
     params = get_optimal_analysis_params(sensor_type)
     controller = AnalysisController(**params)
-    datasets = DataHandler.from_sensor_type(sensor_type).get_lazy(user='ron', session="2024", location='Aarons Studio')
+    datasets = DataHandler.from_sensor_type(sensor_type).get_lazy(user='ron', location='Aarons Studio')
     # print(controller.get_metric_error(datasets, plot_dist=True, plot_signals=False, plot_title=str(params)))
     print(controller.get_false_rates(datasets, plot_dist=False))
     # print(controller.get_metrics(datasets, plot_signals=False)[0].by_recordings())
