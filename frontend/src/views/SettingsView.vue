@@ -4,7 +4,6 @@ import BasePage from '@/components/BasePage.vue'
 
 <template>
   <BasePage>
-    <h1>This is an about page</h1>
+    <h1>Settings</h1>
   </BasePage>
 </template>
-

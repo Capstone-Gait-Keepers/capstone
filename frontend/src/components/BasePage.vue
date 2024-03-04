@@ -10,9 +10,11 @@ import { RouterLink } from 'vue-router'
         <p>WalkWise</p>
       </div>
       <nav>
-        <RouterLink to="/">Home</RouterLink>
-        <RouterLink to="/about">About</RouterLink>
+        <RouterLink to="/">Insights</RouterLink>
+        <RouterLink to="/detail">Learn More</RouterLink>
+        <RouterLink to="/settings">Settings</RouterLink>
         <RouterLink to="/status">Status</RouterLink>
+        <RouterLink to="/login">Sign out</RouterLink>
       </nav>
     </header>
     <main>
