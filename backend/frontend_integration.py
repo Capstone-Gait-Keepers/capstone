@@ -13,7 +13,7 @@ from data_analysis.data_types import Recording
 
 STATIC_FOLDER = "static"
 endpoints = Blueprint('endpoints', __name__, template_folder=STATIC_FOLDER)
-piezo_model = Recording.from_file('ctrl_model.yaml')
+# piezo_model = Recording.from_file('ctrl_model.yaml')
 
 
 
@@ -43,12 +43,14 @@ def get_metrics(email: str):
         # fs from NewSensor
         # ts_data, date, sensorid from recordings
         print(email)
-        analysis_controller = AnalysisController(piezo_model)
         user = db.session.query(FakeUser).filter(FakeUser.email == email).first()
         sensor = db.session.query(FakeUser).filter(NewSensor.userid == user._id).first() # sampling
+        # user = db.session.query(NewSensor).filter(FakeUser.email == email).first()
+        sensor = db.session.query(NewSensor).filter(NewSensor.userid == user._id).first()
         print(sensor)
         datasets = [Recording.from_real_data(sensor.fs, recording.ts_data) for recording in db.session.query(Recordings).filter(Recordings.email == email).all()]
         print(len(datasets))
+        analysis_controller = AnalysisController(fs=200, noise_amp=0.05)
         metrics = analysis_controller.get_metrics(datasets)[0]._df.to_dict()
         print(metrics)
         response = jsonify(metrics)
