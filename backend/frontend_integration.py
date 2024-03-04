@@ -13,6 +13,7 @@ from data_analysis.data_types import Recording
 
 STATIC_FOLDER = "static"
 endpoints = Blueprint('endpoints', __name__, template_folder=STATIC_FOLDER)
+piezo_model = Recording.from_file('ctrl_model.yaml')
 
 
 
@@ -35,6 +36,25 @@ def plot_recording(recording_id: int):
     rec = Recording.from_real_data(sensor.fs, recording.ts_data)
     return rec.plot(show=False).to_html()
 
+
+@endpoints.route('/api/get_metrics/<email>')
+def get_metrics(email: str):
+    try:
+        print(email)
+        analysis_controller = AnalysisController(piezo_model)
+        # user = db.session.query(NewSensor).filter(FakeUser.email == email).first()
+        sensor = db.session.query(NewSensor).filter(NewSensor.userid == user._id).first()
+        print(sensor)
+        datasets = [Recording.from_real_data(sensor.fs, recording.ts_data) for recording in db.session.query(Recordings).filter(Recordings.email == email).all()]
+        print(len(datasets))
+        metrics = analysis_controller.get_metrics(datasets)[0]._df.to_dict()
+        print(metrics)
+        response = jsonify(metrics)
+        print(response)
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        return response
+    except Exception as e:
+        return jsonify(error=f"Error processing request: {str(e)}"), HTTPStatus.BAD_REQUEST
 
 
 @endpoints.route('/', defaults={'path': ''})
