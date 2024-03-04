@@ -98,10 +98,6 @@ class FakeUser(db.Model):
     email = db.Column(db.String(255))
     password = db.Column(db.String(255))
     sensorid = db.Column(db.Integer, ForeignKey('new_sensor.sensorid'))
-    connected_user1_name = db.Column(db.String(255))
-    connected_user1_email = db.Column(db.String(255))
-    connected_user2_name = db.Column(db.String(255))
-    connected_user2_email = db.Column(db.String(255))
     sensor_info = relationship('NewSensor', back_populates='users')
 
 
