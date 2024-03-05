@@ -25,11 +25,15 @@ export async function queryBackend<T>(endpoint: String): Promise<T | null> {
   }
 }
 
+export async function signup(user: User) {
+  return true;
+}
 
-export async function login(username: string, password: string) {} // Returns User object
+// Returns full User object
+export async function login(email: string, password: string) {
+  queryBackend<User>("/login");
+}
 
-export async function getMetrics(userid: string, startDate: string | null, endDate: string | null = null) {}
+export async function getMetrics(email: string, startDate: string | null, endDate: string | null = null) {}
 
-export async function getUserStatus(userid: string) {} // For insight page, crunches metrics on backend
-
-export async function updateSettings(user: User) {}
+export async function getUserStatus(email: string) {} // For insight page, crunches metrics on backend

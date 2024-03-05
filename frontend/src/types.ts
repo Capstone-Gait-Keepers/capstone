@@ -8,8 +8,7 @@ export interface SensorConfig {
 }
 
 export interface User {
-  userid: string;
-  username: string;
   email: string;
   password: string;
+  sensor_id: number;
 }
