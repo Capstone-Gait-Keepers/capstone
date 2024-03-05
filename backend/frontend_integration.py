@@ -66,35 +66,31 @@ def get_user(email: str, password: str):
         try:
             creds = db.session.query(FakeUser).filter(FakeUser.email == email).first()
         except:
-            print ("Creds did not work :(")
-        
-        db_email = "julia@gmail.com"
-        db_password = "password"
+            print("Creds didn't work")
 
         # authenticate
-        # if creds is None:
-        #     return jsonify({'message': 'Invalid credentials :('}), HTTPStatus.UNAUTHORIZED
-    
-        if email != db_email: # email is not found
-            return jsonify({'message': 'Invalid email :('}), HTTPStatus.UNAUTHORIZED
-        
-        elif email == db_email and password == db_password: # email and password match
-            return jsonify({'message': 'Logged in successfully'}), HTTPStatus.OK
-        
-        elif email == db_email and password != db_password: # email is found, but password doesn't match
-            return jsonify({'message': 'Invalid password'}), HTTPStatus.UNAUTHORIZED
-        
-        else: # no email returned
+        if creds is None:
             return jsonify({'message': 'Invalid credentials :('}), HTTPStatus.UNAUTHORIZED
 
+        elif email != creds.email: # email is not found
+            return jsonify({'message': 'Invalid email :('}), HTTPStatus.UNAUTHORIZED
+        
+        elif email == creds.email and password == creds.password: # email and password match
+            return jsonify({'message': 'Logged in successfully'}), HTTPStatus.OK
+        
+        elif email == creds.email and password != creds.password: # email is found, but password doesn't match
+            return jsonify({'message': 'Invalid password'}), HTTPStatus.UNAUTHORIZED
+        
+        else: # shouldn't get here, but if they do they were probably unauthorized
+            return jsonify({'message': 'Invalid credentials :('}), HTTPStatus.UNAUTHORIZED
 
     except OperationalError as e:
-        print("Operational Error :()")
+        print("Operational Error :(")
         db.session.rollback()
         error = e
         #return jsonify({"error": str(e)}), HTTPStatus.BAD_REQUEST
     except Exception as e:
-        print("Exception error :()")
+        print("Exception error :(")
         db.session.rollback()
         error = e
         #return jsonify({"error": str(e)}), HTTPStatus.BAD_REQUEST    
