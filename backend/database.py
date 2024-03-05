@@ -44,6 +44,7 @@ class NewSensor(db.Model):
     wall_radius = db.Column(db.Float, nullable=True)
     obstacle_radius = db.Column(db.Float, nullable=True)
     recordings = relationship('Recordings', back_populates='new_sensor')
+    users = relationship('FakeUser', back_populates='new_sensor')
 
 # for frontend log in + add user flow
 class FakeUser(db.Model):
@@ -53,4 +54,4 @@ class FakeUser(db.Model):
     email = db.Column(db.String(255))
     password = db.Column(db.String(255))
     sensorid = db.Column(db.Integer, ForeignKey('new_sensor.sensorid'))
-    sensor_info = relationship('NewSensor', back_populates='users')
+    new_sensor = relationship('NewSensor', back_populates='users')
