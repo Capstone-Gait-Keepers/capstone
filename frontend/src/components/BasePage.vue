@@ -31,6 +31,7 @@ header {
   z-index: 1000;
   display: flex;
   justify-content: space-between;
+  background-color: white;
 }
 
 .logo {

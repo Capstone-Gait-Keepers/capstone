@@ -12,3 +12,12 @@ export interface User {
   password: string;
   sensor_id: number;
 }
+
+export type MetricSequence = {
+  date: string;
+  value: number;
+}[]
+
+export interface Metrics {
+  [key: string]: MetricSequence
+}
