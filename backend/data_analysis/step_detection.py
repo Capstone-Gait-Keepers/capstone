@@ -173,12 +173,12 @@ class TimeSeriesProcessor:
         energy = self.get_energy(vibes, window_duration, stride, weights)
         return np.max(energy**2, axis=None)
 
-    def get_snr(self, signal: np.ndarray, noise: np.ndarray) -> np.ndarray:
+    def get_snr(self, signal: np.ndarray, noise: np.ndarray, **kwargs) -> np.ndarray:
         """
         Calculate the signal-to-noise ratio of a signal, given the time series data
         """
-        signal_power = np.max(self.get_energy(signal)**2)
-        noise_power = np.max(self.get_energy(noise)**2)
+        signal_power = np.max(self.get_energy(signal, **kwargs)**2)
+        noise_power = np.max(self.get_energy(noise, **kwargs)**2)
         return signal_power / noise_power
 
     @staticmethod

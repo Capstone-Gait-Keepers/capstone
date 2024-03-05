@@ -149,19 +149,20 @@ class RecordingProcessor:
         return step_model
 
     @staticmethod
-    def get_snr(rec: Recording):
+    def get_snr(rec: Recording, use_weights=False):
         """Calculates the energy signal to noise ratio of a single recording"""
         if np.all(rec.ts == 0):
             return np.nan
         proc = TimeSeriesProcessor(rec.env.fs)
         noise_ts = RecordingProcessor.get_noise(rec)
         step_ts = np.concatenate(RecordingProcessor.get_steps_from_truth(rec))
-        return proc.get_snr(step_ts, noise_ts)
+        weights = RecordingProcessor.get_frequency_weights(rec) if use_weights else None
+        return proc.get_snr(step_ts, noise_ts, weights=weights)
 
     @staticmethod
-    def get_snrs(recs: Iterable[Recording]):
+    def get_snrs(recs: Iterable[Recording], **kwargs):
         """Calculates the signal to noise ratio of a list of recordings"""
-        return np.array([RecordingProcessor.get_snr(rec) for rec in recs])
+        return np.array([RecordingProcessor.get_snr(rec, **kwargs) for rec in recs])
 
 
 
@@ -442,6 +443,35 @@ class AnalysisController:
             "step_count": [len(correct_times)],
         })
 
+
+def compare_sensor_snrs(use_weights=True):
+    """
+    Compares the signal to noise ratios of piezo and accelerometer sensors. If use_weights is True, 
+    the frequency weights will be used to calculate the SNR.
+
+    # Current Results
+    use_weights = False:
+     - Piezo SNR = 7.48
+     - Accel SNR = 12.70
+    use_weights = True:
+     - Piezo SNR = 21.23
+     - Accel SNR = 15.72
+    """
+    datasets = DataHandler.from_sensor_type(SensorType.PIEZO).get_lazy(user='ron', quality='normal', session="2024", location='Aarons Studio')
+    piezo_snrs = RecordingProcessor.get_snrs(datasets, use_weights=use_weights)
+    print(piezo_snrs)
+    datasets = DataHandler.from_sensor_type(SensorType.ACCEL).get_lazy(user='ron', quality='normal', session="2024", location='Aarons Studio')
+    accel_snrs = RecordingProcessor.get_snrs(datasets, use_weights=use_weights)
+    print(accel_snrs)
+
+    print(f"Avg piezo snr: {np.nanmean(piezo_snrs):.2f}, Avg accel snr: {np.nanmean(accel_snrs):.2f}")
+
+    # Plot histograms
+    improvement = piezo_snrs - accel_snrs
+    fig = go.Figure()
+    # Label with index
+    fig.add_histogram(x=improvement, text=[*zip(piezo_snrs, accel_snrs)], name="Piezo SNR Improvement")
+    fig.show()
 
 
 
