@@ -1,7 +1,9 @@
 import os
 import sys
-from flask import jsonify, Blueprint, send_from_directory
+from flask import jsonify, Blueprint, request, send_from_directory
 from http import HTTPStatus
+from sqlalchemy.exc import OperationalError
+from flask_sqlalchemy import SQLAlchemy
 
 
 from database import db, Recordings, NewSensor, FakeUser
@@ -14,8 +16,6 @@ from data_analysis.data_types import Recording
 STATIC_FOLDER = "static"
 endpoints = Blueprint('endpoints', __name__, template_folder=STATIC_FOLDER)
 # piezo_model = Recording.from_file('ctrl_model.yaml')
-
-
 
 @endpoints.route('/api/list_recordings/<int:sensor_id>')
 def get_recording_ids(sensor_id: int):
@@ -44,14 +44,12 @@ def get_metrics(email: str):
         # ts_data, date, sensorid from recordings
         print(email)
         user = db.session.query(FakeUser).filter(FakeUser.email == email).first()
-        sensor = db.session.query(FakeUser).filter(NewSensor.userid == user._id).first() # sampling
-        # user = db.session.query(NewSensor).filter(FakeUser.email == email).first()
-        sensor = db.session.query(NewSensor).filter(NewSensor.userid == user._id).first()
+        sensor = db.session.query(FakeUser).join(NewSensor, NewSensor.userid == FakeUser._id).filter(NewSensor.userid == user._id).first() # sampling
         print(sensor)
-        datasets = [Recording.from_real_data(sensor.fs, recording.ts_data) for recording in db.session.query(Recordings).filter(Recordings.email == email).all()]
+        datasets = [Recording.from_real_data(sensor.fs, recording.ts_data) for recording in db.session.query(Recordings).filter(Recordings.sensorid == sensor.sensorid).all()]
         print(len(datasets))
-        analysis_controller = AnalysisController(fs=200, noise_amp=0.05)
-        metrics = analysis_controller.get_metrics(datasets)[0]._df.to_dict()
+        analysis_controller = AnalysisController(fs=sensor.fs, noise_amp=0.05)
+        metrics = analysis_controller.get_metrics(datasets)[0]._df.to_dict() #merge moment
         print(metrics)
         response = jsonify(metrics)
         print(response)
@@ -59,6 +57,50 @@ def get_metrics(email: str):
         return response
     except Exception as e:
         return jsonify(error=f"Error processing request: {str(e)}"), HTTPStatus.BAD_REQUEST
+
+@endpoints.route('/api/get_user/<email>/<password>', methods=['GET'])
+def get_user(email: str, password: str):
+    try:
+
+        # get email and password from db
+        try:
+            creds = db.session.query(FakeUser).filter(FakeUser.email == email).first()
+        except:
+            print ("Creds did not work :(")
+        
+        db_email = "julia@gmail.com"
+        db_password = "password"
+
+        # authenticate
+        # if creds is None:
+        #     return jsonify({'message': 'Invalid credentials :('}), HTTPStatus.UNAUTHORIZED
+    
+        if email != db_email: # email is not found
+            return jsonify({'message': 'Invalid email :('}), HTTPStatus.UNAUTHORIZED
+        
+        elif email == db_email and password == db_password: # email and password match
+            return jsonify({'message': 'Logged in successfully'}), HTTPStatus.OK
+        
+        elif email == db_email and password != db_password: # email is found, but password doesn't match
+            return jsonify({'message': 'Invalid password'}), HTTPStatus.UNAUTHORIZED
+        
+        else: # no email returned
+            return jsonify({'message': 'Invalid credentials :('}), HTTPStatus.UNAUTHORIZED
+
+
+    except OperationalError as e:
+        print("Operational Error :()")
+        db.session.rollback()
+        error = e
+        #return jsonify({"error": str(e)}), HTTPStatus.BAD_REQUEST
+    except Exception as e:
+        print("Exception error :()")
+        db.session.rollback()
+        error = e
+        #return jsonify({"error": str(e)}), HTTPStatus.BAD_REQUEST    
+    finally:
+        print("I'm closing!")
+        db.session.close()
 
 
 @endpoints.route('/', defaults={'path': ''})
