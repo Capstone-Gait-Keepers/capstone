@@ -5,7 +5,7 @@ from http import HTTPStatus
 from sqlalchemy.exc import OperationalError
 from flask_sqlalchemy import SQLAlchemy
 
-
+from app import database_wakeup
 from database import db, Recordings, NewSensor, FakeUser
 # This is hack, but it's the simplest way to get things to work without changing things - Daniel
 sys.path.append(os.path.join(os.path.dirname(__file__), 'data_analysis'))
@@ -58,9 +58,12 @@ def get_metrics(email: str):
     except Exception as e:
         return jsonify(error=f"Error processing request: {str(e)}"), HTTPStatus.BAD_REQUEST
 
-@endpoints.route('/api/get_user/<email>/<password>', methods=['GET'])
-def get_user(email: str, password: str):
+@endpoints.route('/api/get_user/', methods=['POST'])
+def get_user():
     try:
+        data = request.get_json()
+        email = data.get('email')
+        password = data.get('password')
 
         # get email and password from db
         try:
@@ -98,6 +101,57 @@ def get_user(email: str, password: str):
         print("I'm closing!")
         db.session.close()
 
+
+@endpoints.route('/api/create_user', methods=['POST'])
+def get_user():
+    try:
+        data = request.get_json()
+        name = data.get('name')
+        email = data.get('email')
+        password = data.get('password')
+        sensorid = data.get('sensorid')
+
+        userid = 1 # query based on sensorid
+
+        if userid is None:
+            return jsonify({"message": "I couldn't find that sensorid! Did you enter it correctly?"}), HTTPStatus.UNAUTHORIZED
+
+        max_retries = 3
+
+        for attempt in range(max_retries): # retry twice
+            try:
+
+                # create database connection
+                database_wakeup()
+
+                new_data = FakeUser(
+                    _id=userid, # based on sensorid
+                    name=name,
+                    email=email,
+                    password=password,
+                    sensorid=sensorid, 
+                )
+
+                db.session.add(new_data)
+                db.session.commit() # add to database
+
+                return jsonify({"message": "Data added successfully"}), HTTPStatus.CREATED
+
+            except OperationalError as e:
+                print("Operational Error :()")
+                db.session.rollback()
+                error = e
+                return jsonify({"error": str(e)}), HTTPStatus.BAD_REQUEST
+            except Exception as e:
+                print("Exception error :()")
+                db.session.rollback()
+                error = e
+                return jsonify({"error": str(e)}), HTTPStatus.BAD_REQUEST    
+            finally:
+                print("I'm closing!")
+                db.session.close()
+    except:         
+        return jsonify({"error": str(error)}), HTTPStatus.BAD_REQUEST
 
 @endpoints.route('/', defaults={'path': ''})
 @endpoints.route('/<path:path>')
