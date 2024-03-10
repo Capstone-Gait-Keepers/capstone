@@ -122,6 +122,18 @@ def create_user():
 
         userid = db_user_id[0]
 
+        try: # make sure the email hasn't been used already
+            db_email = db.session.query(FakeUser.email).filter(FakeUser.email == email).first()
+            if db_email is None:
+                print("Unique email found. User can proceed.")
+            else:
+                print("I found this email!")
+                print(db_email[0])
+                return jsonify({'message': 'Hmmm, it seems you already have an account with that email!'}), HTTPStatus.UNAUTHORIZED
+
+        except:
+            print("Something broke!")
+
         max_retries = 3
 
         for attempt in range(max_retries): # retry twice
