@@ -134,6 +134,17 @@ def create_user():
         except:
             print("Something broke!")
 
+
+        try: #make sure sensorid hasn't been used before
+            #print("hi")
+            db_sensor= db.session.query(FakeUser.sensorid).filter(FakeUser.sensorid == sensorid).first()
+            if db_sensor is None:
+                print("SensorId is unique. User may proceed.")
+            else:
+                return jsonify({'message': 'Hmmm, it seems you already have an account with that SensorID!'}), HTTPStatus.UNAUTHORIZED
+        except:
+            return jsonify({'message': 'Something broke!'}), HTTPStatus.INTERNAL_SERVER_ERROR
+
         max_retries = 3
 
         for attempt in range(max_retries): # retry twice
