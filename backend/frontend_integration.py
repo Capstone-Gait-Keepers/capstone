@@ -112,8 +112,15 @@ def create_user():
         sensorid = data.get('sensorid')
         print(sensorid)
 
-        timestamp = int(time.time() * 1000) 
-        userid = timestamp % 1000000 #id will be 6 digits long
+        try: # make sure the sensorid is correct!
+            db_user_id = db.session.query(NewSensor.userid).filter(NewSensor._id == sensorid).first()
+            if db_user_id is None:
+                return jsonify({'message': 'Hmmm, are you sure that you have the right SensorId?'}), HTTPStatus.UNAUTHORIZED
+        except:
+            print ("The query broke! Not ideal.")
+            return jsonify({'message': 'Something broke!'}), HTTPStatus.INTERNAL_SERVER_ERROR
+
+        userid = db_user_id[0]
 
         max_retries = 3
 
