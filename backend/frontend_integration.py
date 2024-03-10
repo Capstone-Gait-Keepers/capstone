@@ -136,7 +136,6 @@ def create_user():
 
 
         try: #make sure sensorid hasn't been used before
-            #print("hi")
             db_sensor= db.session.query(FakeUser.sensorid).filter(FakeUser.sensorid == sensorid).first()
             if db_sensor is None:
                 print("SensorId is unique. User may proceed.")
