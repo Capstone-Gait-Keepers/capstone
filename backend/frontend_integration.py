@@ -1,10 +1,12 @@
 import os
 import sys
 import time
+import traceback
 from flask import jsonify, Blueprint, request, send_from_directory
 from http import HTTPStatus
 from sqlalchemy.exc import OperationalError
 from flask_sqlalchemy import SQLAlchemy
+import pandas as pd
 
 from database import db, Recordings, NewSensor, FakeUser
 # This is hack, but it's the simplest way to get things to work without changing things - Daniel
@@ -44,18 +46,40 @@ def get_metrics(email: str):
         # ts_data, date, sensorid from recordings
         print(email)
         user = db.session.query(FakeUser).filter(FakeUser.email == email).first()
-        sensor = db.session.query(FakeUser).join(NewSensor, NewSensor.userid == FakeUser._id).filter(NewSensor.userid == user._id).first() # sampling
-        print(sensor)
-        datasets = [Recording.from_real_data(sensor.fs, recording.ts_data) for recording in db.session.query(Recordings).filter(Recordings.sensorid == sensor.sensorid).all()]
+        #print(user)
+        db_userid = user._id
+        print(db_userid)
+        #sensor = db.session.query(FakeUser).join(NewSensor, NewSensor.userid == FakeUser._id).filter(NewSensor.userid == 1).first()
+        sensor = db.session.query(NewSensor).filter(NewSensor.userid == db_userid).first()
+        print(sensor.fs)
+
+        datasets = [Recording.from_real_data(sensor.fs, recording.ts_data) for recording in db.session.query(Recordings).filter(Recordings.sensorid == sensor._id).all()]
         print(len(datasets))
+
+        print("analysis controller")
         analysis_controller = AnalysisController(fs=sensor.fs, noise_amp=0.05)
-        metrics = analysis_controller.get_metrics(datasets)[0]._df.to_dict() #merge moment
+        print(analysis_controller)
+        
+        metrics = analysis_controller.get_metrics(datasets)[0]
+        df = metrics.by_recordings()
+
+        # data = {
+        #     'fs': [recording.fs for recording in datasets],
+        #     'ts_data': [recording.ts_data for recording in datasets], #? is this needed?
+        #     #'metrics': #idk,
+        #     #'sensorid': sensorids,
+        #     #'timestamp': timestamps
+        # }
+        # #df = pd.DataFrame(data)
+
         print(metrics)
-        response = jsonify(metrics)
+
+        response = jsonify(df) # df.to_dict()
         print(response)
         response.headers.add('Access-Control-Allow-Origin', '*')
         return response
     except Exception as e:
+        traceback.print_exc()
         return jsonify(error=f"Error processing request: {str(e)}"), HTTPStatus.BAD_REQUEST
 
 @endpoints.route('/api/get_user/', methods=['POST'])

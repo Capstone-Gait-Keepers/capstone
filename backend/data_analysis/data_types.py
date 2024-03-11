@@ -96,6 +96,7 @@ class Recording:
 
     @classmethod
     def from_real_data(cls, fs: float, data: np.ndarray):
+        # TODO: Daniel add filepath parameter
         return cls(SensorEnvironment(fs), events=[], ts=data)
 
     @classmethod
