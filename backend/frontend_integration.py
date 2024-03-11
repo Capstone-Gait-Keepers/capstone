@@ -70,6 +70,7 @@ def get_user():
             creds = db.session.query(FakeUser).filter(FakeUser.email == email).first()
         except:
             print("Creds didn't work")
+            return jsonify({'message': 'Something broke when querying the FakeUser table!'}), HTTPStatus.INTERNAL_SERVER_ERROR
 
         # authenticate
         if creds is None:
@@ -118,7 +119,7 @@ def create_user():
                 return jsonify({'message': 'Hmmm, are you sure that you have the right SensorId?'}), HTTPStatus.UNAUTHORIZED
         except:
             print ("The query broke! Not ideal.")
-            return jsonify({'message': 'Something broke!'}), HTTPStatus.INTERNAL_SERVER_ERROR
+            return jsonify({'message': 'Something broke when querying the database!'}), HTTPStatus.INTERNAL_SERVER_ERROR
 
         userid = db_user_id[0]
 
@@ -133,6 +134,7 @@ def create_user():
 
         except:
             print("Something broke!")
+            return jsonify({'message': 'Something broke when querying the FakeUser table!'}), HTTPStatus.INTERNAL_SERVER_ERROR
 
 
         try: #make sure sensorid hasn't been used before
@@ -140,9 +142,9 @@ def create_user():
             if db_sensor is None:
                 print("SensorId is unique. User may proceed.")
             else:
-                return jsonify({'message': 'Hmmm, it seems you already have an account with that SensorID!'}), HTTPStatus.UNAUTHORIZED
+                return jsonify({'message': 'Hmmm, it seems you already have an account with that sensorid!'}), HTTPStatus.UNAUTHORIZED
         except:
-            return jsonify({'message': 'Something broke!'}), HTTPStatus.INTERNAL_SERVER_ERROR
+            return jsonify({'message': 'Something broke when querying the FakeUser table!'}), HTTPStatus.INTERNAL_SERVER_ERROR
 
         max_retries = 3
 
