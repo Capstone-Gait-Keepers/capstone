@@ -187,7 +187,7 @@ class AnalysisController:
             raise ValueError("Must provide either a model or a sampling frequency (fs) and a noise amplitude (noise_amp)")
         else:
             self.fs = fs
-            self._detector = StepDetector(fs, window_duration, noise_profile=np.random.rand(10) * noise_amp, logger=self.logger, **kwargs)
+            self._detector = StepDetector(fs, window_duration, noise_profile=np.random.rand(int(10*window_duration*fs)) * noise_amp, logger=self.logger, **kwargs)
 
     @staticmethod
     def init_logger(log_file: Optional[str] = None) -> Logger:
@@ -293,6 +293,7 @@ class AnalysisController:
     
     def get_recording_metrics(self, data: Recording, plot=False):
         """Analyzes a recording and returns metrics"""
+        # TODO: Daniel fix this - "TypeError: Data must be of type Recording, not <class 'data_analysis.data_types.Recording'>"
         if not isinstance(data, Recording):
             raise TypeError(f"Data must be of type Recording, not {type(data)}")
         try:
