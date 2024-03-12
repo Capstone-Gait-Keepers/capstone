@@ -1,12 +1,23 @@
 <template>
-  <div class="alert-box">
+  <div class="alert-box" v-if="metric_type">
     <p class="exclamation">!</p>
     <div>
       <strong>Changes detected!</strong>
-      <p>Negative changes were detected in your Balance over the last month. Consider setting an appointment up with your doctor to check in on your balance.</p>
+      <p>Negative changes were detected in your {{ props.metric_type }} over the last month. Consider setting an appointment up with your doctor to check in on your balance.</p>
     </div>
   </div>
 </template>
+
+<script setup lang="ts">
+import { defineProps } from 'vue';
+
+const props = defineProps({
+  metric_type: {
+    type: String,
+    default: '',
+  }
+});
+</script>
 
 <style scoped>
 .alert-box {

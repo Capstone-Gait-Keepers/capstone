@@ -6,72 +6,74 @@ import ChangeAlert from '@/components/ChangeAlert.vue';
 <template>
   <BasePage>
     <h1>Good Afternoon Marjorie</h1>
-    <ChangeAlert />
+    <ChangeAlert metric_type="balance" />
     <h2>Welcome to your personal insights</h2>
+    
+    <div class="metrics">
+      <h3>Balance Metrics</h3>
+      <div class="metrics-row">
+        <div>
+          <p>WalkWise measures two metrics associated with balance.</p>
+          <ul>
+            <li>Stride Time Coefficient of Variation</li>
+            <li>Stride Time Gait Asymmetry</li>
+          </ul>
+        </div>
+        <div class="status-indicator">
+          <p>This Month</p>
+          <img src="@/assets/icon-thumbs-up.svg" />
+          <p>2 of 4 metrics showed positive changes compared with last month!</p>
+        </div>
+        <div class="status-indicator">
+          <p>This Year</p>
+          <img src="@/assets/icon-thumbs-up.svg" />
+          <p>2 of 4 metrics showed positive changes compared with last year!</p>
+        </div>
+      </div>
 
-    <h3>Balance Metrics</h3>
-    <div class="metrics-container">
-      <div>
-        <p>WalkWise measures two metrics associated with balance.</p>
-        <ul>
-          <li>Stride Time Coefficient of Variation</li>
-          <li>Stride Time Gait Asymmetry</li>
-        </ul>
+      <h3>Neurodegenerative Metrics</h3>
+      <div class="metrics-row">
+        <div>
+          <p>WalkWise measures two metrics associated with Neurodegenerative diseases.</p>
+          <ul>
+            <li>Stride Time Phase Synchronization</li>
+            <li>Stride Time Conditional Entropy</li>
+            <li>Stride Time Gait Asymmetry</li>
+          </ul>
+        </div>
+        <div class="status-indicator">
+          <p>This Month</p>
+          <div class="flat-bar"></div>
+          <p>No changes in neurodegenerative related metrics this month.</p>
+        </div>
+        <div class="status-indicator">
+          <p>This Year</p>
+          <img src="@/assets/icon-warning.svg" />
+          <p>There were negative changes in 2 of the 3 metrics related to neurodegenerative disease. View the <a href="#">Breakdown</a> to see more.</p>
+        </div>
       </div>
-      <div class="status-indicator">
-        <p>This Month</p>
-        <img src="@/assets/icon-thumbs-up.svg" />
-        <p>2 of 4 metrics showed positive changes compared with last month!</p>
-      </div>
-      <div class="status-indicator">
-        <p>This Year</p>
-        <img src="@/assets/icon-thumbs-up.svg" />
-        <p>2 of 4 metrics showed positive changes compared with last year!</p>
-      </div>
-    </div>
 
-    <h3>Neurodegenerative Metrics</h3>
-    <div class="metrics-container">
-      <div>
-        <p>WalkWise measures two metrics associated with Neurodegenerative diseases.</p>
-        <ul>
-          <li>Stride Time Phase Synchronization</li>
-          <li>Stride Time Conditional Entropy</li>
-          <li>Stride Time Gait Asymmetry</li>
-        </ul>
-      </div>
-      <div class="status-indicator">
-        <p>This Month</p>
-        <div class="flat-bar"></div>
-        <p>No changes in neurodegenerative related metrics this month.</p>
-      </div>
-      <div class="status-indicator">
-        <p>This Year</p>
-        <img src="@/assets/icon-warning.svg" />
-        <p>There were negative changes in 2 of the 3 metrics related to neurodegenerative disease. View the <a href="#">Breakdown</a> to see more.</p>
-      </div>
-    </div>
-
-    <h3>Dementia Metrics</h3>
-    <div class="metrics-container">
-      <div>
-        <p>WalkWise measures 4 metrics associated with Dementia.</p>
-        <ul>
-          <li>Stride Time</li>
-          <li>Cadence</li>
-          <li>Stride Time Coefficient of Variation</li>
-          <li>Swing Time Gait Asymmetry</li>
-        </ul>
-      </div>
-      <div class="status-indicator">
-        <p>This Month</p>
-        <div class="flat-bar"></div>
-        <p>No changes in Dementia related metrics this month.</p>
-      </div>
-      <div class="status-indicator">
-        <p>This Year</p>
-        <div class="flat-bar"></div>
-        <p>No changes in Dementia related metrics compared with last year.</p>
+      <h3>Dementia Metrics</h3>
+      <div class="metrics-row">
+        <div>
+          <p>WalkWise measures 4 metrics associated with Dementia.</p>
+          <ul>
+            <li>Stride Time</li>
+            <li>Cadence</li>
+            <li>Stride Time Coefficient of Variation</li>
+            <li>Swing Time Gait Asymmetry</li>
+          </ul>
+        </div>
+        <div class="status-indicator">
+          <p>This Month</p>
+          <div class="flat-bar"></div>
+          <p>No changes in Dementia related metrics this month.</p>
+        </div>
+        <div class="status-indicator">
+          <p>This Year</p>
+          <div class="flat-bar"></div>
+          <p>No changes in Dementia related metrics compared with last year.</p>
+        </div>
       </div>
     </div>
     <div class="data-collection-info">
@@ -92,15 +94,23 @@ import ChangeAlert from '@/components/ChangeAlert.vue';
 </template>
 
 <style scoped>
-.metrics-container {
+.metrics {
+  margin: 1rem;
+}
+
+.metrics-row {
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;
-  gap: 20px;
-  margin-bottom: 40px;
+  gap: 1rem;
+  margin-bottom: 4rem;
 }
 
 h3 {
   font-weight: bold;
+}
+
+ul {
+  margin: 1rem 0;
 }
 
 .flat-bar {
@@ -114,12 +124,13 @@ h3 {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 10px;
+  gap: 1rem;
+  padding: 0 2rem;
 }
 
 .status-indicator img {
-  width: 50px;
-  height: 50px;
+  width: 4em;
+  height: 4em;
 }
 
 .data-collection-info {
