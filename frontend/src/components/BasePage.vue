@@ -1,22 +1,16 @@
 <script setup lang="ts">
 import { RouterLink } from 'vue-router'
-
-import overviewIcon from "@/assets/icon-overview.svg";
-import breakdownIcon from "@/assets/icon-breakdown.svg";
-import settingsIcon from "@/assets/icon-settings.svg";
+import Logo from '@/components/Logo.vue'
 </script>
 
 <template>
   <div>
     <header>
-      <div class="logo">
-        <img alt="WalkWise Logo" class="logo" src="@/assets/logo.svg" width="125" height="125" />
-        <p>WalkWise</p>
-      </div>
+      <Logo />
       <nav>
-        <RouterLink to="/"><img :src="overviewIcon" alt="overview-icon"/>Overview</RouterLink>
-        <RouterLink to="/breakdown"><img :src="breakdownIcon" alt="breakdown-icon"/>Breakdown</RouterLink>
-        <RouterLink to="/settings"><img :src="settingsIcon" alt="settings-icon"/>Settings</RouterLink>
+        <RouterLink to="/"><img src="@/assets/icon-overview.svg" alt="overview-icon"/>Overview</RouterLink>
+        <RouterLink to="/breakdown"><img src="@/assets/icon-breakdown.svg" alt="breakdown-icon"/>Breakdown</RouterLink>
+        <RouterLink to="/settings"><img src="@/assets/icon-settings.svg" alt="settings-icon"/>Settings</RouterLink>
         <!-- <RouterLink to="/status">Status</RouterLink> -->
         <button><RouterLink to="/login">Sign out</RouterLink></button>
       </nav>
@@ -39,13 +33,6 @@ header {
   font-size: 1.2em;
 }
 
-.logo {
-  display: flex;
-  align-items: center;
-  height: 2rem;
-  width: auto;
-}
-
 nav {
   display: flex;
   justify-content: space-between;
@@ -57,13 +44,6 @@ nav a.router-link-exact-active:hover {
 }
 
 nav button {
-  background-color: var(--red);
-  color: white;
-  border: none;
-  cursor: pointer;
-  padding: .5rem 0;
-  border-radius: 6px;
-  box-shadow: 1px 2px 5px rgba(0, 0, 0, 0.5);
   margin-left: 1rem;
 }
 
@@ -71,6 +51,7 @@ nav button a {
   color: white;
   text-decoration: none;
   background-color: transparent;
+  padding: 0;
 }
 
 nav a {
@@ -85,10 +66,6 @@ nav a {
     display: flex;
     place-items: center;
     padding: 0 1rem;
-  }
-
-  .logo {
-    margin-right: .5rem;
   }
 
   nav {

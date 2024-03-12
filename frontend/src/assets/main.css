@@ -13,6 +13,17 @@ a {
   padding: 3px;
 }
 
+button {
+  background-color: var(--red);
+  color: white;
+  border: none;
+  cursor: pointer;
+  padding: .5rem .75rem;
+  border-radius: 6px;
+  box-shadow: 1px 2px 5px rgba(0, 0, 0, 0.5);
+  font-size: 1em;
+}
+
 @media (hover: hover) {
   a:hover {
     background-color: var(--color-accent);
