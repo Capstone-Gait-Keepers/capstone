@@ -30,7 +30,10 @@ header {
   display: flex;
   justify-content: space-between;
   background-color: white;
-  font-size: 1.2em;
+}
+
+main {
+  margin: 1rem 3rem;
 }
 
 nav {
@@ -59,6 +62,11 @@ nav a {
   align-items: center;
   padding: 0 1rem;
   gap: .5rem;
+}
+
+nav a img {
+  height: 1.2em;
+  width: 1.2em;
 }
 
 @media (min-width: 1024px) {

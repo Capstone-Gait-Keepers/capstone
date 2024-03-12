@@ -14,7 +14,7 @@
   color: black;
   border: 2px solid var(--yellow);
   border-radius: 8px;
-  margin: 1rem;
+  margin: 1rem 0;
   gap: 1rem;
   display: flex;
 }
@@ -23,9 +23,5 @@
   font-size: 3rem;
   color: var(--yellow);
   line-height: 1;
-}
-
-strong {
-  font-weight: bold;
 }
 </style>

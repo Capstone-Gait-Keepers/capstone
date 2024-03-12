@@ -24,6 +24,10 @@ button {
   font-size: 1em;
 }
 
+strong {
+  font-weight: bold;
+}
+
 @media (hover: hover) {
   a:hover {
     background-color: var(--color-accent);
