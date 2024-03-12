@@ -1,20 +1,24 @@
 <script setup lang="ts">
 import { RouterLink } from 'vue-router'
+
+import overviewIcon from "@/assets/icon-overview.svg";
+import breakdownIcon from "@/assets/icon-breakdown.svg";
+import settingsIcon from "@/assets/icon-settings.svg";
 </script>
 
 <template>
-  <div class="wrapper">
+  <div>
     <header>
-      <div>
+      <div class="logo">
         <img alt="WalkWise Logo" class="logo" src="@/assets/logo.svg" width="125" height="125" />
         <p>WalkWise</p>
       </div>
       <nav>
-        <RouterLink to="/">Insights</RouterLink>
-        <RouterLink to="/detail">Learn More</RouterLink>
-        <RouterLink to="/settings">Settings</RouterLink>
-        <RouterLink to="/status">Status</RouterLink>
-        <RouterLink to="/login">Sign out</RouterLink>
+        <RouterLink to="/"><img :src="overviewIcon" alt="overview-icon"/>Overview</RouterLink>
+        <RouterLink to="/breakdown"><img :src="breakdownIcon" alt="breakdown-icon"/>Breakdown</RouterLink>
+        <RouterLink to="/settings"><img :src="settingsIcon" alt="settings-icon"/>Settings</RouterLink>
+        <!-- <RouterLink to="/status">Status</RouterLink> -->
+        <button><RouterLink to="/login">Sign out</RouterLink></button>
       </nav>
     </header>
     <main>
@@ -27,68 +31,70 @@ import { RouterLink } from 'vue-router'
 header {
   position: sticky;
   top: 0;
-  border-bottom: 1px solid #ccc;
+  border-bottom: 2px solid var(--color-main);
   z-index: 1000;
   display: flex;
   justify-content: space-between;
   background-color: white;
+  font-size: 1.2em;
 }
 
 .logo {
-  display: block;
-  height: 3rem;
+  display: flex;
+  align-items: center;
+  height: 2rem;
   width: auto;
-  margin: 0 auto .5rem;
 }
 
 nav {
-  font-size: 12px;
-  text-align: center;
-  margin-top: 2rem;
-}
-
-nav a.router-link-exact-active {
-  color: var(--color-text);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 
 nav a.router-link-exact-active:hover {
   background-color: transparent;
 }
 
-nav a {
-  display: inline-block;
-  padding: 0 1rem;
-  border-left: 1px solid var(--color-border);
+nav button {
+  background-color: var(--red);
+  color: white;
+  border: none;
+  cursor: pointer;
+  padding: .5rem 0;
+  border-radius: 6px;
+  box-shadow: 1px 2px 5px rgba(0, 0, 0, 0.5);
+  margin-left: 1rem;
 }
 
-nav a:first-of-type {
-  border: 0;
+nav button a {
+  color: white;
+  text-decoration: none;
+  background-color: transparent;
+}
+
+nav a {
+  display: flex;
+  align-items: center;
+  padding: 0 1rem;
+  gap: .5rem;
 }
 
 @media (min-width: 1024px) {
   header {
     display: flex;
     place-items: center;
-    padding-right: calc(var(--section-gap) / 2);
+    padding: 0 1rem;
   }
 
   .logo {
-    margin: 0 2rem 0 0;
-  }
-
-  header .wrapper {
-    display: flex;
-    place-items: flex-start;
-    flex-wrap: wrap;
+    margin-right: .5rem;
   }
 
   nav {
     text-align: left;
-    margin-left: -1rem;
-    font-size: 1rem;
-
-    padding: 1rem 0;
-    margin-top: 1rem;
+    margin: .2rem;
+    padding: .25rem 0;
   }
 }
 </style>
