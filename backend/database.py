@@ -12,18 +12,6 @@ db = SQLAlchemy()
 ## that have a newly defined class will be (*)should be)
 ## automatically created in the database.
 
-# not in use
-class Sensors(db.Model):
-    _id = db.Column("id", db.Integer, primary_key=True)
-    sampling = db.Column(db.Integer)
-    floor = db.Column(db.String(255))
-    user = db.Column(db.String(255))
-
-# test model - not in use
-class Test(db.Model):
-    text1 = db.Column(db.String(255), primary_key=True)
-    text2 = db.Column(db.String(255))
-
 # raw recording data
 class Recordings(db.Model):
     __tablename__ = 'recordings'
