@@ -49,7 +49,7 @@ import ChangeAlert from '@/components/ChangeAlert.vue';
         <div class="status-indicator">
           <p>This Year</p>
           <img src="@/assets/icon-warning.svg" />
-          <p>There were negative changes in 2 of the 3 metrics related to neurodegenerative disease. View the <a href="#">Breakdown</a> to see more.</p>
+          <p>There were negative changes in 2 of the 3 metrics related to neurodegenerative disease. View the <a href="/breakdown#var_coef">Breakdown</a> to see more.</p>
         </div>
       </div>
 

@@ -25,10 +25,10 @@ import { ref, defineProps } from 'vue';
 const { header } = defineProps<{header?: string}>();
 const isOpen = ref(false);
 
-function start(el: HTMLElement) {
+function start(el: any) {
   el.style.height = el.scrollHeight + "px";
 }
-function end(el: HTMLElement) {
+function end(el: any) {
   el.style.height = "";
 }
 </script>
