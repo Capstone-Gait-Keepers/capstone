@@ -1,5 +1,5 @@
 <template>
-  <div >
+  <div>
     <div @click="isOpen = !isOpen" class="header">
       {{ header }}
       <svg :class="{flipped: isOpen}" width="33" height="22" viewBox="0 0 33 22" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -20,9 +20,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, nextTick, onMounted } from 'vue';
+import { ref, defineProps } from 'vue';
 
-const props = defineProps<{header: string}>();
+const { header } = defineProps<{header?: string}>();
 const isOpen = ref(false);
 
 function start(el: HTMLElement) {
@@ -41,7 +41,6 @@ function end(el: HTMLElement) {
   display: flex;
   justify-content: space-between;
   z-index: 100;
-  position: relative;
 
   color: var(--color-main);
   font-size: 1.2rem;
@@ -57,25 +56,19 @@ function end(el: HTMLElement) {
   transform: scaleY(-1);
 }
 
-.accordion-content {
-  z-index: 1;
-  position: relative;
-}
-
 .flip-enter-active .header svg {
   transform: rotate(180deg);
 }
 
 .v-enter-active,
 .v-leave-active {
-  transition: all 0.5s ease;
+  transition: opacity 0.5s ease, height 0.5s ease;
   overflow: hidden;
 }
 
 .v-enter-from,
 .v-leave-to {
   opacity: 0;
-  transform: translateY(-100%);
   height: 0 !important;
 }
 </style>

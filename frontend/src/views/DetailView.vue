@@ -1,17 +1,20 @@
 <template>
   <BasePage>
-    <h1>Learn More</h1>
-    <div v-for="metric_keys, header in metric_categories" v-if="metrics !== null" :key="header" class="category">
-      <h2>{{ header }} Metrics</h2>
-      <Accordion v-for="key in metric_keys" :key="key" :header="metric_titles.get(key)" class="metric">
-        <Plot
-          :x="getDates(metrics[key])"
-          :y="getValues(metrics[key])"
-          xlabel="Date"
-          :ylabel="metric_titles.get(key)"
-          plot_type="scatter"
-        />
-      </Accordion>
+    <div class="main">
+      <h1>Breakdown</h1>
+      <p>Dive into the measurements WalkWise has collected to learn how changes are determined.</p>
+      <div v-for="metric_keys, header in metric_categories" v-if="metrics !== null" :key="header" class="category">
+        <h2>{{ header }} Metrics</h2>
+        <Accordion v-for="key in metric_keys" :key="key" :header="metric_titles.get(key)" class="metric">
+          <Plot
+            :x="getDates(metrics[key])"
+            :y="getValues(metrics[key])"
+            xlabel="Date"
+            :ylabel="metric_titles.get(key)"
+            plot_type="scatter"
+          />
+        </Accordion>
+      </div>
     </div>
   </BasePage>
 </template>
@@ -65,8 +68,13 @@ function getValues(seq: MetricSequence): any[] {
 </script>
 
 <style scoped>
+.main {
+  display: grid;
+  gap: 1rem;
+}
+
 .category {
-  margin-bottom: 4rem;
+  margin-bottom: 2rem;
 }
 
 .metric {
