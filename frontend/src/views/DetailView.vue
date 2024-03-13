@@ -1,21 +1,17 @@
 <template>
   <BasePage>
     <h1>Learn More</h1>
-    <Accordion v-model:isOpen="isAccordionOpen" header="Accordion">
-    hi
-    </Accordion>
     <div v-for="metric_keys, header in metric_categories" v-if="metrics !== null" :key="header" class="category">
       <h2>{{ header }} Metrics</h2>
-      <div v-for="key in metric_keys" :key="key" class="metric">
-        <h3>{{ metric_titles.get(key) }}</h3>
+      <Accordion v-for="key in metric_keys" :key="key" :header="metric_titles.get(key)" class="metric">
         <Plot
           :x="getDates(metrics[key])"
           :y="getValues(metrics[key])"
-          :xlabel="'Date'"
+          xlabel="Date"
           :ylabel="metric_titles.get(key)"
           plot_type="scatter"
         />
-      </div>
+      </Accordion>
     </div>
   </BasePage>
 </template>
@@ -30,7 +26,6 @@ import type { MetricSequence, Metrics } from '@/types';
 import { getMetrics } from '@/backend_interface';
 
 
-const isAccordionOpen = ref(false);
 const metrics = ref<Metrics | null>(null);
 const metric_categories = {
   Balance: ['var_coef', 'stga'],
@@ -71,10 +66,11 @@ function getValues(seq: MetricSequence): any[] {
 
 <style scoped>
 .category {
-  margin-bottom: 8rem;
+  margin-bottom: 4rem;
 }
 
 .metric {
-  margin-bottom: 8rem;
+  margin-top: 2rem;
+  margin-bottom: 1rem;
 }
 </style>
