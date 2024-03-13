@@ -54,7 +54,7 @@ function addUser(email: any) {
 }
 </script>
 
-<style scoped src="@vueform/toggle/themes/default.css">
+<style scoped>
 .content {
   margin-bottom: 8rem;
 }

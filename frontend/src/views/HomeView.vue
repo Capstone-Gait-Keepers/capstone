@@ -89,8 +89,8 @@ const { user, viewed_categories } = store;
       </div>
     </div>
     <div class="data-collection-info">
-      <h2>Last Measurement: Blah</h2>
-      <p>Learn more about how to set up your sensor</p>
+      <h2>Last Measurement: January 16, 2024</h2>
+      <p><a href="https://www.youtube.com/watch?v=dQw4w9WgXcQ" target="_blank">Learn more</a> about how to set up your sensor</p>
     </div>
     <strong>Disclaimer:</strong>
     <p>
@@ -152,5 +152,7 @@ button {
   flex-direction: column;
   align-items: center;
   gap: 1rem;
+  border-bottom: 4px solid var(--color-main);
+  margin-bottom: 1rem;
 }
 </style>
