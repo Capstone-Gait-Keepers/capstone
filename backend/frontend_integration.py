@@ -1,12 +1,10 @@
 import os
 import sys
-import time
 import traceback
 from flask import jsonify, Blueprint, request, send_from_directory
 from http import HTTPStatus
 from sqlalchemy.exc import OperationalError
-from flask_sqlalchemy import SQLAlchemy
-import pandas as pd
+import numpy as np
 
 from database import db, Recordings, NewSensor, FakeUser
 # This is hack, but it's the simplest way to get things to work without changing things - Daniel
@@ -50,19 +48,19 @@ def get_metrics(email: str):
         #print(user)
         db_userid = user._id
         print("User ID:", db_userid)
-        #sensor = db.session.query(FakeUser).join(NewSensor, NewSensor.userid == FakeUser._id).filter(NewSensor.userid == 1).first()
         sensor = db.session.query(NewSensor).filter(NewSensor.userid == db_userid).first()
         print("Sample Rate:", sensor.fs)
 
-        datasets = [Recording.from_real_data(sensor.fs, recording.ts_data, tag=str(recording.timestamp)) for recording in db.session.query(Recordings).filter(Recordings.sensorid == sensor._id).all()]
-        print(len(datasets))
+        recordings = db.session.query(Recordings).filter(Recordings.sensorid == sensor._id).all()
+        datasets = [Recording.from_real_data(sensor.fs, recording.ts_data, tag=recording.timestamp.strftime('%Y-%m-%d')) for recording in recordings]
+        print("Datasets:", len(datasets))
         analysis_controller = AnalysisController(fs=sensor.fs, noise_amp=0.05)
 
         metrics = analysis_controller.get_metrics(datasets)[0]
-        print(metrics)
         df = metrics.by_recordings()
-
-        response = jsonify(df.to_dict())
+        df = df.replace(np.nan, None)
+        print(df)
+        response = jsonify(df.to_dict('list'))
         print(response)
         response.headers.add('Access-Control-Allow-Origin', '*')
         return response

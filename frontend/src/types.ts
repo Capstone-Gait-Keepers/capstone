@@ -14,11 +14,7 @@ export interface User {
   sensor_id: number;
 }
 
-export type MetricSequence = {
-  date: string;
-  value: number;
-}[]
-
 export interface Metrics {
-  [key: string]: MetricSequence
+  metrics: Record<string, number[]>;
+  dates: string[];
 }

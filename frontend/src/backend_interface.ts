@@ -12,18 +12,23 @@ export async function queryBackend<T>(endpoint: String, params = {}): Promise<T 
     console.error("Invalid endpoint: " + endpoint + ". Endpoint must start with /.");
     return null;
   }
-  console.debug("Retrieving data from backend: " + url + endpoint);
   try {
     let full_url = url + endpoint;
     if (Object.keys(params).length > 0) {
-      full_url += '?' + new URLSearchParams(params);
+      // Remove null or undefined values from params
+      const new_params = Object.fromEntries(Object.entries(params).filter(([_, v]) => v != null)) as Record<string, string>;
+      full_url += '?' + new URLSearchParams(new_params);
     }
+    console.debug("Retrieving data from backend: " + full_url);
     const response = await fetch(full_url);
     if (response.status < 200 || response.status >= 300) {
       console.error("Failed to fetch data from backend. Status: " + response.status + " " + response.statusText);
       return null;
     }
+    // Replace 'null' with null
     return response.json();
+    // const replacer = (key: string, value: any) => value === 'null' ? null : value;
+    // return JSON.parse(JSON.stringify(response), replacer);
   } catch (error) {
     console.error(error);
     return null;
@@ -47,14 +52,24 @@ export async function getMetrics(startDate: string | null = null, endDate: strin
     console.error("User not logged in.");
     return null;
   }
-  // return queryBackend<Metrics>("/api/metrics", {email, startDate, endDate});
+  const resp = await queryBackend<Record<string, any>>("/api/get_metrics/" + email);
+  if (!resp) {
+    return null;
+  }
+  const dates = resp['dates'];
+  const metrics = {...resp};
+  delete metrics['dates'];
+  return { dates, metrics } as Metrics;
   return {
-    cadence: [{date: '2021-01-01', value: 0.5}, {date: '2021-01-02', value: 0.48}, {date: '2021-01-03', value: 0.47}, {date: '2021-01-04', value: 0.46}, {date: '2021-01-05', value: 0.45}],
-    stride_time: [{date: '2021-01-01', value: 0.9}, {date: '2021-01-02', value: 0.98}, {date: '2021-01-03', value: 0.97}, {date: '2021-01-04', value: 0.96}, {date: '2021-01-05', value: 0.45}],
-    var_coef: [{date: '2021-01-01', value: 0.5}, {date: '2021-01-02', value: 0.48}, {date: '2021-01-03', value: 0.47}, {date: '2021-01-04', value: 0.46}, {date: '2021-01-05', value: 0.45}],
-    stga: [{date: '2021-01-01', value: 0.5}, {date: '2021-01-02', value: 2.48}, {date: '2021-01-03', value: 2.47}, {date: '2021-01-04', value: 2.46}, {date: '2021-01-05', value: 2.45}],
-    cond_entropy: [{date: '2021-01-01', value: 2.5}, {date: '2021-01-02', value: 0.48}, {date: '2021-01-03', value: 0.47}, {date: '2021-01-04', value: 0.46}, {date: '2021-01-05', value: 0.45}],
-    phase_sync: [{date: '2021-01-01', value: 0.5}, {date: '2021-01-02', value: 0.48}, {date: '2021-01-03', value: 4.47}, {date: '2021-01-04', value: 0.46}, {date: '2021-01-05', value: 0.45}],
+    dates: ["2021-01-01", "2021-01-02", "2021-01-03", "2021-01-04", "2021-01-05"],
+    metrics: {
+      "var_coef": [0.1, 0.2, 0.3, 0.4, 0.5],
+      "stga": [0.1, 0.2, 0.3, 0.4, 0.5],
+      "phase_sync": [0.1, 0.2, 0.3, 0.4, 0.5],
+      "cond_entropy": [0.1, 0.2, 0.3, 0.4, 0.5],
+      "stride_time": [0.1, 0.2, 0.3, 0.4, 0.5],
+      "cadence": [0.1, 0.2, 0.3, 0.4, 0.5],
+    }
   };
 }
 
