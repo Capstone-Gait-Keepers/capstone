@@ -3,15 +3,16 @@ import BasePage from '@/components/BasePage.vue';
 import ChangeAlert from '@/components/ChangeAlert.vue';
 import { RouterLink } from 'vue-router';
 import store from '@/store';
+const { user, viewed_categories } = store;
 </script>
 
 <template>
   <BasePage>
-    <h1>Good Afternoon {{ store.user?.name }}</h1>
+    <h1>Good Afternoon {{ user?.name }}</h1>
     <ChangeAlert metric_type="balance" />
     <h2>Welcome to your personal insights</h2>
     
-    <div class="metrics-row">
+    <div class="metrics-row" v-if="viewed_categories.balance">
       <h3>Balance Metrics</h3>
       <div class="metrics-row-grid">
         <div>
@@ -31,7 +32,7 @@ import store from '@/store';
       </div>
     </div>
 
-    <div class="metrics-row">
+    <div class="metrics-row" v-if="viewed_categories.neurodegenerative">
       <h3>Neurodegenerative Metrics</h3>
       <div class="metrics-row-grid">
         <div>
@@ -51,7 +52,7 @@ import store from '@/store';
       </div>
     </div>
 
-    <div class="metrics-row">
+    <div class="metrics-row" v-if="viewed_categories.dementia">
       <h3>Dementia Metrics</h3>
       <div class="metrics-row-grid">
         <div>
@@ -70,8 +71,25 @@ import store from '@/store';
         </div>
       </div>
     </div>
+
+    <div class="metrics-row">
+      <h3>Dementia Metrics</h3>
+      <div class="metrics-row-grid">
+        <p>WalkWise needs to collect a certain amount of data for it to be reliable.</p>
+        <div class="status-indicator">
+          <p>This Month</p>
+          <h3>16</h3>
+          <p>Measurements collected</p>
+        </div>
+        <div class="status-indicator">
+          <p>This Year</p>
+          <h3>320</h3>
+          <p>Measurements collected</p>
+        </div>
+      </div>
+    </div>
     <div class="data-collection-info">
-      <h2>Last data point collected: Blah</h2>
+      <h2>Last Measurement: Blah</h2>
       <p>Learn more about how to set up your sensor</p>
     </div>
     <strong>Disclaimer:</strong>
