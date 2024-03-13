@@ -1,20 +1,18 @@
 <script setup lang="ts">
 import { RouterLink } from 'vue-router'
+import Logo from '@/components/Logo.vue'
 </script>
 
 <template>
-  <div class="wrapper">
+  <div>
     <header>
-      <div>
-        <img alt="WalkWise Logo" class="logo" src="@/assets/logo.svg" width="125" height="125" />
-        <p>WalkWise</p>
-      </div>
+      <Logo />
       <nav>
-        <RouterLink to="/">Insights</RouterLink>
-        <RouterLink to="/detail">Learn More</RouterLink>
-        <RouterLink to="/settings">Settings</RouterLink>
-        <RouterLink to="/status">Status</RouterLink>
-        <RouterLink to="/login">Sign out</RouterLink>
+        <RouterLink to="/"><img src="@/assets/icon-overview.svg" alt="overview-icon"/>Overview</RouterLink>
+        <RouterLink to="/breakdown"><img src="@/assets/icon-breakdown.svg" alt="breakdown-icon"/>Breakdown</RouterLink>
+        <RouterLink to="/settings"><img src="@/assets/icon-settings.svg" alt="settings-icon"/>Settings</RouterLink>
+        <!-- <RouterLink to="/status">Status</RouterLink> -->
+        <button><RouterLink to="/login">Sign out</RouterLink></button>
       </nav>
     </header>
     <main>
@@ -27,68 +25,61 @@ import { RouterLink } from 'vue-router'
 header {
   position: sticky;
   top: 0;
-  border-bottom: 1px solid #ccc;
+  border-bottom: 2px solid var(--color-main);
   z-index: 1000;
   display: flex;
   justify-content: space-between;
   background-color: white;
 }
 
-.logo {
-  display: block;
-  height: 3rem;
-  width: auto;
-  margin: 0 auto .5rem;
+main {
+  margin: 1rem 3rem;
 }
 
 nav {
-  font-size: 12px;
-  text-align: center;
-  margin-top: 2rem;
-}
-
-nav a.router-link-exact-active {
-  color: var(--color-text);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 
 nav a.router-link-exact-active:hover {
   background-color: transparent;
 }
 
-nav a {
-  display: inline-block;
-  padding: 0 1rem;
-  border-left: 1px solid var(--color-border);
+nav button {
+  margin-left: 1rem;
 }
 
-nav a:first-of-type {
-  border: 0;
+nav button a {
+  color: white;
+  text-decoration: none;
+  background-color: transparent;
+  padding: 0;
+}
+
+nav a {
+  display: flex;
+  align-items: center;
+  padding: 0 1rem;
+  gap: .5rem;
+}
+
+nav a img {
+  height: 1.2em;
+  width: 1.2em;
 }
 
 @media (min-width: 1024px) {
   header {
     display: flex;
     place-items: center;
-    padding-right: calc(var(--section-gap) / 2);
-  }
-
-  .logo {
-    margin: 0 2rem 0 0;
-  }
-
-  header .wrapper {
-    display: flex;
-    place-items: flex-start;
-    flex-wrap: wrap;
+    padding: 0 1rem;
   }
 
   nav {
     text-align: left;
-    margin-left: -1rem;
-    font-size: 1rem;
-
-    padding: 1rem 0;
-    margin-top: 1rem;
+    margin: .2rem;
+    padding: .25rem 0;
   }
 }
 </style>
