@@ -24,6 +24,13 @@ button {
   font-size: 1em;
 }
 
+button > a {
+  color: white;
+  text-decoration: none;
+  background-color: transparent;
+  padding: 0;
+}
+
 strong {
   font-weight: bold;
 }
@@ -31,5 +38,8 @@ strong {
 @media (hover: hover) {
   a:hover {
     background-color: var(--color-accent);
+  }
+  button > a:hover {
+    background-color: transparent;
   }
 }

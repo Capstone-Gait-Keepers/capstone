@@ -50,13 +50,6 @@ nav button {
   margin-left: 1rem;
 }
 
-nav button a {
-  color: white;
-  text-decoration: none;
-  background-color: transparent;
-  padding: 0;
-}
-
 nav a {
   display: flex;
   align-items: center;

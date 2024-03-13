@@ -4,7 +4,7 @@
 
 <script setup>
 import Plotly from 'plotly.js-dist';
-import { defineProps, onMounted } from 'vue';
+import { onMounted } from 'vue';
 
 // TODO: Add bounds
 

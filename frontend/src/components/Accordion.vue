@@ -20,7 +20,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, defineProps } from 'vue';
+import { ref } from 'vue';
 
 const { header } = defineProps<{header?: string}>();
 const isOpen = ref(false);
