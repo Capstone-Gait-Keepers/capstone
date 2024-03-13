@@ -3,19 +3,23 @@
     <div class="main">
       <h1>Breakdown</h1>
       <p>Dive into the measurements WalkWise has collected to learn how changes are determined.</p>
-      <div v-for="metric_keys, header in metric_categories" v-if="data !== null" :key="header" class="category">
-        <h2>{{ header }} Metrics</h2>
-        <Accordion v-for="key in metric_keys" :key="key" :header="metric_titles[key]" class="metric">
-          <p>{{ metric_descriptions[key] }}</p>
-          <Plot
-            :x="data.dates"
-            :y="data.metrics[key]"
-            xlabel="Date"
-            :ylabel="metric_titles[key]"
-            plot_type="scatter"
-          />
-        </Accordion>
-      </div>
+      <span v-for="metric_keys, header in metric_categories">
+        <div v-if="data !== null && showSection(header)" :key="header" class="category">
+          <h2>{{ header }} Metrics</h2>
+          <span v-for="key in metric_keys" :key="key">
+            <Accordion v-if="validData(data.metrics[key])" :header="metric_titles[key]" class="metric">
+              <p>{{ metric_descriptions[key] }}</p>
+              <Plot
+                :x="data.dates"
+                :y="data.metrics[key]"
+                xlabel="Date"
+                :ylabel="metric_titles[key]"
+                plot_type="scatter"
+              />
+            </Accordion>
+          </span>
+        </div>
+      </span>
     </div>
   </BasePage>
 </template>
@@ -28,13 +32,15 @@ import Accordion from '@/components/Accordion.vue';
 import { ref, onMounted } from 'vue';
 import type { Metrics } from '@/types';
 import { getMetrics } from '@/backend_interface';
+import store from '@/store';
+const { viewed_categories } = store;
 
 
 const data = ref<Metrics | null>(null);
-const metric_categories = {
-  Balance: ['var_coef', 'stga'],
-  Neurodegenerative: ['phase_sync', 'cond_entropy', 'stga'],
-  Dementia: ['stride_time', 'cadence', 'var_coef', 'stga'],
+const metric_categories: Record<string, string[]> = {
+  "Balance": ['var_coef', 'stga'],
+  "Neurodegenerative": ['phase_sync', 'cond_entropy', 'stga'],
+  "Dementia": ['stride_time', 'cadence', 'var_coef', 'stga'],
 };
 
 const metric_titles: Record<string, string> = {
@@ -63,15 +69,23 @@ onMounted(async () => {
     console.error('Failed to get metrics');
     return;
   }
-
-  console.log(data.value);
-  // const given_metrics = new Set(Object.keys(data.value));
-  // if (given_metrics.size !== metric_titles.size + 1) {
-  //   console.error('Given metrics do not match expected metrics');
-  //   console.log('Given metrics:', given_metrics);
-  //   console.log('Expected metrics:', metric_titles);
-  // }
 });
+
+function showSection(section: string): boolean {
+  if (data.value?.metrics === undefined) {
+    return false;
+  }
+  const metrics = metric_categories[section];
+  const relevant_data = Array.from(metrics, (key) => data.value?.metrics[key]);
+  return viewed_categories[section] && relevant_data.some(validData);
+}
+
+function validData(data: number[] | undefined): boolean {
+  if (data === undefined) {
+    return false;
+  }
+  return data.some((val) => val !== null);
+}
 </script>
 
 <style scoped>

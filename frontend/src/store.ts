@@ -4,11 +4,7 @@ import type { User } from '@/types'
 export default reactive<{
   user: User | null;
   connected_users: string[];
-  viewed_categories: {
-    balance: boolean;
-    neurodegenerative: boolean;
-    dementia: boolean;
-  };
+  viewed_categories: Record<string, boolean>;
 }>({
   user: {
     name: "Marjorie",
@@ -18,8 +14,8 @@ export default reactive<{
   }, // TODO: Default should be null
   connected_users: ['dan@raymond.ch'],
   viewed_categories: {
-    balance: true,
-    neurodegenerative: true,
-    dementia: true,
+    Balance: true,
+    Neurodegenerative: true,
+    Dementia: true,
   }
 });
