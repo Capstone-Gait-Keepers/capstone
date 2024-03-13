@@ -14,7 +14,7 @@ a {
 }
 
 button {
-  background-color: var(--red);
+  background-color: var(--color-main);
   color: white;
   border: none;
   cursor: pointer;

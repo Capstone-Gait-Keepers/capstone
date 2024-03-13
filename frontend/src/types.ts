@@ -8,9 +8,10 @@ export interface SensorConfig {
 }
 
 export interface User {
+  name: string;
   email: string;
   password: string;
-  sensor_id: number;
+  sensorid: number;
 }
 
 export type MetricSequence = {

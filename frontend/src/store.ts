@@ -1,12 +1,13 @@
 import { reactive } from 'vue'
 import type { User } from '@/types'
 
-export const store = reactive<{
+export default reactive<{
   user: User | null;
 }>({
   user: {
-    email: "dan@raymond.ch",
+    name: "Marjorie",
+    email: "marjorie.smith@gmail.com",
     password: "test",
-    sensor_id: 39,
+    sensorid: 39,
   }, // TODO: Default should be null
-})
+});

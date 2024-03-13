@@ -2,11 +2,12 @@
 import BasePage from '@/components/BasePage.vue';
 import ChangeAlert from '@/components/ChangeAlert.vue';
 import { RouterLink } from 'vue-router';
+import store from '@/store';
 </script>
 
 <template>
   <BasePage>
-    <h1>Good Afternoon Marjorie</h1>
+    <h1>Good Afternoon {{ store.user?.name }}</h1>
     <ChangeAlert metric_type="balance" />
     <h2>Welcome to your personal insights</h2>
     
@@ -105,7 +106,6 @@ h3 {
 
 button {
   margin: 1rem 0;
-  background-color: var(--color-main);
 }
 
 .flat-bar {

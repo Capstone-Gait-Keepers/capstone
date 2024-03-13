@@ -48,6 +48,7 @@ nav a.router-link-exact-active:hover {
 
 nav button {
   margin-left: 1rem;
+  background-color: var(--red);
 }
 
 nav a {

@@ -1,5 +1,5 @@
 import type { Metrics, User } from "./types";
-import { store } from './store.js'
+import store from './store.js'
 
 
 export async function queryBackend<T>(endpoint: String, params = {}): Promise<T | null> {
