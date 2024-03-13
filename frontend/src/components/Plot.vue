@@ -29,15 +29,15 @@ onMounted(() => {
   const data = [{x, y, type: plot_type}];
   const layout = {
     title,
-    margin: {l: 32, r: 0, t: 0, b: 32},
+    margin: {r: 0, t: 0},
     // paper_bgcolor: "#fff", // Transparent background
     // plot_bgcolor: "#fff", // Transparent plot area
     xaxis: {
       title: {
         text: xlabel,
         font: {
-          size: 12,
-          color: '#7f7f7f'
+          size: 14,
+          color: '#000'
         }
       }
     },
@@ -45,8 +45,8 @@ onMounted(() => {
       title: {
         text: ylabel,
         font: {
-          size: 12,
-          color: '#7f7f7f'
+          size: 14,
+          color: '#000'
         }
       }
     }
