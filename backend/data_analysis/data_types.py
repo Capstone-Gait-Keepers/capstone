@@ -86,7 +86,7 @@ class Recording:
     env: SensorEnvironment 
     events: list[Event] = field(default_factory=list)
     ts: np.ndarray = field(default_factory=np.zeros(0))
-    filepath: Optional[str] = None
+    tag: Optional[str] = None
     sensor_type: Optional[str] = None
 
     def __post_init__(self):
@@ -95,9 +95,8 @@ class Recording:
             raise ValueError(f'ts must be a 1D array, not {self.ts.ndim}D.')
 
     @classmethod
-    def from_real_data(cls, fs: float, data: np.ndarray):
-        # TODO: Daniel add filepath parameter
-        return cls(SensorEnvironment(fs), events=[], ts=data)
+    def from_real_data(cls, fs: float, data: np.ndarray, tag=None):
+        return cls(SensorEnvironment(fs), events=[], ts=data, tag=tag)
 
     @classmethod
     def from_file(cls, filename: str):
@@ -106,7 +105,7 @@ class Recording:
             with open(filename) as file:
                 data = yaml.load(file)
             rec = cls.from_dict(data)
-            rec.filepath = filename
+            rec.tag = filename
             rec.sensor_type = SensorType.PIEZO if 'piezo' in filename else SensorType.ACCEL
             return rec
         except Exception as e:
@@ -135,8 +134,8 @@ class Recording:
         """Plot a recording"""
         timestamps = np.linspace(0, len(self.ts) / self.env.fs, len(self.ts), endpoint=False)
         fig = go.Figure()
-        if self.filepath:
-            fig.update_layout(title=self.filepath, showlegend=False)
+        if self.tag:
+            fig.update_layout(title=self.tag, showlegend=False)
         fig.add_scatter(x=timestamps, y=self.ts, name='vibes')
         for event in self.events:
             fig.add_vline(x=event.timestamp, line_color='green')
@@ -328,6 +327,12 @@ class Metrics:
 
     def by_recordings(self) -> pd.DataFrame:
         return self._df.groupby('recording_id').apply(self.aggregate)
+
+    def set_index(self, new_ids: list):
+        old_ids = self._df['recording_id'].unique()
+        if len(new_ids) != len(old_ids):
+            raise ValueError(f'New IDs ({len(new_ids)}) must be the same length as old IDs ({len(old_ids)}).')
+        self._df['recording_id'].replace(dict(zip(old_ids, new_ids)), inplace=True)
 
     @staticmethod
     def aggregate(data: pd.DataFrame):

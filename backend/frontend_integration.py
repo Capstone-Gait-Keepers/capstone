@@ -44,37 +44,25 @@ def get_metrics(email: str):
     try:
         # fs from NewSensor
         # ts_data, date, sensorid from recordings
-        print(email)
         user = db.session.query(FakeUser).filter(FakeUser.email == email).first()
+        if user is None:
+            return jsonify(error=f"User not found: {email}"), HTTPStatus.NOT_FOUND
         #print(user)
         db_userid = user._id
-        print(db_userid)
+        print("User ID:", db_userid)
         #sensor = db.session.query(FakeUser).join(NewSensor, NewSensor.userid == FakeUser._id).filter(NewSensor.userid == 1).first()
         sensor = db.session.query(NewSensor).filter(NewSensor.userid == db_userid).first()
-        print(sensor.fs)
+        print("Sample Rate:", sensor.fs)
 
-        datasets = [Recording.from_real_data(sensor.fs, recording.ts_data) for recording in db.session.query(Recordings).filter(Recordings.sensorid == sensor._id).all()]
+        datasets = [Recording.from_real_data(sensor.fs, recording.ts_data, tag=str(recording.timestamp)) for recording in db.session.query(Recordings).filter(Recordings.sensorid == sensor._id).all()]
         print(len(datasets))
-
-        print("analysis controller")
         analysis_controller = AnalysisController(fs=sensor.fs, noise_amp=0.05)
-        print(analysis_controller)
-        
+
         metrics = analysis_controller.get_metrics(datasets)[0]
+        print(metrics)
         df = metrics.by_recordings()
 
-        # data = {
-        #     'fs': [recording.fs for recording in datasets],
-        #     'ts_data': [recording.ts_data for recording in datasets], #? is this needed?
-        #     #'metrics': #idk,
-        #     #'sensorid': sensorids,
-        #     #'timestamp': timestamps
-        # }
-        # #df = pd.DataFrame(data)
-
-        print(metrics)
-
-        response = jsonify(df) # df.to_dict()
+        response = jsonify(df.to_dict())
         print(response)
         response.headers.add('Access-Control-Allow-Origin', '*')
         return response

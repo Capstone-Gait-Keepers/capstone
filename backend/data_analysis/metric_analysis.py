@@ -208,7 +208,7 @@ class AnalysisController:
             results.append(result)
         measured, truth, alg_err = self._parse_metric_results(results)
         err = measured.error(truth)
-        err.index = [rec.filepath for rec in recordings]
+        err.index = [rec.tag for rec in recordings]
         # Log false negative and false positive rates
         env_df = self.get_env_df(recordings)
         alg_err = pd.concat([env_df['quality'], alg_err], axis=1)
@@ -238,10 +238,21 @@ class AnalysisController:
     def get_metrics(self, datasets: Iterable[Recording], plot_signals=False) -> Tuple[Metrics, Metrics, pd.DataFrame]:
         """Analyzes a sequence of recordings and returns metrics"""
         results = []
+        tags = []
         for data in datasets:
+            if len(data.ts) < self._detector._window_duration * self.fs:
+                self.logger.warning(f"Recording {data.tag} is too short to analyze")
+                continue
             result = self.get_recording_metrics(data, plot_signals)
             results.append(result)
+            if data.tag:
+                tags.append(data.tag)
         measured, source_of_truth, algorithm_error = self._parse_metric_results(results)
+        if len(tags) == len(results):
+            measured.set_index(tags)
+            source_of_truth.set_index(tags)
+            algorithm_error['tags'] = tags
+            algorithm_error.set_index('tags')
         self.logger.debug(f"Finished analyzing all {measured.recordings} datasets")
         return measured, source_of_truth, algorithm_error
 
@@ -276,7 +287,7 @@ class AnalysisController:
     @staticmethod
     def get_env_df(datasets: List[Recording]) -> pd.DataFrame:
         """Returns a dataframe of environmental variables. Each row corresponds to a recording. Each column corresponds to an environmental variable."""
-        env_dicts = {d.filepath: d.env.to_dict() for d in datasets}
+        env_dicts = {d.tag: d.env.to_dict() for d in datasets}
         env_df = pd.DataFrame(env_dicts).T
         return env_df
 
@@ -295,11 +306,11 @@ class AnalysisController:
         """Analyzes a recording and returns metrics"""
         # TODO: Daniel fix this - "TypeError: Data must be of type Recording, not <class 'data_analysis.data_types.Recording'>"
         if not isinstance(data, Recording):
-            raise TypeError(f"Data must be of type Recording, not {type(data)}")
+            self.logger.warning(f"Data might not be of type recording: {type(data)}")
         try:
             return self._get_recording_metrics(data, plot)
         except Exception as e:
-            self.logger.error(f"Failed to get metrics for {data.filepath}: {e}")
+            self.logger.error(f"Failed to get metrics for {data.tag}: {e}")
             raise e
 
     def _get_recording_metrics(self, data: Recording, plot=False) -> Tuple[Metrics, Metrics, pd.DataFrame]:
@@ -308,9 +319,9 @@ class AnalysisController:
             raise ValueError(f"Recording fs ({data.env.fs}) does not match model fs ({self.fs})")
         true_step_groups = self._get_true_step_timestamps(data)
         true_steps = self.merge_step_groups(true_step_groups)
-        step_groups = self._detector.get_step_groups(np.array(data.ts), plot, truth=true_steps, plot_title=data.filepath)
+        step_groups = self._detector.get_step_groups(np.array(data.ts), plot, truth=true_steps, plot_title=data.tag)
         if len(step_groups):
-            self.logger.info(f"Found {len(step_groups)} step groups in {data.filepath} ({len(true_steps)} true steps)")
+            self.logger.info(f"Found {len(step_groups)} step groups in {data.tag} ({len(true_steps)} true steps)")
             self.logger.debug(f"Step groups: {step_groups}")
         predicted_steps = self.merge_step_groups(step_groups)
         measured = Metrics(step_groups)
@@ -320,6 +331,8 @@ class AnalysisController:
 
     def _get_true_step_timestamps(self, data: Recording, ignore_quality=False, max_step_delta=2) -> List[np.ndarray]:
         """Returns the true step timestamps of a recording, enforcing a maximum step delta if the recording quality is not normal"""
+        if not isinstance(data.env, RecordingEnvironment):
+            return []
         timestamps = [np.array([event.timestamp for event in data.events if event.category == 'step'])]
         if not ignore_quality and data.env.quality != 'normal':
             return self._detector._enforce_max_step_delta(timestamps, max_step_delta)
@@ -370,10 +383,10 @@ class AnalysisController:
                 recordings.append(data)
                 errs.append(self.get_recording_algorithm_error(data, plot=plot_signals))
             except Exception as e:
-                self.logger.error(f"Failed to get algorithm error for {data.filepath}: {e}")
+                self.logger.error(f"Failed to get algorithm error for {data.tag}: {e}")
                 raise e
         df = pd.concat(errs)
-        df.index = [d.filepath for d in recordings]
+        df.index = [d.tag for d in recordings]
         if plot_dist:
             env_df = self.get_env_df(recordings)
             plot_df = pd.concat([env_df['quality'], df], axis=1)
@@ -480,7 +493,7 @@ if __name__ == "__main__":
     sensor_type = SensorType.PIEZO
     params = get_optimal_analysis_params(sensor_type)
     controller = AnalysisController(**params)
-    datasets = DataHandler.from_sensor_type(sensor_type).get_lazy(user='ron', location='Aarons Studio')
+    datasets = DataHandler.from_sensor_type(sensor_type).get_lazy(user='ron', limit=4, location='Aarons Studio')
     # print(controller.get_metric_error(datasets, plot_dist=True, plot_signals=False, plot_title=str(params)))
-    print(controller.get_false_rates(datasets, plot_dist=False))
-    # print(controller.get_metrics(datasets, plot_signals=False)[0].by_recordings())
+    # print(controller.get_false_rates(datasets, plot_dist=False))
+    print(controller.get_metrics(datasets, plot_signals=False)[0].by_recordings())
