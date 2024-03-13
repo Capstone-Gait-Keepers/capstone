@@ -14,7 +14,7 @@ export default reactive<{
     name: "Marjorie",
     email: "marjorie.smith@gmail.com",
     password: "thisisapassword",
-    sensorid: 39,
+    sensor_id: 39,
   }, // TODO: Default should be null
   connected_users: ['dan@raymond.ch'],
   viewed_categories: {

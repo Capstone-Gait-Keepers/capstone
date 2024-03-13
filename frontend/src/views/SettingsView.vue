@@ -5,7 +5,7 @@
     <FormInput label="Name" type="text" v-model="user.name" />
     <FormInput label="Email" type="email" v-model="user.email" />
     <FormInput label="Password" type="password" v-model="user.password" />
-    <FormInput label="Sensor ID" type="text" v-model="user.sensorid" />
+    <FormInput label="Sensor ID" type="text" v-model="user.sensor_id" />
     <!-- <FormInput label="Notifications" type="text" v-model="user.notifications" /> -->
     <h2>Metrics</h2>
     <p>Choose what information to view on the Home Insights page. If you don't want to see a specific group of insights or recommendations simply turn the toggle off. The system will still collect the data it just won’t display it to you so you can turn them back on at any time if you decide you want to see the insights.</p>

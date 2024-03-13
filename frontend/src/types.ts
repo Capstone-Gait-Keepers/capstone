@@ -11,7 +11,7 @@ export interface User {
   name: string;
   email: string;
   password: string;
-  sensorid: number;
+  sensor_id: number;
 }
 
 export type MetricSequence = {

@@ -73,7 +73,7 @@ const { user, viewed_categories } = store;
     </div>
 
     <div class="metrics-row">
-      <h3>Dementia Metrics</h3>
+      <h3>Measurements Collected</h3>
       <div class="metrics-row-grid">
         <p>WalkWise needs to collect a certain amount of data for it to be reliable.</p>
         <div class="status-indicator">
