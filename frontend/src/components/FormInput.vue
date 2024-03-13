@@ -1,22 +1,31 @@
 <template>
   <div class="form-input">
-    <label for="input">{{ label }}</label>
+    <label v-if="label" :for="label">{{ label }}</label>
     <div class="input-button">
-      <input :type="type" :disabled="!editable" v-model="model" />
-      <button @click="editable = !editable">{{ editable ? 'Save' : 'Edit' }}</button>
+      <input :type="type" :disabled="!editable" v-model="model" :id="label" />
+      <button @click="click">{{ editable ? 'Save' : 'Edit' }}</button>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, defineEmits } from 'vue';
 
-const { label, type } = defineProps<{
-  label: string;
+const { label, type, startEditing } = defineProps<{
+  label?: string;
   type: string;
+  startEditing?: boolean;
 }>();
-const model = defineModel();
-const editable = ref(false);
+const model = defineModel<string>();
+const editable = ref(startEditing || false);
+const emit = defineEmits<{save: [input: string]}>();
+
+function click() {
+  if (editable.value && model.value) {
+    emit('save', model.value);
+  }
+  editable.value = !editable.value;
+}
 </script>
 
 <style scoped>
