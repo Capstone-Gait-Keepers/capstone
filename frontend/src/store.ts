@@ -4,6 +4,11 @@ import type { User } from '@/types'
 export default reactive<{
   user: User | null;
   connected_users: string[];
+  viewed_categories: {
+    balance: boolean;
+    neurodegenerative: boolean;
+    dementia: boolean;
+  };
 }>({
   user: {
     name: "Marjorie",

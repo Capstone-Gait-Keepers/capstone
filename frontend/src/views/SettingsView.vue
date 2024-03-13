@@ -1,23 +1,23 @@
 <template>
-  <BasePage class="content">
+  <BasePage class="content" v-if="user">
     <h1>Account Settings</h1>
     <h2>Account Information</h2>
-    <FormInput label="Name" type="text" v-model="store.user.name" />
-    <FormInput label="Email" type="email" v-model="store.user.email" />
-    <FormInput label="Password" type="password" v-model="store.user.password" />
-    <FormInput label="Sensor ID" type="text" v-model="store.user.sensorid" />
-    <!-- <FormInput label="Notifications" type="text" v-model="store.user.notifications" /> -->
+    <FormInput label="Name" type="text" v-model="user.name" />
+    <FormInput label="Email" type="email" v-model="user.email" />
+    <FormInput label="Password" type="password" v-model="user.password" />
+    <FormInput label="Sensor ID" type="text" v-model="user.sensorid" />
+    <!-- <FormInput label="Notifications" type="text" v-model="user.notifications" /> -->
     <h2>Metrics</h2>
-    <p>Choose what information to view on the Home Insights page. If you don’t want to see a specific group of insights or recommendations simply turn the toggle off. The system will still collect the data it just won’t display it to you so you can turn them back on at any time if you decide you want to see the insights.</p>
-    <Toggle id="Balance indicators" v-model="store.viewed_categories.balance" />
-    <Toggle id="Neurodegenerative disease indicators" v-model="store.viewed_categories.balance" />
-    <Toggle id="Dementia Indicators" v-model="store.viewed_categories.balance" />
+    <p>Choose what information to view on the Home Insights page. If you don't want to see a specific group of insights or recommendations simply turn the toggle off. The system will still collect the data it just won’t display it to you so you can turn them back on at any time if you decide you want to see the insights.</p>
+    <FormSwitch label="Balance indicators" id="balance" v-model="viewed_categories.balance" />
+    <FormSwitch label="Neurodegenerative disease indicators" id="neurodegenerative" v-model="viewed_categories.neurodegenerative" />
+    <FormSwitch label="Dementia indicators" id="dementia" v-model="viewed_categories.dementia" />
     <h2>Connected Users</h2>
     <i>Adding family members will allow them to view your individual insights from their own account. Once you add a family member they will receive an email inviting them to create an account and link your data to it. </i>
     <br>
-    <div v-for="user_email, i in store.connected_users" :key="user_email" class="connected-user">
+    <div v-for="user_email, i in connected_users" :key="user_email" class="connected-user">
       <p>{{ user_email }}</p>
-      <button @click="store.connected_users.pop(i)">Delete</button>
+      <button @click="connected_users.splice(i, 1)">Delete</button>
     </div>
     <FormInput v-if="addingUser" id="new-user" type="email"  v-on:save="addUser" startEditing />
     <p v-if="addedUser" class="success">
@@ -34,8 +34,9 @@
 import { ref } from 'vue';
 import BasePage from '@/components/BasePage.vue';
 import FormInput from '@/components/FormInput.vue';
-import Toggle from '@vueform/toggle';
+import FormSwitch from '@/components/FormSwitch.vue';
 import store from '@/store';
+const { viewed_categories, user, connected_users } = store;
 
 const addingUser = ref(false);
 const addedUser = ref('');
@@ -45,14 +46,15 @@ function startAddingUser() {
   addedUser.value = '';
 }
 
-function addUser(email: string) {
-  store.connected_users.push(email);
+function addUser(email: any) {
+  if (typeof email !== 'string') return;
+  connected_users.push(email);
   addingUser.value = false;
   addedUser.value = email;
 }
 </script>
 
-<style scoped>
+<style scoped src="@vueform/toggle/themes/default.css">
 .content {
   margin-bottom: 8rem;
 }

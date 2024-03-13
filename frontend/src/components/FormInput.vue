@@ -16,9 +16,9 @@ const { label, type, startEditing } = defineProps<{
   type: string;
   startEditing?: boolean;
 }>();
-const model = defineModel<string>();
+const model = defineModel<string | number>();
 const editable = ref(startEditing || false);
-const emit = defineEmits<{save: [input: string]}>();
+const emit = defineEmits<{save: [input: string | number]}>();
 
 function click() {
   if (editable.value && model.value) {
