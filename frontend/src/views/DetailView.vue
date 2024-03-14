@@ -3,8 +3,8 @@
     <div class="main">
       <h1>Breakdown</h1>
       <p>Dive into the measurements WalkWise has collected to learn how changes are determined.</p>
-      <span v-for="metric_keys, header in metric_categories">
-        <div v-if="data !== null && showSection(header)" :key="header" class="category">
+      <span v-if="data !== null" v-for="metric_keys, header in metric_categories">
+        <div v-if="showSection(header)" :key="header" class="category">
           <h2>{{ header }} Metrics</h2>
           <span v-for="key in metric_keys" :key="key">
             <Accordion v-if="validData(data.metrics[key])" :header="metric_titles[key]" class="metric">
@@ -20,6 +20,7 @@
           </span>
         </div>
       </span>
+      <ListLoader class="loading pulse" primaryColor="#e3e3e3" v-else /> 
     </div>
   </BasePage>
 </template>
@@ -34,6 +35,7 @@ import type { Metrics } from '@/types';
 import { getMetrics } from '@/backend_interface';
 import store from '@/store';
 const { viewed_categories } = store;
+import { ListLoader } from 'vue-content-loader'
 
 
 const data = ref<Metrics | null>(null);
@@ -89,10 +91,14 @@ function validData(data: number[] | undefined): boolean {
 </script>
 
 <style scoped>
-.main {
-  display: grid;
-  gap: 1rem;
+.main h1 {
+  margin-bottom: 1rem;
 }
+
+.main p {
+  margin-bottom: 2rem;
+}
+
 
 .category {
   margin-bottom: 2rem;
@@ -105,5 +111,10 @@ function validData(data: number[] | undefined): boolean {
 
 .metric p {
   margin: 1rem;
+}
+
+.loading {
+  padding: 2rem;
+  border-radius: 1rem;
 }
 </style>

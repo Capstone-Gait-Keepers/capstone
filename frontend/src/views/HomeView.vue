@@ -108,7 +108,10 @@ const { user, viewed_categories } = store;
 <style scoped>
 .metrics-row {
   padding: 3rem 2rem;
-  background-color: #FBFBFB;
+  background-color: white;
+  border: 2px solid var(--color-main);
+  border-radius: 1rem;
+  box-shadow: 0 4px 4px 0 rgba(0, 0, 0, 0.25);
   margin: 1rem 0;
 }
 

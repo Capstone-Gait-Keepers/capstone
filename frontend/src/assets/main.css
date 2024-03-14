@@ -43,3 +43,19 @@ strong {
     background-color: transparent;
   }
 }
+
+.pulse {
+  animation: pulse 1.5s infinite ease;
+}
+
+@keyframes pulse {
+  0% {
+    opacity: 10%;
+  }
+  50% {
+    opacity: 100%;
+  }
+  100% {
+    opacity: 10%;
+  }
+}
