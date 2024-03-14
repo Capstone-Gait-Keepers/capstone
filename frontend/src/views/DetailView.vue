@@ -9,7 +9,7 @@
           <span v-for="key in metric_keys" :key="key">
             <Accordion v-if="validMetric(key)" :header="metric_titles[key]" :startOpen="hash === header" class="metric">
               <p>{{ metric_descriptions[key] }}</p>
-              <Plot
+              <InteractivePlot
                 :x="store.data.dates"
                 :y="store.data.metrics[key]"
                 xlabel="Date"
@@ -30,7 +30,7 @@
 import { ListLoader } from 'vue-content-loader'
 
 import BasePage from '@/components/BasePage.vue';
-import Plot from '@/components/Plot.vue';
+import InteractivePlot from '@/components/InteractivePlot.vue';
 import Accordion from '@/components/Accordion.vue';
 import { store, metric_sections, validMetric, validSection } from '@/store';
 

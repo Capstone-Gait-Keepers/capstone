@@ -9,7 +9,7 @@
 </template>
 
 <script setup lang="ts">
-import { store, Section, metric_sections } from '@/store';
+import { store, Section, metric_sections, datesBackIndex } from '@/store';
 const { data } = store;
 
 enum Status {
@@ -31,17 +31,10 @@ function getMetricStatus(metric_values: number[]): Status {
   return Status.Neutral;
 }
 
-function datesBackIndex(dates: string[], days: number): number {
-  const date = new Date(dates[dates.length - 1]);
-  date.setDate(date.getDate() - days);
-  return dates.filter((d) => new Date(d) >= date).length;
-}
-
 if (data !== null) {
   for (const metric of metrics) {
     const values = data.metrics[metric];
-    const dates = data.dates;
-    const values_in_period = values.slice(-datesBackIndex(dates, timespan === "Month" ? 30 : 365));
+    const values_in_period = values.slice(datesBackIndex(timespan === "Month" ? 30 : 365));
     metric_changes[metric] = getMetricStatus(values_in_period);
   }
   console.log(metric_changes);

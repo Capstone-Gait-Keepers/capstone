@@ -21,8 +21,8 @@ const { user } = store;
           <p>WalkWise measures two metrics associated with balance.</p>
           <button><RouterLink to="/breakdown#Balance">View Breakdown</RouterLink></button>
         </div>
-        <StatusIndicator section="Balance" timespan="Month" />
-        <StatusIndicator section="Balance" timespan="Year" />
+        <StatusIndicator :section="Section.Balance" timespan="Month" />
+        <StatusIndicator :section="Section.Balance" timespan="Year" />
       </div>
     </div>
 
@@ -33,8 +33,8 @@ const { user } = store;
           <p>WalkWise measures two metrics associated with neurodegenerative diseases.</p>
           <button><RouterLink to="/breakdown#Neurodegenerative">View Breakdown</RouterLink></button>
         </div>
-        <StatusIndicator section="Neurodegenerative" timespan="Month" />
-        <StatusIndicator section="Neurodegenerative" timespan="Year" />
+        <StatusIndicator :section="Section.Neurodegenerative" timespan="Month" />
+        <StatusIndicator :section="Section.Neurodegenerative" timespan="Year" />
       </div>
     </div>
 
@@ -45,8 +45,8 @@ const { user } = store;
           <p>WalkWise measures 4 metrics associated with Dementia.</p>
           <button><RouterLink to="/breakdown#Dementia">View Breakdown</RouterLink></button>
         </div>
-        <StatusIndicator section="Dementia" timespan="Month" />
-        <StatusIndicator section="Dementia" timespan="Year" />
+        <StatusIndicator :section="Section.Dementia" timespan="Month" />
+        <StatusIndicator :section="Section.Dementia" timespan="Year" />
       </div>
     </div>
 

@@ -60,3 +60,20 @@ export const fetchData = async () => {
       console.error('Failed to get metrics');
   }
 }
+
+export function datesBackIndex(days: number): number {
+  if (store.data === null) {
+    return 0;
+  }
+  // TODO: Current date as a reference?
+  const date = new Date(store.data.dates[store.data.dates.length - 1]);
+  date.setDate(date.getDate() - days);
+  return -store.data.dates.filter((d) => new Date(d) >= date).length;
+}
+
+export function getMetric(metric: string, days: number): number[] {
+  if (store.data === null) {
+    return [];
+  }
+  return store.data.metrics[metric].slice(datesBackIndex(days));
+}

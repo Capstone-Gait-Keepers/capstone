@@ -4,11 +4,11 @@
 
 <script setup>
 import Plotly from 'plotly.js-dist';
-import { onMounted } from 'vue';
+import { onMounted, watch } from 'vue';
 
 // TODO: Add bounds
 
-const { x, y, xlabel, ylabel, plot_type, title } = defineProps({
+const props = defineProps({
   x: Array,
   y: Array,
   xlabel: String,
@@ -25,33 +25,40 @@ function uuidv4() {
 }
 const _id = uuidv4();
 
-onMounted(() => {
-  const data = [{x, y, type: plot_type}];
-  const layout = {
-    title,
-    margin: {r: 0, t: 0},
-    // paper_bgcolor: "#fff", // Transparent background
-    // plot_bgcolor: "#fff", // Transparent plot area
-    xaxis: {
-      title: {
-        text: xlabel,
-        font: {
-          size: 14,
-          color: '#000'
-        }
-      }
-    },
-    yaxis: {
-      title: {
-        text: ylabel,
-        font: {
-          size: 14,
-          color: '#000'
-        }
+const layout = {
+  title: props.title,
+  margin: {r: 0, t: 0},
+  // paper_bgcolor: "#fff", // Transparent background
+  // plot_bgcolor: "#fff", // Transparent plot area
+  xaxis: {
+    title: {
+      text: props.xlabel,
+      font: {
+        size: 14,
+        color: '#000'
       }
     }
-  };
-  const config = {displayModeBar: false};
+  },
+  yaxis: {
+    title: {
+      text: props.ylabel,
+      font: {
+        size: 14,
+        color: '#000'
+      }
+    }
+  }
+};
+const config = {displayModeBar: false, responsive: true};
+
+onMounted(() => {
+  const data = [{x: props.x, y: props.y, type: props.plot_type}];
+  Plotly.newPlot(_id, data, layout, config);
+});
+
+watch([() => props.x, () => props.y], (newV, oldV) => {
+  const [x, y] = newV;
+  const data = [{x, y, type: props.plot_type}];
   Plotly.newPlot(_id, data, layout, config);
 });
 </script>
