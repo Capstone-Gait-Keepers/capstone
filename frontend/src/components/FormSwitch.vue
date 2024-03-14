@@ -22,14 +22,11 @@ const model = defineModel<boolean>();
 .container {
   cursor: pointer;
   display: flex;
-  align-items: center;
   margin: .1rem;
+  width: fit-content;
 }
 .label {
   margin-left: 12px;
-  /* Show an ellipsis if the text takes more than one line */
-  overflow: hidden;
-  text-overflow: ellipsis;
   white-space: nowrap;
 }
 /* Visually hide the checkbox input */

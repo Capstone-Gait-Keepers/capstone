@@ -12,7 +12,7 @@ const { user, viewed_categories } = store;
     <ChangeAlert metric_type="balance" />
     <h2>Welcome to your personal insights</h2>
     
-    <div class="metrics-row" v-if="viewed_categories.balance">
+    <div class="metrics-row" v-if="viewed_categories.Balance">
       <h3>Balance Metrics</h3>
       <div class="metrics-row-grid">
         <div>
@@ -32,7 +32,7 @@ const { user, viewed_categories } = store;
       </div>
     </div>
 
-    <div class="metrics-row" v-if="viewed_categories.neurodegenerative">
+    <div class="metrics-row" v-if="viewed_categories.Neurodegenerative">
       <h3>Neurodegenerative Metrics</h3>
       <div class="metrics-row-grid">
         <div>
@@ -52,7 +52,7 @@ const { user, viewed_categories } = store;
       </div>
     </div>
 
-    <div class="metrics-row" v-if="viewed_categories.dementia">
+    <div class="metrics-row" v-if="viewed_categories.Dementia">
       <h3>Dementia Metrics</h3>
       <div class="metrics-row-grid">
         <div>
