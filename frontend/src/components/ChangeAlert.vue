@@ -21,6 +21,7 @@ const props = defineProps({
 .alert-box {
   padding: 0.5rem 1rem;
   color: black;
+  background-color: white;
   border: 2px solid var(--yellow);
   border-radius: 8px;
   margin: 1rem 0;

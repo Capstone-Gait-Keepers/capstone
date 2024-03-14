@@ -1,6 +1,10 @@
 <script setup lang="ts">
 import { RouterLink } from 'vue-router'
+import { onMounted } from 'vue';
+import { fetchData } from '@/store';
 import Logo from '@/components/Logo.vue'
+
+onMounted(fetchData);
 </script>
 
 <template>

@@ -1,9 +1,11 @@
 <script setup lang="ts">
+import { RouterLink } from 'vue-router';
+
 import BasePage from '@/components/BasePage.vue';
 import ChangeAlert from '@/components/ChangeAlert.vue';
-import { RouterLink } from 'vue-router';
+import StatusIndicator from '@/components/StatusIndicator.vue';
 import store from '@/store';
-const { user, viewed_categories } = store;
+const { user, view_sections } = store;
 </script>
 
 <template>
@@ -12,7 +14,7 @@ const { user, viewed_categories } = store;
     <ChangeAlert metric_type="balance" />
     <h2>Welcome to your personal insights</h2>
     
-    <div class="metrics-row" v-if="viewed_categories.Balance">
+    <div class="metrics-row" v-if="view_sections.Balance">
       <h3>Balance Metrics</h3>
       <div class="metrics-row-grid">
         <div>
@@ -20,19 +22,19 @@ const { user, viewed_categories } = store;
           <button><RouterLink to="/breakdown#Balance">View Breakdown</RouterLink></button>
         </div>
         <div class="status-indicator">
-          <p>This Month</p>
+          <b>This Month</b>
           <img src="@/assets/icon-thumbs-up.svg" />
           <p>2 of 4 metrics showed positive changes compared with last month!</p>
         </div>
         <div class="status-indicator">
-          <p>This Year</p>
+          <b>This Year</b>
           <img src="@/assets/icon-thumbs-up.svg" />
           <p>2 of 4 metrics showed positive changes compared with last year!</p>
         </div>
       </div>
     </div>
 
-    <div class="metrics-row" v-if="viewed_categories.Neurodegenerative">
+    <div class="metrics-row" v-if="view_sections.Neurodegenerative">
       <h3>Neurodegenerative Metrics</h3>
       <div class="metrics-row-grid">
         <div>
@@ -40,19 +42,19 @@ const { user, viewed_categories } = store;
           <button><RouterLink to="/breakdown#Neurodegenerative">View Breakdown</RouterLink></button>
         </div>
         <div class="status-indicator">
-          <p>This Month</p>
+          <b>This Month</b>
           <div class="flat-bar"></div>
           <p>No changes in neurodegenerative related metrics this month.</p>
         </div>
         <div class="status-indicator">
-          <p>This Year</p>
+          <b>This Year</b>
           <img src="@/assets/icon-warning.svg" />
           <p>There were negative changes in 2 of the 3 metrics related to neurodegenerative disease.</p>
         </div>
       </div>
     </div>
 
-    <div class="metrics-row" v-if="viewed_categories.Dementia">
+    <div class="metrics-row" v-if="view_sections.Dementia">
       <h3>Dementia Metrics</h3>
       <div class="metrics-row-grid">
         <div>
@@ -60,12 +62,12 @@ const { user, viewed_categories } = store;
           <button><RouterLink to="/breakdown#Dementia">View Breakdown</RouterLink></button>
         </div>
         <div class="status-indicator">
-          <p>This Month</p>
+          <b>This Month</b>
           <div class="flat-bar"></div>
           <p>No changes in Dementia related metrics this month.</p>
         </div>
         <div class="status-indicator">
-          <p>This Year</p>
+          <b>This Year</b>
           <div class="flat-bar"></div>
           <p>No changes in Dementia related metrics compared with last year.</p>
         </div>
@@ -77,18 +79,18 @@ const { user, viewed_categories } = store;
       <div class="metrics-row-grid">
         <p>WalkWise needs to collect a certain amount of data for it to be reliable.</p>
         <div class="status-indicator">
-          <p>This Month</p>
-          <h3>16</h3>
+          <b>This Month</b>
+          <h3 class="measurement-stat">16</h3>
           <p>Measurements collected</p>
         </div>
         <div class="status-indicator">
-          <p>This Year</p>
-          <h3>320</h3>
+          <b>This Year</b>
+          <h3 class="measurement-stat">320</h3>
           <p>Measurements collected</p>
         </div>
       </div>
     </div>
-    <div class="data-collection-info">
+    <div class="measurement-info">
       <h2>Last Measurement: January 16, 2024</h2>
       <p><a href="https://www.youtube.com/watch?v=dQw4w9WgXcQ" target="_blank">Learn more</a> about how to set up your sensor</p>
     </div>
@@ -149,7 +151,7 @@ button {
   height: 4em;
 }
 
-.data-collection-info {
+.measurement-info {
   padding: 2rem 0;
   display: flex;
   flex-direction: column;
@@ -157,5 +159,11 @@ button {
   gap: 1rem;
   border-bottom: 4px solid var(--color-main);
   margin-bottom: 1rem;
+}
+
+.measurement-stat {
+  font-size: 2rem;
+  font-weight: bold;
+  color: var(--color-main);
 }
 </style>

@@ -9,9 +9,9 @@
     <!-- <FormInput label="Notifications" type="text" v-model="user.notifications" /> -->
     <h2>Metrics</h2>
     <p>Choose what information to view on the Home Insights page. If you don't want to see a specific group of insights or recommendations simply turn the toggle off. The system will still collect the data it just won’t display it to you so you can turn them back on at any time if you decide you want to see the insights.</p>
-    <FormSwitch label="Balance indicators" id="balance" v-model="viewed_categories.Balance" />
-    <FormSwitch label="Neurodegenerative disease indicators" id="neurodegenerative" v-model="viewed_categories.Neurodegenerative" />
-    <FormSwitch label="Dementia indicators" id="dementia" v-model="viewed_categories.Dementia" />
+    <FormSwitch label="Balance indicators" id="balance" v-model="view_sections.Balance" />
+    <FormSwitch label="Neurodegenerative disease indicators" id="neurodegenerative" v-model="view_sections.Neurodegenerative" />
+    <FormSwitch label="Dementia indicators" id="dementia" v-model="view_sections.Dementia" />
     <h2>Connected Users</h2>
     <i>Adding family members will allow them to view your individual insights from their own account. Once you add a family member they will receive an email inviting them to create an account and link your data to it. </i>
     <br>
@@ -36,7 +36,7 @@ import BasePage from '@/components/BasePage.vue';
 import FormInput from '@/components/FormInput.vue';
 import FormSwitch from '@/components/FormSwitch.vue';
 import store from '@/store';
-const { viewed_categories, user, connected_users } = store;
+const { view_sections, user, connected_users } = store;
 
 const addingUser = ref(false);
 const addedUser = ref('');

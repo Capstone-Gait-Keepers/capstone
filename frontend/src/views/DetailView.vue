@@ -3,15 +3,15 @@
     <div class="main">
       <h1>Breakdown</h1>
       <p>Dive into the measurements WalkWise has collected to learn how changes are determined.</p>
-      <span v-if="data !== null" v-for="metric_keys, header in metric_categories">
-        <div v-if="showSection(header)" :key="header" class="category" :id="header">
+      <span v-if="store.data !== null" v-for="metric_keys, header in metric_sections">
+        <div v-if="validSection(header)" :key="header" class="category" :id="header">
           <h2>{{ header }} Metrics</h2>
           <span v-for="key in metric_keys" :key="key">
-            <Accordion v-if="validData(data.metrics[key])" :header="metric_titles[key]" :startOpen="hash === header" class="metric">
+            <Accordion v-if="validMetric(key)" :header="metric_titles[key]" :startOpen="hash === header" class="metric">
               <p>{{ metric_descriptions[key] }}</p>
               <Plot
-                :x="data.dates"
-                :y="data.metrics[key]"
+                :x="store.data.dates"
+                :y="store.data.metrics[key]"
                 xlabel="Date"
                 :ylabel="metric_titles[key]"
                 plot_type="scatter"
@@ -28,24 +28,14 @@
 
 <script setup lang="ts">
 import { ListLoader } from 'vue-content-loader'
-import { ref, onMounted } from 'vue';
 
 import BasePage from '@/components/BasePage.vue';
 import Plot from '@/components/Plot.vue';
 import Accordion from '@/components/Accordion.vue';
-import type { Metrics } from '@/types';
-import { getMetrics } from '@/backend_interface';
-import store from '@/store';
+import store, { metric_sections, validMetric, validSection } from '@/store';
 
-const { viewed_categories } = store;
+
 const hash = window.location.hash.slice(1);
-
-const data = ref<Metrics | null>(null);
-const metric_categories: Record<string, string[]> = {
-  "Balance": ['var_coef', 'stga'],
-  "Neurodegenerative": ['phase_sync', 'cond_entropy', 'stga'],
-  "Dementia": ['stride_time', 'cadence', 'var_coef', 'stga'],
-};
 
 const metric_titles: Record<string, string> = {
   var_coef: 'Stride Time Coefficient of Variation',
@@ -66,30 +56,6 @@ const metric_descriptions: Record<string, string> = {
   "cadence": "Cadence is the rhythm or pace at which you walk or run, determined by how many steps you take per minute. It's like the beat of a song for your movement. Faster cadence means quicker steps, while slower cadence means slower steps.",
   // Measurements Collected: The number of measurements collected by the sensor each day. This can also be an indicator of daily activity.
 };
-
-onMounted(async () => {
-  data.value = await getMetrics();
-  if (data.value === null) {
-    console.error('Failed to get metrics');
-    return;
-  }
-});
-
-function showSection(section: string): boolean {
-  if (data.value?.metrics === undefined) {
-    return false;
-  }
-  const metrics = metric_categories[section];
-  const relevant_data = Array.from(metrics, (key) => data.value?.metrics[key]);
-  return viewed_categories[section] && relevant_data.some(validData);
-}
-
-function validData(data: number[] | undefined): boolean {
-  if (data === undefined) {
-    return false;
-  }
-  return data.some((val) => val !== null);
-}
 </script>
 
 <style scoped>
