@@ -35,7 +35,7 @@ import { ref } from 'vue';
 import BasePage from '@/components/BasePage.vue';
 import FormInput from '@/components/FormInput.vue';
 import FormSwitch from '@/components/FormSwitch.vue';
-import store from '@/store';
+import { store } from '@/store';
 const { view_sections, user, connected_users } = store;
 
 const addingUser = ref(false);

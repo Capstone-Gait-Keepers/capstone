@@ -4,8 +4,8 @@ import { RouterLink } from 'vue-router';
 import BasePage from '@/components/BasePage.vue';
 import ChangeAlert from '@/components/ChangeAlert.vue';
 import StatusIndicator from '@/components/StatusIndicator.vue';
-import store from '@/store';
-const { user, view_sections } = store;
+import { store, Section, validSection } from '@/store';
+const { user } = store;
 </script>
 
 <template>
@@ -14,63 +14,39 @@ const { user, view_sections } = store;
     <ChangeAlert metric_type="balance" />
     <h2>Welcome to your personal insights</h2>
     
-    <div class="metrics-row" v-if="view_sections.Balance">
+    <div class="metrics-row" v-if="validSection(Section.Balance)">
       <h3>Balance Metrics</h3>
       <div class="metrics-row-grid">
         <div>
           <p>WalkWise measures two metrics associated with balance.</p>
           <button><RouterLink to="/breakdown#Balance">View Breakdown</RouterLink></button>
         </div>
-        <div class="status-indicator">
-          <b>This Month</b>
-          <img src="@/assets/icon-thumbs-up.svg" />
-          <p>2 of 4 metrics showed positive changes compared with last month!</p>
-        </div>
-        <div class="status-indicator">
-          <b>This Year</b>
-          <img src="@/assets/icon-thumbs-up.svg" />
-          <p>2 of 4 metrics showed positive changes compared with last year!</p>
-        </div>
+        <StatusIndicator section="Balance" timespan="Month" />
+        <StatusIndicator section="Balance" timespan="Year" />
       </div>
     </div>
 
-    <div class="metrics-row" v-if="view_sections.Neurodegenerative">
+    <div class="metrics-row" v-if="validSection(Section.Neurodegenerative)">
       <h3>Neurodegenerative Metrics</h3>
       <div class="metrics-row-grid">
         <div>
           <p>WalkWise measures two metrics associated with neurodegenerative diseases.</p>
           <button><RouterLink to="/breakdown#Neurodegenerative">View Breakdown</RouterLink></button>
         </div>
-        <div class="status-indicator">
-          <b>This Month</b>
-          <div class="flat-bar"></div>
-          <p>No changes in neurodegenerative related metrics this month.</p>
-        </div>
-        <div class="status-indicator">
-          <b>This Year</b>
-          <img src="@/assets/icon-warning.svg" />
-          <p>There were negative changes in 2 of the 3 metrics related to neurodegenerative disease.</p>
-        </div>
+        <StatusIndicator section="Neurodegenerative" timespan="Month" />
+        <StatusIndicator section="Neurodegenerative" timespan="Year" />
       </div>
     </div>
 
-    <div class="metrics-row" v-if="view_sections.Dementia">
+    <div class="metrics-row" v-if="validSection(Section.Dementia)">
       <h3>Dementia Metrics</h3>
       <div class="metrics-row-grid">
         <div>
           <p>WalkWise measures 4 metrics associated with Dementia.</p>
           <button><RouterLink to="/breakdown#Dementia">View Breakdown</RouterLink></button>
         </div>
-        <div class="status-indicator">
-          <b>This Month</b>
-          <div class="flat-bar"></div>
-          <p>No changes in Dementia related metrics this month.</p>
-        </div>
-        <div class="status-indicator">
-          <b>This Year</b>
-          <div class="flat-bar"></div>
-          <p>No changes in Dementia related metrics compared with last year.</p>
-        </div>
+        <StatusIndicator section="Dementia" timespan="Month" />
+        <StatusIndicator section="Dementia" timespan="Year" />
       </div>
     </div>
 
@@ -129,26 +105,6 @@ h3 {
 
 button {
   margin: 1rem 0;
-}
-
-.flat-bar {
-  border-bottom: 4px solid var(--color-main);
-  width: 80px;
-  height: 0;
-  margin: 1rem 0;
-}
-
-.status-indicator {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 1rem;
-  padding: 0 2rem;
-}
-
-.status-indicator img {
-  width: 4em;
-  height: 4em;
 }
 
 .measurement-info {

@@ -32,7 +32,7 @@ import { ListLoader } from 'vue-content-loader'
 import BasePage from '@/components/BasePage.vue';
 import Plot from '@/components/Plot.vue';
 import Accordion from '@/components/Accordion.vue';
-import store, { metric_sections, validMetric, validSection } from '@/store';
+import { store, metric_sections, validMetric, validSection } from '@/store';
 
 
 const hash = window.location.hash.slice(1);

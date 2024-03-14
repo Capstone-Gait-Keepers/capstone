@@ -2,7 +2,13 @@ import { reactive } from 'vue'
 import type { Metrics, User } from '@/types'
 import { getMetrics } from '@/backend_interface';
 
-const store = reactive<{
+export enum Section {
+  Balance = 'Balance',
+  Neurodegenerative = 'Neurodegenerative',
+  Dementia = 'Dementia',
+}
+
+export const store = reactive<{
   user: User | null;
   connected_users: string[];
   view_sections: Record<string, boolean>;
@@ -16,20 +22,20 @@ const store = reactive<{
   }, // TODO: Default should be null
   connected_users: ['dan@raymond.ch'],
   view_sections: {
-    Balance: true,
-    Neurodegenerative: true,
-    Dementia: true,
+    "Balance": true,
+    "Neurodegenerative": true,
+    "Dementia": true,
   },
   data: null,
 });
 
-export const metric_sections: Record<string, string[]> = {
+export const metric_sections: Record<Section, string[]> = {
   "Balance": ['var_coef', 'stga'],
   "Neurodegenerative": ['phase_sync', 'cond_entropy', 'stga'],
   "Dementia": ['stride_time', 'cadence', 'var_coef', 'stga'],
 };
 
-export function validSection(section: string): boolean {
+export function validSection(section: Section): boolean {
   if (store.data?.metrics === undefined) {
     return false;
   }
@@ -54,5 +60,3 @@ export const fetchData = async () => {
       console.error('Failed to get metrics');
   }
 }
-
-export default store;
