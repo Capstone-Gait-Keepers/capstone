@@ -4,10 +4,10 @@
       <h1>Breakdown</h1>
       <p>Dive into the measurements WalkWise has collected to learn how changes are determined.</p>
       <span v-if="data !== null" v-for="metric_keys, header in metric_categories">
-        <div v-if="showSection(header)" :key="header" class="category">
+        <div v-if="showSection(header)" :key="header" class="category" :id="header">
           <h2>{{ header }} Metrics</h2>
           <span v-for="key in metric_keys" :key="key">
-            <Accordion v-if="validData(data.metrics[key])" :header="metric_titles[key]" class="metric">
+            <Accordion v-if="validData(data.metrics[key])" :header="metric_titles[key]" :startOpen="hash === header" class="metric">
               <p>{{ metric_descriptions[key] }}</p>
               <Plot
                 :x="data.dates"
@@ -27,16 +27,18 @@
 
 
 <script setup lang="ts">
+import { ListLoader } from 'vue-content-loader'
+import { ref, onMounted } from 'vue';
+
 import BasePage from '@/components/BasePage.vue';
 import Plot from '@/components/Plot.vue';
 import Accordion from '@/components/Accordion.vue';
-import { ref, onMounted } from 'vue';
 import type { Metrics } from '@/types';
 import { getMetrics } from '@/backend_interface';
 import store from '@/store';
-const { viewed_categories } = store;
-import { ListLoader } from 'vue-content-loader'
 
+const { viewed_categories } = store;
+const hash = window.location.hash.slice(1);
 
 const data = ref<Metrics | null>(null);
 const metric_categories: Record<string, string[]> = {
@@ -91,6 +93,10 @@ function validData(data: number[] | undefined): boolean {
 </script>
 
 <style scoped>
+.main {
+  margin-bottom: 8rem;
+}
+
 .main h1 {
   margin-bottom: 1rem;
 }

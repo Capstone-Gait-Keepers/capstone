@@ -17,7 +17,7 @@ const { user, viewed_categories } = store;
       <div class="metrics-row-grid">
         <div>
           <p>WalkWise measures two metrics associated with balance.</p>
-          <button><RouterLink to="/breakdown#dementia">View Breakdown</RouterLink></button>
+          <button><RouterLink to="/breakdown#Balance">View Breakdown</RouterLink></button>
         </div>
         <div class="status-indicator">
           <p>This Month</p>
@@ -37,7 +37,7 @@ const { user, viewed_categories } = store;
       <div class="metrics-row-grid">
         <div>
           <p>WalkWise measures two metrics associated with neurodegenerative diseases.</p>
-          <button><RouterLink to="/breakdown#neurodegenerative">View Breakdown</RouterLink></button>
+          <button><RouterLink to="/breakdown#Neurodegenerative">View Breakdown</RouterLink></button>
         </div>
         <div class="status-indicator">
           <p>This Month</p>
@@ -57,7 +57,7 @@ const { user, viewed_categories } = store;
       <div class="metrics-row-grid">
         <div>
           <p>WalkWise measures 4 metrics associated with Dementia.</p>
-          <button><RouterLink to="/breakdown#dementia">View Breakdown</RouterLink></button>
+          <button><RouterLink to="/breakdown#Dementia">View Breakdown</RouterLink></button>
         </div>
         <div class="status-indicator">
           <p>This Month</p>

@@ -22,8 +22,8 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 
-const { header } = defineProps<{header?: string}>();
-const isOpen = ref(false);
+const { header, startOpen } = defineProps<{header?: string, startOpen?: boolean}>();
+const isOpen = ref(startOpen);
 
 function start(el: any) {
   el.style.height = el.scrollHeight + "px";
