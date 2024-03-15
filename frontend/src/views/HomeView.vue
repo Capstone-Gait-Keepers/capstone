@@ -30,7 +30,7 @@ const { user } = store;
       <h3>Neurodegenerative Metrics</h3>
       <div class="metrics-row-grid">
         <div>
-          <p>WalkWise measures two metrics associated with neurodegenerative diseases.</p>
+          <p>WalkWise measures three metrics associated with neurodegenerative diseases.</p>
           <button><RouterLink to="/breakdown#Neurodegenerative">View Breakdown</RouterLink></button>
         </div>
         <StatusIndicator :section="Section.Neurodegenerative" timespan="Month" />
@@ -42,7 +42,7 @@ const { user } = store;
       <h3>Dementia Metrics</h3>
       <div class="metrics-row-grid">
         <div>
-          <p>WalkWise measures 4 metrics associated with Dementia.</p>
+          <p>WalkWise measures four metrics associated with Dementia.</p>
           <button><RouterLink to="/breakdown#Dementia">View Breakdown</RouterLink></button>
         </div>
         <StatusIndicator :section="Section.Dementia" timespan="Month" />

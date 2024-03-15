@@ -4,7 +4,16 @@
     <img v-if="status === Status.Good" src="@/assets/icon-thumbs-up.svg" />
     <div v-else-if="status === Status.Neutral" class="flat-bar"></div>
     <img v-else-if="status === Status.Bad" src="@/assets/icon-warning.svg" />
-    <p>2 of 4 metrics showed positive changes compared with last month!</p>
+    <p v-if="status === Status.Good">
+      {{ Object.values(metric_changes).filter(a => a === Status.Good).length }} of {{ metrics.length }} metrics showed positive changes compared with last {{ timespan }}!
+    </p>
+    <p v-else-if="status === Status.Neutral">
+      No changes in {{ section }} related metrics this month.
+    </p>
+    <p v-else-if="status === Status.Bad">
+      There were negative changes in {{ Object.values(metric_changes).filter(a => a === Status.Bad).length }}
+      of the {{ metrics.length }} metrics related to {{ section }} this month.
+    </p>
   </div>
 </template>
 
@@ -23,6 +32,7 @@ let status: Status | null = null;
 
 const metrics = metric_sections[section];
 const metric_changes: Record<string, Status> = {};
+
 function getMetricStatus(metric_values: number[]): Status {
   if (metric_values.length === 0) return Status.Neutral;
   const change = metric_values[metric_values.length - 1] - metric_values[0];
