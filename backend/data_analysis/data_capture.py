@@ -122,7 +122,7 @@ def sweep_dual_tests(envs: List[RecordingEnvironment], accel_rate=100, piezo_rat
 if __name__ == "__main__":
     env = RecordingEnvironment(
         location='Aarons Studio',
-        fs=100, # Ignored
+        fs=500, # Ignored
         floor='cork',
         obstacle_radius=0,
         wall_radius=0,
@@ -134,26 +134,4 @@ if __name__ == "__main__":
         quality='normal'
     )
 
-    start_dists = [
-        2.090840061,
-        2.199119678,
-        2.342316938,
-        2.514473305,
-        2.710075541,
-        2.924422842,
-        3.153695382,
-        3.394870578,
-        3.645586921,
-        3.904006639,
-        4.168697370,
-        4.438537345,
-        4.712642129,
-    ]
-    paths = [WalkPath(d, d, 4) for d in start_dists]
-    qualities = [
-        'normal',
-        'pause',
-        'turn',
-        'chaotic',
-    ]
-    sweep_dual_tests(permute_envs(env, path=paths, quality=qualities))
+    record_single_test(env, port='/dev/cu.usbserial-0001').plot() # , filename='test'
