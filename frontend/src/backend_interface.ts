@@ -52,14 +52,14 @@ export async function getMetrics(startDate: string | null = null, endDate: strin
     console.error("User not logged in.");
     return null;
   }
-  // const resp = await queryBackend<Record<string, any>>("/api/get_metrics/" + email);
-  // if (!resp) {
-  //   return null;
-  // }
-  // const dates = resp['dates'];
-  // const metrics = {...resp};
-  // delete metrics['dates'];
-  // return { dates, metrics } as Metrics;
+  const resp = await queryBackend<Record<string, any>>("/api/get_metrics/" + email);
+  if (!resp) {
+    return null;
+  }
+  const dates = resp['recording_id'];
+  const metrics = {...resp};
+  delete metrics['recording_id'];
+  return { dates, metrics } as Metrics;
   return {
     dates: ["2020-04-01", "2021-01-02", "2021-01-03", "2021-01-04", "2021-01-05"],
     metrics: {
