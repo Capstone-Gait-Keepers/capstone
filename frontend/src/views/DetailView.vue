@@ -10,8 +10,8 @@
             <Accordion v-if="validMetric(key)" :header="metric_titles[key]" :startOpen="hash === header" class="metric">
               <p>{{ metric_descriptions[key] }}</p>
               <InteractivePlot
-                :x="store.data.dates"
-                :y="store.data.metrics[key]"
+                :x="cleanedDates(key)"
+                :y="cleanedMetric(key)"
                 xlabel="Date"
                 :ylabel="metric_titles[key]"
                 plot_type="scatter"
@@ -56,6 +56,19 @@ const metric_descriptions: Record<string, string> = {
   "cadence": "Cadence is the rhythm or pace at which you walk or run, determined by how many steps you take per minute. It's like the beat of a song for your movement. Faster cadence means quicker steps, while slower cadence means slower steps.",
   // Measurements Collected: The number of measurements collected by the sensor each day. This can also be an indicator of daily activity.
 };
+
+function cleanedMetric(metric: string) {
+  return store.data?.metrics[metric].filter((x: number) => x !== null) || [];
+}
+
+function cleanedDates(metric: string) {
+  // Drop dates where the metric data is null
+  const metricData = store.data?.metrics[metric];
+  if (metricData === undefined) {
+    return [];
+  }
+  return store.data?.dates.filter((_, i) => metricData[i] !== null) || [];
+}
 </script>
 
 <style scoped>

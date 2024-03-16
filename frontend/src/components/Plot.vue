@@ -57,20 +57,21 @@ const layout = {
 };
 const config = {displayModeBar: false, responsive: true};
 
-onMounted(() => {
-  const data = [{
-    x: props.x,
-    y: props.y,
+function getTrace(x, y) {
+  return {
+    x, y,
     type: props.plot_type,
     mode: 'lines+markers',
     line: { shape: 'spline' },
-  }];
-  Plotly.newPlot(_id, data, layout, config);
+  };
+}
+
+onMounted(() => {
+  Plotly.newPlot(_id, [getTrace(props.x, props.y)], layout, config);
 });
 
 watch([() => props.x, () => props.y], (newV, oldV) => {
   const [x, y] = newV;
-  const data = [{x, y, type: props.plot_type}];
-  Plotly.newPlot(_id, data, layout, config);
+  Plotly.newPlot(_id, [getTrace(x, y)], layout, config);
 });
 </script>

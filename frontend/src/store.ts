@@ -54,7 +54,6 @@ export function validMetric(metric: string): boolean {
 export const fetchData = async () => {
   if (store.data === null) {
     const resp = await getMetrics();
-    console.log(resp);
     if (resp !== null)
       store.data = resp;
     else
