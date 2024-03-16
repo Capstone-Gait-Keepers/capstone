@@ -7,7 +7,7 @@ from data_types import Metrics
 np.random.seed(0)
 
 
-def get_timestamps(count: int, cadence=1, var=0.1) -> np.array:
+def get_timestamps(count: int, cadence=1, var=0.05) -> np.array:
     return np.arange(0, count, cadence) + np.random.normal(0, var, count)
 
 
@@ -21,6 +21,7 @@ def generate_metrics(days: int, current_date: Optional[datetime]=None) -> Metric
     step_counts = [round(1 + np.random.random() * 5) for _ in range(days)]
     metrics = sum([Metrics([get_timestamps(count)]) for count in step_counts])
     metrics.set_index(date_range)
+    metrics._df = metrics._df[metrics._df['step_count'] > 2]
     return metrics
 
 

@@ -43,6 +43,8 @@ function getMetricStatus(metric_values: number[]): Status {
 
 if (data !== null) {
   for (const metric of metrics) {
+    console.log(metric, data.metrics[metric]);
+    if (!data.metrics[metric]) continue;
     const values = data.metrics[metric];
     const values_in_period = values.slice(datesBackIndex(timespan === "Month" ? 30 : 365));
     metric_changes[metric] = getMetricStatus(values_in_period);

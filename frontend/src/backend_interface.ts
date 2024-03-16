@@ -64,9 +64,9 @@ export async function getMetrics(startDate: string | null = null, endDate: strin
     dates: ["2020-04-01", "2021-01-02", "2021-01-03", "2021-01-04", "2021-01-05"],
     metrics: {
       "var_coef": [0.1, 0.1, 0.12, 0.1, 0.1],
-      "stga": [0.1, 0.2, 0.3, 0.4, 0.1],
+      "STGA": [0.1, 0.2, 0.3, 0.4, 0.1],
       "phase_sync": [0.1, 0.2, 0.3, 0.4, 0.5],
-      "cond_entropy": [0.1, 0.2, 0.3, 0.4, 0.5],
+      "conditional_entropy": [0.1, 0.2, 0.3, 0.4, 0.5],
       "stride_time": [0.1, 0.2, 0.3, 0.4, 0.5],
       "cadence": [0.5, 0.1, 0.2, 0.2, 0.1],
     }
