@@ -3,7 +3,7 @@
 #include <ESP8266HTTPClient.h>
 #include <WiFiClientSecureBearSSL.h>
 
-// #define LOCAL_DEBUG
+#define LOCAL_DEBUG
 #define DEFAULT_ATTEMPTS 3
 
 // Replace with your network credentials
@@ -39,11 +39,11 @@ bool initialize_wifi() {
     }
 }
 
-void send_data(String post_data) {
+void send_data(String* post_data) {
     send_data(post_data, DEFAULT_ATTEMPTS);
 }
 
-void send_data(String post_data, uint8_t max_attempts) {
+void send_data(String* post_data, uint8_t max_attempts) {
     int httpCode = _send_data(post_data);
     uint8_t attempts = 1;
     while (is_bad_http_code(httpCode) && attempts < max_attempts) {
@@ -58,16 +58,14 @@ void send_data(String post_data, uint8_t max_attempts) {
 }
 
 // Create function to send data to backend server
+int _send_data(String* post_data) {
 #ifdef LOCAL_DEBUG
-int _send_data(String post_data) {
     Serial.println("BEGIN_TRANSMISSION");
     Serial.println("http://127.0.0.1:5000/api/send_recording");
-    Serial.println(post_data);
+    Serial.println(*post_data);
     // TODO: Check response from host
     return 200;
-}
 #else
-int _send_data(String post_data) {
     int httpCode = -12;
     if (T1C != 0) {
         Serial.println("ERROR: INTERRUPT WAS NOT DISABLED");
@@ -93,8 +91,8 @@ int _send_data(String post_data) {
       sos_mode();
     }
     return httpCode;
-}
 #endif
+}
 
 bool is_bad_http_code(int httpCode) {
     return httpCode < 200 || 300 <= httpCode;

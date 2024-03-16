@@ -17,15 +17,15 @@
 ESP8266Timer i_timer;  // Hardware Timer
 
 #define PIEZO_PIN A0 // A0 (ADC0)
-#define SAMPLE_RATE 100 // Hz
+#define SAMPLE_RATE 500 // Hz
 #define MICROSECONDS 1000000 // Microseconds in a second
 
 #define USER_ID 821094 // User ID for this device
 
 #define INTERRUPT_INTERVAL_US (1000000/SAMPLE_RATE) // Interval between samples in microseconds
-#define START_BUFFER_TIME 1 // Size of buffer to store acceleration data prior to first step (in seconds)
+#define START_BUFFER_TIME 0.1 // Size of buffer to store acceleration data prior to first step (in seconds)
 #define END_BUFFER_TIME 2 // Size of buffer to store acceleration data after last step (in seconds)
-#define START_BUFFER_SAMPLES START_BUFFER_TIME * SAMPLE_RATE  // In samples
+#define START_BUFFER_SAMPLES int(START_BUFFER_TIME * SAMPLE_RATE)  // In samples
 #define END_BUFFER_SAMPLES END_BUFFER_TIME * SAMPLE_RATE // Number of bad samples to save before stopping saving data
 #define CALIBRATION_TIME 2 // Time to run calibration for (in seconds)
 
@@ -73,6 +73,9 @@ void save_circular_buffer() {
 }
 void save_sample(float accel_z) {
   post_data += String(accel_z) + ",";
+  if (post_data.length() % 1000 < 10) {
+    Serial.println(post_data.length());
+  }
 }
 
 void stop_saving_samples() {
@@ -111,12 +114,14 @@ void running_mode() {
         i_timer.disableTimer();
         led_off();
         // remove last comma if it exists
-        if (post_data.endsWith(",")) {
-          post_data = post_data.substring(0, post_data.length() - 1);
-        }
-        String json = "{\"sensorid\":\"" + String(USER_ID) + "\",\"ts_data\":[" + post_data + "]}";
-        Serial.println(json);
-        send_data(json);
+        Serial.println("Length of post_data: " + String(post_data.length()));
+        // if (post_data.endsWith(",")) {
+        //   post_data = post_data.substring(0, post_data.length() - 1); // 2nd, try to figure this part out without making a new variable (only append/make changes to save memory)
+        // }
+        Serial.println("Length of post_data: " + String(post_data.length()));
+        String json = "{\"sensorid\":\"" + String(USER_ID) + "\",\"ts_data\":[" + post_data + "]}"; // first address this by adding the first part of json format when string is initialized
+        Serial.println("Length of json: " + String(json.length()));
+        send_data(&json);
         post_data_ready = false;
         post_data = "";
         i_timer.enableTimer();

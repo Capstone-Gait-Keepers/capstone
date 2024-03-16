@@ -3,6 +3,7 @@ import requests
 import time
 from json import loads
 import json
+from data_analysis.data_types import Recording
 
 START_SIGNAL = b'BEGIN_TRANSMISSION'
 
@@ -20,8 +21,16 @@ def serial_bridge(serial_port='/dev/cu.usbserial-0001', baud_rate=115200):
                 time.sleep(0.05)
             line = b''
             url = ser.readline().decode().strip()
-            json_ts_data = json.loads(ser.readline().strip())['ts_data']
-            print(f"URL: {url}\nJSON: {json_ts_data}")
+            print(f"URL: {url}")
+            data_test = ser.readline().strip()
+            print(f"Data: {data_test}")
+            json_ts_data = json.loads(data_test)['ts_data']
+            print(f"JSON: {json_ts_data}")
+
+            # plot the data
+            # json_ts_data.Recording.plot()
+            Recording.from_real_data(fs=500, data=json_ts_data).plot()
+            
             # TODO: Validate JSON and url
             # resp = requests.post(url, json=json_ts_data)
             # print(f"{resp.status_code}: {resp.text}")
