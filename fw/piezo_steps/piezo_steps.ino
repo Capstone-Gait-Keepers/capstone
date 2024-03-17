@@ -66,6 +66,7 @@ void update_circular_buffer(float accel_z) {
 
 void save_circular_buffer() {
   Serial.println("Begin saving data");
+  post_data += "{\"sensorid\":\"" + String(USER_ID) + "\",\"ts_data\":[";
   for (int i = start_buffer_index; i < start_buffer_index + START_BUFFER_SAMPLES; i++) {
       post_data += String(sensor_data_buffer[i % START_BUFFER_SAMPLES]) + ",";
   }
@@ -74,7 +75,7 @@ void save_circular_buffer() {
 void save_sample(float accel_z) {
   post_data += String(accel_z) + ",";
   if (post_data.length() % 1000 < 10) {
-    Serial.println(post_data.length());
+    Serial.println(post_data.length()); // debugging
   }
 }
 
@@ -115,13 +116,15 @@ void running_mode() {
         led_off();
         // remove last comma if it exists
         Serial.println("Length of post_data: " + String(post_data.length()));
-        // if (post_data.endsWith(",")) {
-        //   post_data = post_data.substring(0, post_data.length() - 1); // 2nd, try to figure this part out without making a new variable (only append/make changes to save memory)
-        // }
+        if (post_data.endsWith(",")) {
+          post_data.remove(post_data.length() - 1);
+          // post_data = post_data.substring(0, post_data.length() - 1); // 2nd, try to figure this part out without making a new variable (only append/make changes to save memory)
+        }
+        post_data += "]}";  // add the end of the json format
         Serial.println("Length of post_data: " + String(post_data.length()));
-        String json = "{\"sensorid\":\"" + String(USER_ID) + "\",\"ts_data\":[" + post_data + "]}"; // first address this by adding the first part of json format when string is initialized
-        Serial.println("Length of json: " + String(json.length()));
-        send_data(&json);
+        // String json = "{\"sensorid\":\"" + String(USER_ID) + "\",\"ts_data\":[" + post_data + "]}"; // first address this by adding the first part of json format when string is initialized
+        Serial.println("Length of json: " + String(post_data.length()));
+        send_data(&post_data);
         post_data_ready = false;
         post_data = "";
         i_timer.enableTimer();
