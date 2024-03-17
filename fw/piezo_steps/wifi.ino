@@ -62,7 +62,6 @@ int _send_data(String* post_data) {
 #ifdef LOCAL_DEBUG
     Serial.println("BEGIN_TRANSMISSION");
     Serial.println("http://127.0.0.1:5000/api/send_recording");
-    // Serial.println(*post_data); // this prints blank with large string due to Serial limitation
     // print long string in chunks to avoid Serial limitation
     for (int i = 0; i < post_data->length(); i += 1000) {
         Serial.print(post_data->substring(i, i + 1000));
@@ -87,7 +86,7 @@ int _send_data(String* post_data) {
     if (https.begin(*client, "https://capstone-backend-f6qu.onrender.com/api/send_recording")) {
         delay(1000); // See if this prevents the problem with connection refused and deep sleep
         https.addHeader("Content-Type", "application/json");
-        httpCode = https.POST(post_data);
+        httpCode = https.POST(*post_data);
         String payload = https.getString();
         https.end();
 
