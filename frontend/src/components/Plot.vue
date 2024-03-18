@@ -25,6 +25,11 @@ function uuidv4() {
 }
 const _id = uuidv4();
 
+const maxY = Math.max(...props.y);
+const rangeMax = Math.max(1, maxY + 0.1);
+const minY = Math.min(...props.y);
+const rangeMin = Math.min(0, minY - 0.1);
+
 const layout = {
   title: props.title,
   margin: {r: 0, t: 0},
@@ -40,6 +45,7 @@ const layout = {
     }
   },
   yaxis: {
+    range: [rangeMin, rangeMax],
     title: {
       text: props.ylabel,
       font: {
@@ -51,14 +57,21 @@ const layout = {
 };
 const config = {displayModeBar: false, responsive: true};
 
+function getTrace(x, y) {
+  return {
+    x, y,
+    type: props.plot_type,
+    mode: 'lines+markers',
+    line: { shape: 'spline' },
+  };
+}
+
 onMounted(() => {
-  const data = [{x: props.x, y: props.y, type: props.plot_type}];
-  Plotly.newPlot(_id, data, layout, config);
+  Plotly.newPlot(_id, [getTrace(props.x, props.y)], layout, config);
 });
 
 watch([() => props.x, () => props.y], (newV, oldV) => {
   const [x, y] = newV;
-  const data = [{x, y, type: props.plot_type}];
-  Plotly.newPlot(_id, data, layout, config);
+  Plotly.newPlot(_id, [getTrace(x, y)], layout, config);
 });
 </script>

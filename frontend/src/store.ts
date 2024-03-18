@@ -30,9 +30,9 @@ export const store = reactive<{
 });
 
 export const metric_sections: Record<Section, string[]> = {
-  "Balance": ['var_coef', 'stga'],
-  "Neurodegenerative": ['phase_sync', 'cond_entropy', 'stga'],
-  "Dementia": ['stride_time', 'cadence', 'var_coef', 'stga'],
+  "Balance": ['var_coef', 'STGA'],
+  "Neurodegenerative": ['phase_sync', 'conditional_entropy', 'STGA'],
+  "Dementia": ['stride_time', 'cadence', 'var_coef', 'STGA'],
 };
 
 export function validSection(section: Section): boolean {

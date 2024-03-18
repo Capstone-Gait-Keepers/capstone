@@ -10,8 +10,8 @@
             <Accordion v-if="validMetric(key)" :header="metric_titles[key]" :startOpen="hash === header" class="metric">
               <p>{{ metric_descriptions[key] }}</p>
               <InteractivePlot
-                :x="store.data.dates"
-                :y="store.data.metrics[key]"
+                :x="cleanedDates(key)"
+                :y="cleanedMetric(key)"
                 xlabel="Date"
                 :ylabel="metric_titles[key]"
                 plot_type="scatter"
@@ -39,9 +39,9 @@ const hash = window.location.hash.slice(1);
 
 const metric_titles: Record<string, string> = {
   var_coef: 'Stride Time Coefficient of Variation',
-  stga: 'Stride Time Gait Asymmetry',
+  STGA: 'Stride Time Gait Asymmetry',
   phase_sync: 'Stride Time Phase Synchronization',
-  cond_entropy: 'Stride Time Conditional Entropy',
+  conditional_entropy: 'Stride Time Conditional Entropy',
   stride_time: 'Stride Time',
   cadence: 'Cadence',
   // Measurements: 'Measurements Collected',
@@ -49,13 +49,26 @@ const metric_titles: Record<string, string> = {
 
 const metric_descriptions: Record<string, string> = {
   "var_coef": "The Stride Time Coefficient of Variation measures the consistency of step timing during walking. A low coefficient indicates consistent step timing, while a high coefficient suggests variability. It helps assess how regular or irregular someone's walking pattern is, which can indicate potential issues with movement or stability.",
-  "stga": "Stride Time Gait Asymmetry refers to differences in the timing of steps between the left and right legs during walking. It highlights imbalance or irregularity in step timing. Detecting such asymmetry helps assess gait health and identify potential issues affecting movement coordination or stability.",
+  "STGA": "Stride Time Gait Asymmetry refers to differences in the timing of steps between the left and right legs during walking. It highlights imbalance or irregularity in step timing. Detecting such asymmetry helps assess gait health and identify potential issues affecting movement coordination or stability.",
   "phase_sync": "Stride Time Phase Synchronisation examines how well steps align in time during walking. When steps are synchronized, people walk smoothly. Desynchronization may indicate instability or irregular gait. It helps understand coordination and detect abnormalities in movement patterns.",
-  "cond_entropy": "Stride time conditional entropy measures the consistency or unpredictability of step timing during walking or running. Low entropy indicates consistent timing, while high entropy suggests variability. It helps assess gait stability and detect potential movement abnormalities.",
+  "conditional_entropy": "Stride time conditional entropy measures the consistency or unpredictability of step timing during walking or running. Low entropy indicates consistent timing, while high entropy suggests variability. It helps assess gait stability and detect potential movement abnormalities.",
   "stride_time": "Stride time refers to the time it takes to complete one full step while walking or running. It's the duration from when your foot touches the ground to when it touches the ground again. Monitoring stride time helps understand the rhythm and pace of movement.",
   "cadence": "Cadence is the rhythm or pace at which you walk or run, determined by how many steps you take per minute. It's like the beat of a song for your movement. Faster cadence means quicker steps, while slower cadence means slower steps.",
   // Measurements Collected: The number of measurements collected by the sensor each day. This can also be an indicator of daily activity.
 };
+
+function cleanedMetric(metric: string) {
+  return store.data?.metrics[metric].filter((x: number) => x !== null) || [];
+}
+
+function cleanedDates(metric: string) {
+  // Drop dates where the metric data is null
+  const metricData = store.data?.metrics[metric];
+  if (metricData === undefined) {
+    return [];
+  }
+  return store.data?.dates.filter((_, i) => metricData[i] !== null) || [];
+}
 </script>
 
 <style scoped>

@@ -38,7 +38,16 @@ def plot_recording(recording_id: int):
 
 
 @endpoints.route('/api/get_metrics/<email>')
-def get_metrics(email: str):
+def get_metrics(email: str, fake=True):
+    if fake:
+        from data_analysis.generate_dummies import generate_metrics
+        df = generate_metrics(days=60).by_recordings()
+        df = df.replace(np.nan, None)
+        df.reset_index(inplace=True, drop=False)
+        print(df)
+        response = jsonify(df.to_dict('list'))
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        return response
     try:
         # fs from NewSensor
         # ts_data, date, sensorid from recordings
@@ -59,6 +68,7 @@ def get_metrics(email: str):
         metrics = analysis_controller.get_metrics(datasets)[0]
         df = metrics.by_recordings()
         df = df.replace(np.nan, None)
+        df.reset_index(inplace=True, drop=False)
         print(df)
         response = jsonify(df.to_dict('list'))
         print(response)
