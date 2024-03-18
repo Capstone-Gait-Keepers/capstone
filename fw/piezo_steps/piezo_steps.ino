@@ -23,7 +23,7 @@ ESP8266Timer i_timer;  // Hardware Timer
 #define USER_ID 821094 // User ID for this device
 
 #define INTERRUPT_INTERVAL_US (1000000/SAMPLE_RATE) // Interval between samples in microseconds
-#define START_BUFFER_TIME 0.1 // Size of buffer to store acceleration data prior to first step (in seconds)
+#define START_BUFFER_TIME 0.5 // Size of buffer to store acceleration data prior to first step (in seconds)
 #define END_BUFFER_TIME 2 // Size of buffer to store acceleration data after last step (in seconds)
 #define START_BUFFER_SAMPLES int(START_BUFFER_TIME * SAMPLE_RATE)  // In samples
 #define END_BUFFER_SAMPLES END_BUFFER_TIME * SAMPLE_RATE // Number of bad samples to save before stopping saving data

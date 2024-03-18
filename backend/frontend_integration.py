@@ -44,7 +44,7 @@ def get_metrics(email: str, fake=True):
         days = 90
         asymmetry = decay(days, 0, 0.5)
         cadence = decay(days, 2, 1)
-        df = generate_metrics(days=days, cadence=cadence, asymmetry=asymmetry).by_recordings(smooth_window=7)
+        df = generate_metrics(days=days, cadence=cadence, asymmetry=asymmetry).by_tag(smooth_window=7)
         df = df.replace(np.nan, None)
         df.reset_index(inplace=True, drop=False)
         print(df)
@@ -69,7 +69,7 @@ def get_metrics(email: str, fake=True):
         analysis_controller = AnalysisController(fs=sensor.fs, noise_amp=0.05)
 
         metrics = analysis_controller.get_metrics(datasets)[0]
-        df = metrics.by_recordings()
+        df = metrics.by_tag()
         df = df.replace(np.nan, None)
         df.reset_index(inplace=True, drop=False)
         print(df)

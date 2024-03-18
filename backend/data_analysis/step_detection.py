@@ -140,7 +140,6 @@ class TimeSeriesProcessor:
         intervals = TimeSeriesProcessor.rolling_window(a, window_size, stride)
         if ignore_dc:
             intervals -= np.mean(intervals, axis=1, keepdims=True)
-        # TODO: Better condition for tapering?
         if stride < window_size:
             tapering_window = np.vstack([np.blackman(window_size)] * len(intervals))
             intervals *= tapering_window
@@ -242,7 +241,7 @@ class StepDetector(TimeSeriesProcessor):
             raise ValueError(f"Length of freq_weights ({len(freq_weights)}) must match the window duration ({window_duration})")
         self._noise = self.get_energy(noise_profile)
 
-    def get_step_groups(self, ts: np.ndarray, plot=False, truth=None, plot_title=None) -> List[np.ndarray]:
+    def get_step_groups(self, ts: np.ndarray, plot=False, truth=None, plot_table=None, plot_title=None) -> List[np.ndarray]:
         """
         Analyzes time series and returns a list of step groups
         """
@@ -254,7 +253,7 @@ class StepDetector(TimeSeriesProcessor):
         if np.all(ts == 0):
             self.logger.debug("Time series is all zeros, ignoring")
             return []
-        steps, uncertain_steps = self._find_steps(ts, plot, truth, plot_title)
+        steps, uncertain_steps = self._find_steps(ts, plot, truth, plot_table, plot_title)
         self.logger.debug(f"Found {len(steps)} confirmed steps and {len(uncertain_steps)} uncertain steps")
         if len(steps) > 1: # We need at least two confirmed steps to do anything
             step_groups = self._resolve_step_sections(steps, uncertain_steps)
@@ -262,7 +261,6 @@ class StepDetector(TimeSeriesProcessor):
             if len(step_groups):
                 step_groups = self._enforce_min_step_delta(step_groups)
                 step_groups = self._enforce_max_step_delta(step_groups)
-            # TODO: Set hard bounds on metrics?
             return step_groups
         return []
 
@@ -272,7 +270,7 @@ class StepDetector(TimeSeriesProcessor):
     def get_window_fft_freqs(self) -> np.ndarray:
         return super().get_window_fft_freqs(self._window_duration)
 
-    def _find_steps(self, vibes: np.ndarray, plot=False, truth=None, plot_title=None) -> Tuple[np.ndarray, np.ndarray]:
+    def _find_steps(self, vibes: np.ndarray, plot=False, truth=None, plot_table=None, plot_title=None) -> Tuple[np.ndarray, np.ndarray]:
         """
         Counts the number of steps in a time series of accelerometer data. This function should not use
         anything from `data.events` except for plotting purposes. This is because it is meant to mimic
@@ -286,6 +284,10 @@ class StepDetector(TimeSeriesProcessor):
             Whether or not to plot the results
         truth: Optional[List[float]]
             Source of truth for the steps. Only used for plotting
+        plot_table: Optional[pd.DataFrame]
+            Table to plot as an optional fourth row
+        plot_title: Optional[str]
+            Title to use for the plot
         """
         # Time series processing
         timestamps = np.linspace(0, len(vibes) / self.fs, len(vibes))
@@ -311,10 +313,15 @@ class StepDetector(TimeSeriesProcessor):
         uncertain_indices = np.setdiff1d(uncertain_indices, confirmed_indices)    
         confirmed_stamps = timestamps[confirmed_indices]
         uncertain_stamps = timestamps[uncertain_indices]
-        # TODO: Find start of step within confirmed window?
         if plot:
             titles = ("Raw Timeseries", "Scrolling FFT", "Average Energy")
-            fig = make_subplots(rows=3, cols=1, shared_xaxes=True, subplot_titles=titles)
+            fig = make_subplots(
+                rows=3 if plot_table is None else 4,
+                cols=1,
+                shared_xaxes=True,
+                subplot_titles=titles,
+                specs=[[{'type': 'xy'}], [{'type': 'xy'}], [{'type': 'xy'}], [{'type': 'table'}]] if plot_table is not None else None
+            )
             if plot_title is not None:
                 fig.update_layout(title=plot_title, showlegend=False)
             fig.add_scatter(x=timestamps, y=vibes, name='vibes', row=1, col=1)
@@ -339,7 +346,8 @@ class StepDetector(TimeSeriesProcessor):
             for uncertain in uncertain_stamps:
                 fig.add_vline(x=uncertain, line_dash="dot", row=1, col=1)
                 fig.add_annotation(x=uncertain, y=DC - offset, xshift=-10, text="U", showarrow=False, row=1, col=1)
-            # fig.write_html("normal_detection.html")
+            if plot_table is not None:
+                fig.add_table(header=dict(values=plot_table.columns), cells=dict(values=plot_table.values.T), row=4, col=1)
             fig.show()
         if self._min_signal is not None and max_sig < self._min_signal:
             return [], []

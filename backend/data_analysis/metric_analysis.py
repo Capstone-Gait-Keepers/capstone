@@ -302,24 +302,26 @@ class AnalysisController:
         varied_vars = {key: value for key, value in env_vars.items() if len(value) > 1}
         return varied_vars
     
-    def get_recording_metrics(self, data: Recording, plot=False):
+    def get_recording_metrics(self, data: Recording, plot=False, plot_with_metrics=False):
         """Analyzes a recording and returns metrics"""
         # TODO: Daniel fix this - "TypeError: Data must be of type Recording, not <class 'data_analysis.data_types.Recording'>"
         if not isinstance(data, Recording):
             self.logger.warning(f"Data might not be of type recording: {type(data)}")
         try:
-            return self._get_recording_metrics(data, plot)
+            return self._get_recording_metrics(data, plot, plot_with_metrics)
         except Exception as e:
             self.logger.error(f"Failed to get metrics for {data.tag}: {e}")
             raise e
 
-    def _get_recording_metrics(self, data: Recording, plot=False) -> Tuple[Metrics, Metrics, pd.DataFrame]:
+    def _get_recording_metrics(self, data: Recording, plot=False, plot_with_metrics=False) -> Tuple[Metrics, Metrics, pd.DataFrame]:
         """Analyzes a recording and returns metrics"""
         if data.env.fs != self.fs:
             raise ValueError(f"Recording fs ({data.env.fs}) does not match model fs ({self.fs})")
+        if plot and plot_with_metrics:
+            raise ValueError("Should not plot twice. Choose either plot or plot_with_metrics")
         true_step_groups = self._get_true_step_timestamps(data)
         true_steps = self.merge_step_groups(true_step_groups)
-        step_groups = self._detector.get_step_groups(np.array(data.ts), plot, truth=true_steps, plot_title=data.tag)
+        step_groups = self._detector.get_step_groups(data.ts, plot, truth=true_steps, plot_title=data.tag)
         if len(step_groups):
             self.logger.info(f"Found {len(step_groups)} step groups in {data.tag} ({len(true_steps)} true steps)")
             self.logger.debug(f"Step groups: {step_groups}")
@@ -327,6 +329,10 @@ class AnalysisController:
         measured = Metrics(step_groups)
         source_of_truth = Metrics(true_step_groups)
         algorithm_error = self._get_algorithm_error(predicted_steps, true_steps)
+        if plot_with_metrics:
+            df = measured.by_tag()
+            df = df.apply(np.round, decimals=3)
+            self._detector.get_step_groups(data.ts, plot_with_metrics, truth=true_steps, plot_table=df, plot_title=data.tag)
         return measured, source_of_truth, algorithm_error
 
     def _get_true_step_timestamps(self, data: Recording, ignore_quality=False, max_step_delta=2) -> List[np.ndarray]:
@@ -493,7 +499,8 @@ if __name__ == "__main__":
     sensor_type = SensorType.PIEZO
     params = get_optimal_analysis_params(sensor_type)
     controller = AnalysisController(**params)
-    datasets = DataHandler.from_sensor_type(sensor_type).get_lazy(user='ron', limit=4, location='Aarons Studio')
+    datasets = DataHandler.from_sensor_type(sensor_type).get(user='ron', limit=1, location='Aarons Studio')
     # print(controller.get_metric_error(datasets, plot_dist=True, plot_signals=False, plot_title=str(params)))
     # print(controller.get_false_rates(datasets, plot_dist=False))
-    print(controller.get_metrics(datasets, plot_signals=False)[0].by_recordings())
+    print(controller.get_metrics(datasets, plot_signals=False)[0].by_tag())
+    # controller.get_recording_metrics(datasets[0], plot_with_metrics=True)

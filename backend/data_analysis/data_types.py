@@ -251,7 +251,7 @@ class Metrics:
         return np.std(dist) / np.mean(dist)
 
     @staticmethod
-    def _get_phase_sync(timestamps: np.ndarray):
+    def _get_phase_sync(timestamps: np.ndarray, num_bins=3):
         if len(timestamps) < 4:
             return np.nan
         if len(timestamps) % 2 != 0:
@@ -263,14 +263,14 @@ class Metrics:
         phase1 = np.unwrap(np.angle(analytic_signal1))
         phase2 = np.unwrap(np.angle(analytic_signal2))
         phase_difference = phase1 - phase2
-        H = Metrics._calculate_shannon_entropy(phase_difference)
+        H = Metrics._calculate_shannon_entropy(phase_difference, num_bins)
         H_max = np.log2(num_bins)
         return (H_max - H) / H_max
 
     # https://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=7247739
     @staticmethod
     def _get_conditional_entropy(timestamps: np.ndarray):
-        if len(timestamps) < 4:
+        if len(timestamps) < 6:
             return np.nan
         timestamps_left_foot = timestamps[::2]
         timestamps_right_foot = timestamps[1::2]
@@ -282,9 +282,11 @@ class Metrics:
 
     @staticmethod
     def _calculate_shannon_entropy(stride_times: np.ndarray, num_bins=3):
+        if len(stride_times) <= 1:
+            raise ValueError('Stride times must have at least 2 elements.')
         if num_bins > len(stride_times):
             num_bins = len(stride_times) - 1
-        counts, bins = np.histogram(stride_times, bins=num_bins)
+        counts, _ = np.histogram(stride_times, bins=num_bins)
         probabilities = counts / sum(counts)
         return entropy(probabilities, base=2)
 
@@ -311,8 +313,8 @@ class Metrics:
             raise ValueError('Can only compare Metrics to Metrics.')
         if truth.recordings != self.recordings:
             raise ValueError(f'Cannot compare Metrics of different lengths. truth.recordings ({len(truth.recordings)}) != self.recordings ({self.recordings}) (len(self) = {len(self)})')
-        self_rec_metrics = self.by_recordings()
-        truth_rec_metrics = truth.by_recordings()
+        self_rec_metrics = self.by_tag()
+        truth_rec_metrics = truth.by_tag()
         error = abs(self_rec_metrics - truth_rec_metrics)
         # Normalize for non-summed metrics
         for key in Metrics.get_keys():
@@ -327,7 +329,7 @@ class Metrics:
         error = pd.concat([correct_class, error], axis=1)
         return error
 
-    def by_recordings(self, smooth_window=0) -> pd.DataFrame:
+    def by_tag(self, smooth_window=0) -> pd.DataFrame:
         df = self._df.groupby('recording_id').apply(self.aggregate)
         if smooth_window:
             df = df.rolling(smooth_window, min_periods=1).mean()
@@ -398,7 +400,7 @@ PARAM_MAP = {
         },
         # false-negative: 46.67%, false-positive: 30.77%
         {
-            'window_duration': 0.5,
+            'window_duration': 0.2,
             'min_signal': 0.0,
             'min_step_delta': 0.0,
             'max_step_delta': 1.94702008044308,

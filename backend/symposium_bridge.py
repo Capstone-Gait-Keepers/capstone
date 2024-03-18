@@ -21,7 +21,6 @@ def serial_bridge(serial_port='/dev/cu.usbserial-0001', baud_rate=115200):
                 line = ser.readline()
                 if line:
                     print(line)
-                # TODO: Need sleep to reduce CPU usage?
                 time.sleep(0.05)
             line = b''
             url = ser.readline().decode().strip()
@@ -32,15 +31,7 @@ def serial_bridge(serial_port='/dev/cu.usbserial-0001', baud_rate=115200):
             # plot the data
             rec = Recording.from_real_data(fs=500, data=json_ts_data)
             # Recording.from_real_data(fs=500, data=json_ts_data).plot()
-            metrics = ctrl.get_recording_metrics(rec, plot=True)[0]
-            print(metrics)
-            
-            
-            # TODO: Validate JSON and url
-            # resp = requests.post(url, json=json_ts_data)
-            # print(f"{resp.status_code}: {resp.text}")
-
-        # TODO: Confirm error handling works
+            ctrl.get_recording_metrics(rec, plot_with_metrics=True)
         except UnicodeDecodeError:
             print(f"500: Couldn't decode")
 
