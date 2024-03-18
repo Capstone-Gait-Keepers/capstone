@@ -38,7 +38,6 @@ def generate_metrics(days: int, current_date: Optional[datetime]=None, asymmetry
 
 
 def decay(count: int, start: float, end: float):
-    np.exp(np.linspace(np.log(start), np.log(end), count))
     steps = np.logspace(0.01, 1, count)
     steps -= steps[0]
     steps *= (end - start)/steps[-1]

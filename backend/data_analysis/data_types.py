@@ -263,19 +263,19 @@ class Metrics:
         return np.std(dist) / np.mean(dist)
 
     @staticmethod
-    def _get_phase_sync(timestamps: np.ndarray, num_bins=3):
+    def _get_phase_sync(timestamps: np.ndarray, num_bins=10):
         if len(timestamps) < 4:
             return np.nan
         if len(timestamps) % 2 != 0:
             timestamps = np.copy(timestamps)[:-1]
-        timestamps_right_foot = timestamps[1::2]
-        timestamps_left_foot = timestamps[::2]
-        analytic_signal1 = hilbert(timestamps_left_foot)
-        analytic_signal2 = hilbert(timestamps_right_foot)
+        right_stride_times = np.diff(timestamps[1::2])
+        left_stride_times = np.diff(timestamps[::2])
+        analytic_signal1 = hilbert(left_stride_times)
+        analytic_signal2 = hilbert(right_stride_times)
         phase1 = np.unwrap(np.angle(analytic_signal1))
         phase2 = np.unwrap(np.angle(analytic_signal2))
         phase_difference = phase1 - phase2
-        H = Metrics._calculate_shannon_entropy(phase_difference, num_bins)
+        H = Metrics._calculate_shannon_entropy(phase_difference, num_bins, bin_range=(0, 2*np.pi))
         H_max = np.log2(num_bins)
         return (H_max - H) / H_max
 
@@ -293,12 +293,15 @@ class Metrics:
         return (shannon_entropy_left_foot + shannon_entropy_right_foot) / 2
 
     @staticmethod
-    def _calculate_shannon_entropy(stride_times: np.ndarray, num_bins=3):
+    def _calculate_shannon_entropy(stride_times: np.ndarray, num_bins=3, bin_range=None):
         if len(stride_times) <= 1:
             raise ValueError('Stride times must have at least 2 elements.')
         if num_bins > len(stride_times):
             num_bins = len(stride_times) - 1
-        counts, _ = np.histogram(stride_times, bins=num_bins)
+        if bin_range is None:
+            bin_range = (min(stride_times.min(), 0), max(stride_times.max(), 1))
+        bins = np.linspace(*bin_range, num_bins)    
+        counts, bins = np.histogram(stride_times, bins=bins)
         probabilities = counts / sum(counts)
         return entropy(probabilities, base=2)
 
@@ -344,7 +347,7 @@ class Metrics:
     def by_tag(self, smooth_window=0) -> pd.DataFrame:
         df = self._df.groupby('recording_id').apply(self.aggregate)
         if smooth_window:
-            df = df.rolling(smooth_window, min_periods=1).mean()
+            df = df.rolling(smooth_window, min_periods=1).median()
         return df
 
     def set_index(self, new_ids: list):
