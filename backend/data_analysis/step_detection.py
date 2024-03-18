@@ -65,10 +65,17 @@ class DataHandler:
     def plot(self, clip=False, truth=True, **filters):
         """Walk through datasets folder and plot all recording that match the filters"""
         datasets = self.get(**filters)
-        fig = make_subplots(rows=len(datasets), cols=1, subplot_titles=[*datasets.keys()], shared_xaxes=True)
+        fig = make_subplots(
+            rows=len(datasets),
+            cols=2,
+            subplot_titles=[rec.tag for rec in datasets],
+            shared_xaxes=True,
+            specs=[[{'type': 'xy'}, {'type': 'table'}]] * len(datasets)
+        )
+
         fig.update_layout(title=str(filters), showlegend=False)
-        len_shortest = min([len(data.ts) for data in datasets.values()])
-        for i, data in enumerate(datasets.values(), start=1):
+        len_shortest = min([len(data.ts) for data in datasets])
+        for i, data in enumerate(datasets, start=1):
             if clip:
                 data.ts = data.ts[:len_shortest]
             timestamps = np.linspace(0, len(data.ts) / data.env.fs, len(data.ts))
@@ -76,12 +83,14 @@ class DataHandler:
             if truth:
                 for event in data.events:
                     fig.add_vline(x=event.timestamp, line_color='green', row=i, col=1)
-                    fig.add_annotation(x=event.timestamp, y=0, xshift=-17, yshift=15, text=event.category, showarrow=False, row=i, col=1)
-            # TODO: Better text to identify between datasets
-            # env_vars = data.env.to_dict()
-            # env_vars = {key: value for key, value in env_vars.items() if value is not None and key not in filters}
-            # for y, (key, value) in enumerate(env_vars.items(), start=-len(env_vars) // 2):
-            #     fig.add_annotation(x=timestamps[len(timestamps)//2], y=y/80, text=f"{key} = {value}", xshift=0, showarrow=False, row=i, col=1)
+
+        for i, data in enumerate(datasets, start=1):
+            env_vars = data.env.to_dict()
+            env_vars = {key: value for key, value in env_vars.items() if value is not None and key not in filters}
+            fig.add_trace(go.Table(
+                header=dict(values=list(env_vars.keys())),
+                cells=dict(values=list(env_vars.values())),
+            ), row=i, col=2)
         fig.show()
 
 
