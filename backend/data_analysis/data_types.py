@@ -252,8 +252,12 @@ class Metrics:
     def _get_stride_times(timestamps: np.ndarray) -> np.ndarray:
         if len(timestamps) < 2:
             return np.empty((0))
-        # TODO: Update stride time definition
-        return np.diff(timestamps)
+        a = np.diff(timestamps[::2])
+        b = np.diff(timestamps[1::2])
+        stride_times = np.empty((a.size + b.size,), dtype=timestamps.dtype)
+        stride_times[0::2] = a
+        stride_times[1::2] = b
+        return stride_times        
 
     @staticmethod
     def _get_var_coef(dist):
@@ -275,7 +279,7 @@ class Metrics:
         phase1 = np.unwrap(np.angle(analytic_signal1))
         phase2 = np.unwrap(np.angle(analytic_signal2))
         phase_difference = phase1 - phase2
-        H = Metrics._calculate_shannon_entropy(phase_difference, num_bins, bin_range=(-np.pi, np.pi))
+        H = Metrics._calculate_shannon_entropy(phase_difference, num_bins)
         H_max = np.log2(num_bins)
         return (H_max - H) / H_max
 
@@ -293,7 +297,7 @@ class Metrics:
         return (left_cond_entropy + right_cond_entropy) / 2
 
     @staticmethod
-    def _calculate_shannon_entropy(values: np.ndarray, num_bins: int, bin_range=None):
+    def _calculate_shannon_entropy(values: np.ndarray, num_bins: int, bin_range=(-np.pi, np.pi)):
         if len(values) <= 1:
             raise ValueError('Stride times must have at least 2 elements.')
         bins = Metrics._get_hist_bins(values, num_bins, bin_range)
@@ -302,7 +306,7 @@ class Metrics:
         return entropy(probabilities, base=2)
 
     @staticmethod
-    def _calculate_cond_entropy(S1: np.ndarray, S2: np.ndarray, num_bins: int, bin_range=None):
+    def _calculate_cond_entropy(S1: np.ndarray, S2: np.ndarray, num_bins: int, bin_range=(0, 3)):
         """
         Calculate the conditional entropy H(S1|S2) given two 1D numpy arrays S1 and S2.
         """
@@ -316,11 +320,10 @@ class Metrics:
         return H_S1_given_S2
 
     @staticmethod
-    def _get_hist_bins(values, num_bins: int, bin_range: Optional[tuple] = None):
+    def _get_hist_bins(values, num_bins: int, bin_range: tuple):
         if num_bins > len(values):
             num_bins = len(values) - 1
-        if bin_range is None:
-            bin_range = (min(values.min(), 0), max(values.max(), 1))
+        bin_range = (min(values.min(), bin_range[0]), max(values.max(), bin_range[1]))
         return np.linspace(*bin_range, num_bins)
 
     def __add__(self, other: 'Metrics'):
@@ -411,16 +414,6 @@ def get_model_recording(sensor_type: SensorType) -> Recording:
 
 PARAM_MAP = {
     SensorType.PIEZO: [
-        # false-negative: 46.67%, false-positive: 23.08%
-        {
-            'window_duration': 0.2, # window_duration
-            'min_signal': 0.05,  # min_signal
-            'min_step_delta': 0.1,  # min_step_delta
-            'max_step_delta': 2,  # max_step_delta
-            'confirm_coefs': [0.5, 0.3, 0, 0], # confirmed
-            'unconfirm_coefs': [0.25, 0.65, 0, 0], # unconfirmed
-            'reset_coefs': [0, 1, 0, 0], # reset
-        },
         # false-negative: 0%, false-positive: 61.54%
         {
             'window_duration': 0.1139349947424978,
@@ -433,13 +426,23 @@ PARAM_MAP = {
         },
         # false-negative: 46.67%, false-positive: 30.77%
         {
-            'window_duration': 0.2,
+            'window_duration': 0.5,
             'min_signal': 0.0,
             'min_step_delta': 0.0,
             'max_step_delta': 1.94702008044308,
             'confirm_coefs': [0.2877633076936741, 0.4879086903112724, 0.9106027824886926, 0.0],
             'unconfirm_coefs': [0.48855200391108067, 0.6020246859906139, 0.2541307658769687, 0.0],
             'reset_coefs': [0.034887749913138366, 1.121288775057767, 0.0, 0.0]
+        },
+        # false-negative: 46.67%, false-positive: 23.08%
+        {
+            'window_duration': 0.2, # window_duration
+            'min_signal': 0.01,  # min_signal
+            'min_step_delta': 0.1,  # min_step_delta
+            'max_step_delta': 2,  # max_step_delta
+            'confirm_coefs': [0.4, 0.3, 0, 0], # confirmed
+            'unconfirm_coefs': [0.2, 0.65, 0, 0], # unconfirmed
+            'reset_coefs': [0, 0.7, 0, 0], # reset
         },
     ],
     SensorType.ACCEL: [

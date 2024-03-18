@@ -47,14 +47,14 @@ class RecordingProcessor:
         return step_measurements
 
     @staticmethod
-    def get_noise(rec: Recording, plot=False) -> np.ndarray:
+    def get_noise(rec: Recording, window_duration=0.2, plot=False) -> np.ndarray:
         """
         Find the noise floor of the accelerometer data
         """
         if len(rec.events) == 0:
             return rec.ts
         proc = TimeSeriesProcessor(rec.env.fs)
-        first_event = rec.events[0].timestamp
+        first_event = rec.events[0].timestamp - window_duration
         noise = rec.ts[:proc.timestamp_to_index(first_event)]
         if plot:
             timestamps = np.linspace(0, len(noise) / rec.fs, len(noise))
@@ -109,7 +109,7 @@ class RecordingProcessor:
     def get_noise_frequency_weights(rec: Recording, window_duration=0.2, plot=False) -> np.ndarray:
         """Creates a model of noise frequency weights, ranging from 0 to 1, where 1 is the strongest frequency component of the noise floor"""
         proc = TimeSeriesProcessor(rec.env.fs)
-        noise = RecordingProcessor.get_noise(rec)
+        noise = RecordingProcessor.get_noise(rec, window_duration)
         noise_amp_per_freq_time = proc.rolling_window_fft(noise, window_duration, stride=1, ignore_dc=True)
         noise_amp_per_freq = np.mean(noise_amp_per_freq_time, axis=-1)
         noise_amp_per_freq /= np.max(noise_amp_per_freq)
@@ -149,14 +149,14 @@ class RecordingProcessor:
         return step_model
 
     @staticmethod
-    def get_snr(rec: Recording, use_weights=False):
+    def get_snr(rec: Recording, window_duration=0.2, use_weights=False):
         """Calculates the energy signal to noise ratio of a single recording"""
         if np.all(rec.ts == 0):
             return np.nan
         proc = TimeSeriesProcessor(rec.env.fs)
-        noise_ts = RecordingProcessor.get_noise(rec)
+        noise_ts = RecordingProcessor.get_noise(rec, window_duration)
         step_ts = np.concatenate(RecordingProcessor.get_steps_from_truth(rec))
-        weights = RecordingProcessor.get_frequency_weights(rec) if use_weights else None
+        weights = RecordingProcessor.get_frequency_weights(rec, window_duration) if use_weights else None
         return proc.get_snr(step_ts, noise_ts, weights=weights)
 
     @staticmethod
@@ -170,15 +170,15 @@ class AnalysisController:
     def __init__(self, model: Recording=None, fs=None, noise_amp=None, window_duration=0.2, logger: Optional[Logger]=None, log_file='latest.log', **kwargs) -> None:
         self.logger = self.init_logger(log_file) if logger is None else logger
         if model:
-            noise = RecordingProcessor.get_noise(model)
-            # weights = RecordingProcessor.get_frequency_weights(model, window_duration, plot=False)
+            noise = RecordingProcessor.get_noise(model, window_duration)
+            weights = RecordingProcessor.get_frequency_weights(model, window_duration, plot=False)
             # step_model = RecordingProcessor.get_step_model(model, window_duration, plot_model=False, plot_steps=False)
             self._detector = StepDetector(
                 fs=model.env.fs,
                 window_duration=window_duration,
                 noise_profile=noise,
                 # step_model=step_model,
-                # freq_weights=weights,
+                freq_weights=weights,
                 logger=self.logger,
                 **kwargs
             )
