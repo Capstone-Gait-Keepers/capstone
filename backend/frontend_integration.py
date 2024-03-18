@@ -11,6 +11,7 @@ from database import db, Recordings, NewSensor, FakeUser
 sys.path.append(os.path.join(os.path.dirname(__file__), 'data_analysis'))
 from data_analysis.metric_analysis import AnalysisController
 from data_analysis.data_types import Recording
+from data_analysis.generate_dummies import generate_metrics, decay
 
 
 STATIC_FOLDER = "static"
@@ -40,8 +41,10 @@ def plot_recording(recording_id: int):
 @endpoints.route('/api/get_metrics/<email>')
 def get_metrics(email: str, fake=True):
     if fake:
-        from data_analysis.generate_dummies import generate_metrics
-        df = generate_metrics(days=60).by_recordings()
+        days = 90
+        asymmetry = decay(days, 0, 0.5)
+        cadence = decay(days, 2, 1)
+        df = generate_metrics(days=days, cadence=cadence, asymmetry=asymmetry).by_recordings(smooth_window=7)
         df = df.replace(np.nan, None)
         df.reset_index(inplace=True, drop=False)
         print(df)

@@ -25,36 +25,39 @@ function uuidv4() {
 }
 const _id = uuidv4();
 
-const maxY = Math.max(...props.y);
-const rangeMax = Math.max(1, maxY + 0.1);
-const minY = Math.min(...props.y);
-const rangeMin = Math.min(0, minY - 0.1);
+function getLayout(y) {
+  const maxY = Math.max(...y);
+  const rangeMax = Math.max(1, maxY + 0.1);
+  const minY = Math.min(...y);
+  const rangeMin = Math.min(0, minY - 0.1);
 
-const layout = {
-  title: props.title,
-  margin: {r: 0, t: 0},
-  // paper_bgcolor: "#fff", // Transparent background
-  // plot_bgcolor: "#fff", // Transparent plot area
-  xaxis: {
-    title: {
-      text: props.xlabel,
-      font: {
-        size: 14,
-        color: '#000'
+  return {
+    title: props.title,
+    margin: {r: 0, t: 0},
+    // paper_bgcolor: "#fff", // Transparent background
+    // plot_bgcolor: "#fff", // Transparent plot area
+    xaxis: {
+      title: {
+        text: props.xlabel,
+        font: {
+          size: 14,
+          color: '#000'
+        }
+      }
+    },
+    yaxis: {
+      range: [rangeMin, rangeMax],
+      title: {
+        text: props.ylabel,
+        font: {
+          size: 14,
+          color: '#000'
+        }
       }
     }
-  },
-  yaxis: {
-    range: [rangeMin, rangeMax],
-    title: {
-      text: props.ylabel,
-      font: {
-        size: 14,
-        color: '#000'
-      }
-    }
-  }
-};
+  };
+}
+
 const config = {displayModeBar: false, responsive: true};
 
 function getTrace(x, y) {
@@ -67,11 +70,11 @@ function getTrace(x, y) {
 }
 
 onMounted(() => {
-  Plotly.newPlot(_id, [getTrace(props.x, props.y)], layout, config);
+  Plotly.newPlot(_id, [getTrace(props.x, props.y)], getLayout(props.y), config);
 });
 
 watch([() => props.x, () => props.y], (newV, oldV) => {
   const [x, y] = newV;
-  Plotly.newPlot(_id, [getTrace(x, y)], layout, config);
+  Plotly.newPlot(_id, [getTrace(x, y)], getLayout(y), config);
 });
 </script>

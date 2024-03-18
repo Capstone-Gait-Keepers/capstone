@@ -27,26 +27,36 @@ enum Status {
   Bad = 'bad',
 }
 
+const upMeaning: Record<string, Status> = {
+  var_coef: Status.Bad,
+  STGA: Status.Bad,
+  phase_sync: Status.Good,
+  conditional_entropy: Status.Bad,
+  stride_time: Status.Good,
+  cadence: Status.Good,
+};
+
 const { section, timespan } = defineProps<{section: Section, timespan: "Month" | "Year"}>();
 let status: Status | null = null;
 
 const metrics = metric_sections[section];
 const metric_changes: Record<string, Status> = {};
 
-function getMetricStatus(metric_values: number[]): Status {
-  if (metric_values.length === 0) return Status.Neutral;
+function getMetricStatus(metric: string, days: number): Status {
+  if (!data?.metrics[metric])
+    return Status.Neutral;
+  const metric_values = data.metrics[metric].slice(datesBackIndex(days));
+  if (metric_values.length === 0)
+    return Status.Neutral;
   const change = metric_values[metric_values.length - 1] - metric_values[0];
-  if (change > .3) return Status.Good;
-  if (change < -.2) return Status.Bad;
+  if (change > .3) return upMeaning[metric];
+  if (change < -.2) return upMeaning[metric] === Status.Good ? Status.Bad : Status.Good;
   return Status.Neutral;
 }
 
 if (data !== null) {
   for (const metric of metrics) {
-    if (!data.metrics[metric]) continue;
-    const values = data.metrics[metric];
-    const values_in_period = values.slice(datesBackIndex(timespan === "Month" ? 30 : 365));
-    metric_changes[metric] = getMetricStatus(values_in_period);
+    metric_changes[metric] = getMetricStatus(metric, timespan === "Month" ? 30 : 365);
   }
   const changes = Object.values(metric_changes);
   if (changes.includes(Status.Bad)) status = Status.Bad;

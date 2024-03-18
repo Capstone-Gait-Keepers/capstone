@@ -245,13 +245,13 @@ class Metrics:
 
     @staticmethod
     def _get_var_coef(dist):
+        """General formula for coefficient of variation"""
         if len(dist) < 3:
             return np.nan
-        """General formula for coefficient of variation"""
         return np.std(dist) / np.mean(dist)
 
     @staticmethod
-    def _get_phase_sync(timestamps: np.ndarray, num_bins=40):
+    def _get_phase_sync(timestamps: np.ndarray):
         if len(timestamps) < 4:
             return np.nan
         if len(timestamps) % 2 != 0:
@@ -263,7 +263,7 @@ class Metrics:
         phase1 = np.unwrap(np.angle(analytic_signal1))
         phase2 = np.unwrap(np.angle(analytic_signal2))
         phase_difference = phase1 - phase2
-        H = Metrics._calculate_shannon_entropy(phase_difference, num_bins)
+        H = Metrics._calculate_shannon_entropy(phase_difference)
         H_max = np.log2(num_bins)
         return (H_max - H) / H_max
 
@@ -281,8 +281,10 @@ class Metrics:
         return (shannon_entropy_left_foot + shannon_entropy_right_foot) / 2
 
     @staticmethod
-    def _calculate_shannon_entropy(stride_times: np.ndarray, num_bins=40):
-        counts, _ = np.histogram(stride_times, bins=num_bins)
+    def _calculate_shannon_entropy(stride_times: np.ndarray, num_bins=3):
+        if num_bins > len(stride_times):
+            num_bins = len(stride_times) - 1
+        counts, bins = np.histogram(stride_times, bins=num_bins)
         probabilities = counts / sum(counts)
         return entropy(probabilities, base=2)
 
@@ -325,8 +327,11 @@ class Metrics:
         error = pd.concat([correct_class, error], axis=1)
         return error
 
-    def by_recordings(self) -> pd.DataFrame:
-        return self._df.groupby('recording_id').apply(self.aggregate)
+    def by_recordings(self, smooth_window=0) -> pd.DataFrame:
+        df = self._df.groupby('recording_id').apply(self.aggregate)
+        if smooth_window:
+            df = df.rolling(smooth_window, min_periods=1).mean()
+        return df
 
     def set_index(self, new_ids: list):
         old_ids = self._df['recording_id'].unique()

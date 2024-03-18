@@ -10,7 +10,7 @@ const { user } = store;
 
 <template>
   <BasePage>
-    <h1>Good Afternoon {{ user?.name }}</h1>
+    <h1>Good Afternoon, {{ user?.name }}.</h1>
     <ChangeAlert metric_type="balance" />
     <h2>Welcome to your personal insights</h2>
     
