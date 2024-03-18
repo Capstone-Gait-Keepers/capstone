@@ -331,7 +331,10 @@ class AnalysisController:
         algorithm_error = self._get_algorithm_error(predicted_steps, true_steps)
         if plot_with_metrics:
             df = measured.by_tag()
+            control = Metrics.get_control()
+            df = pd.concat([df, control], axis=0)
             df = df.apply(np.round, decimals=3)
+            df.insert(loc=0, column='data', value=['measurements', 'control'])
             self._detector.get_step_groups(data.ts, plot_with_metrics, truth=true_steps, plot_table=df, plot_title=data.tag)
         return measured, source_of_truth, algorithm_error
 
@@ -502,5 +505,5 @@ if __name__ == "__main__":
     datasets = DataHandler.from_sensor_type(sensor_type).get(user='ron', limit=1, location='Aarons Studio')
     # print(controller.get_metric_error(datasets, plot_dist=True, plot_signals=False, plot_title=str(params)))
     # print(controller.get_false_rates(datasets, plot_dist=False))
-    print(controller.get_metrics(datasets, plot_signals=False)[0].by_tag())
-    # controller.get_recording_metrics(datasets[0], plot_with_metrics=True)
+    # print(controller.get_metrics(datasets, plot_signals=False)[0].by_tag())
+    controller.get_recording_metrics(datasets[0], plot_with_metrics=True)

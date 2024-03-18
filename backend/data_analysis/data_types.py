@@ -183,6 +183,18 @@ class Metrics:
             'conditional_entropy': cls._get_conditional_entropy,
         }
 
+    @staticmethod
+    def get_control() -> pd.DataFrame:
+        return pd.DataFrame.from_dict({
+            'step_count': [np.inf],
+            'STGA': [0],
+            'stride_time': [1.036],
+            'cadence': [1.692],
+            'var_coef': [0.017],
+            'phase_sync': [0.812],
+            'conditional_entropy': [0.007],
+        })
+
     @classmethod
     def get_keys(cls):
         return list(cls.get_func_map().keys())
