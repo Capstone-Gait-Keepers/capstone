@@ -225,7 +225,6 @@ class Metrics:
     def _get_STGA(timestamps: np.ndarray):
         if len(timestamps) < 3:
             return np.nan
-        # TODO: Update stride time definition
         stride_times = Metrics._get_stride_times(timestamps)
         # TODO: Does this match literature?
         # https://citeseerx.ist.psu.edu/document?repid=rep1&type=pdf&doi=aeee9316f2a72d0f89e59f3c5144bf69a695730b
@@ -252,12 +251,19 @@ class Metrics:
     def _get_stride_times(timestamps: np.ndarray) -> np.ndarray:
         if len(timestamps) < 2:
             return np.empty((0))
-        a = np.diff(timestamps[::2])
-        b = np.diff(timestamps[1::2])
+        a, b = Metrics._get_side_stride_times(timestamps)
         stride_times = np.empty((a.size + b.size,), dtype=timestamps.dtype)
         stride_times[0::2] = a
         stride_times[1::2] = b
-        return stride_times        
+        return stride_times    
+
+    @staticmethod
+    def _get_side_stride_times(timestamps: np.ndarray) -> np.ndarray:
+        if len(timestamps) < 2:
+            return np.empty((0))
+        a = np.diff(timestamps[::2])
+        b = np.diff(timestamps[1::2])
+        return a, b  
 
     @staticmethod
     def _get_var_coef(dist):
@@ -272,8 +278,7 @@ class Metrics:
             return np.nan
         if len(timestamps) % 2 != 0:
             timestamps = np.copy(timestamps)[:-1]
-        right_stride_times = np.diff(timestamps[1::2])
-        left_stride_times = np.diff(timestamps[::2])
+        left_stride_times, right_stride_times = Metrics._get_side_stride_times(timestamps)
         analytic_signal1 = hilbert(left_stride_times)
         analytic_signal2 = hilbert(right_stride_times)
         phase1 = np.unwrap(np.angle(analytic_signal1))
@@ -290,8 +295,7 @@ class Metrics:
             return np.nan
         if len(timestamps) % 2 != 0:
             timestamps = np.copy(timestamps)[:-1]
-        left_stride_times = np.diff(timestamps[::2])
-        right_stride_times = np.diff(timestamps[1::2])
+        left_stride_times, right_stride_times = Metrics._get_side_stride_times(timestamps)
         left_cond_entropy = Metrics._calculate_cond_entropy(left_stride_times, right_stride_times, num_bins)
         right_cond_entropy = Metrics._calculate_cond_entropy(right_stride_times, left_stride_times, num_bins)
         return (left_cond_entropy + right_cond_entropy) / 2

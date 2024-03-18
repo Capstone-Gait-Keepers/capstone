@@ -304,7 +304,6 @@ class AnalysisController:
     
     def get_recording_metrics(self, data: Recording, plot=False, plot_with_metrics=False):
         """Analyzes a recording and returns metrics"""
-        # TODO: Daniel fix this - "TypeError: Data must be of type Recording, not <class 'data_analysis.data_types.Recording'>"
         if not isinstance(data, Recording):
             self.logger.warning(f"Data might not be of type recording: {type(data)}")
         try:
