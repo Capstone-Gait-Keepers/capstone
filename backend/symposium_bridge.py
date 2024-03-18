@@ -1,11 +1,15 @@
 import serial
-import requests
 import time
-from json import loads
 import json
-from data_analysis.data_types import Recording
+import sys
+import os
+from data_analysis.data_types import Recording, get_optimal_analysis_params, SensorType
+sys.path.append(os.path.join(os.path.dirname(__file__), 'data_analysis'))
+from data_analysis.metric_analysis import AnalysisController
 
 START_SIGNAL = b'BEGIN_TRANSMISSION'
+ctrl = AnalysisController(**get_optimal_analysis_params(SensorType.PIEZO))
+
 
 def serial_bridge(serial_port='/dev/cu.usbserial-0001', baud_rate=115200):
     # Open the serial port for communication with the ESP8266.
@@ -21,15 +25,16 @@ def serial_bridge(serial_port='/dev/cu.usbserial-0001', baud_rate=115200):
                 time.sleep(0.05)
             line = b''
             url = ser.readline().decode().strip()
-            print(f"URL: {url}")
             data_test = ser.readline().strip()
-            print(f"Data: {data_test}")
             json_ts_data = json.loads(data_test)['ts_data']
-            print(f"JSON: {json_ts_data}")
+            print(f"Data length {len(json_ts_data)}")
 
             # plot the data
-            # json_ts_data.Recording.plot()
-            Recording.from_real_data(fs=500, data=json_ts_data).plot()
+            rec = Recording.from_real_data(fs=500, data=json_ts_data)
+            # Recording.from_real_data(fs=500, data=json_ts_data).plot()
+            metrics = ctrl.get_recording_metrics(rec, plot=True)[0]
+            print(metrics)
+            
             
             # TODO: Validate JSON and url
             # resp = requests.post(url, json=json_ts_data)
