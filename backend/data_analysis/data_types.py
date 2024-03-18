@@ -263,8 +263,8 @@ class Metrics:
         return np.std(dist) / np.mean(dist)
 
     @staticmethod
-    def _get_phase_sync(timestamps: np.ndarray, num_bins=10):
-        if len(timestamps) < 4:
+    def _get_phase_sync(timestamps: np.ndarray, num_bins=8):
+        if len(timestamps) < 8:
             return np.nan
         if len(timestamps) % 2 != 0:
             timestamps = np.copy(timestamps)[:-1]
@@ -275,35 +275,53 @@ class Metrics:
         phase1 = np.unwrap(np.angle(analytic_signal1))
         phase2 = np.unwrap(np.angle(analytic_signal2))
         phase_difference = phase1 - phase2
-        H = Metrics._calculate_shannon_entropy(phase_difference, num_bins, bin_range=(0, 2*np.pi))
+        H = Metrics._calculate_shannon_entropy(phase_difference, num_bins, bin_range=(-np.pi, np.pi))
         H_max = np.log2(num_bins)
         return (H_max - H) / H_max
 
     # https://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=7247739
     @staticmethod
-    def _get_conditional_entropy(timestamps: np.ndarray):
+    def _get_conditional_entropy(timestamps: np.ndarray, num_bins=8):
         if len(timestamps) < 6:
             return np.nan
-        timestamps_left_foot = timestamps[::2]
-        timestamps_right_foot = timestamps[1::2]
-        stride_times_left_foot = np.diff(timestamps_left_foot)
-        stride_times_right_foot = np.diff(timestamps_right_foot)
-        shannon_entropy_left_foot = Metrics._calculate_shannon_entropy(stride_times_left_foot)
-        shannon_entropy_right_foot = Metrics._calculate_shannon_entropy(stride_times_right_foot)
-        return (shannon_entropy_left_foot + shannon_entropy_right_foot) / 2
+        if len(timestamps) % 2 != 0:
+            timestamps = np.copy(timestamps)[:-1]
+        left_stride_times = np.diff(timestamps[::2])
+        right_stride_times = np.diff(timestamps[1::2])
+        left_cond_entropy = Metrics._calculate_cond_entropy(left_stride_times, right_stride_times, num_bins)
+        right_cond_entropy = Metrics._calculate_cond_entropy(right_stride_times, left_stride_times, num_bins)
+        return (left_cond_entropy + right_cond_entropy) / 2
 
     @staticmethod
-    def _calculate_shannon_entropy(stride_times: np.ndarray, num_bins=3, bin_range=None):
-        if len(stride_times) <= 1:
+    def _calculate_shannon_entropy(values: np.ndarray, num_bins: int, bin_range=None):
+        if len(values) <= 1:
             raise ValueError('Stride times must have at least 2 elements.')
-        if num_bins > len(stride_times):
-            num_bins = len(stride_times) - 1
-        if bin_range is None:
-            bin_range = (min(stride_times.min(), 0), max(stride_times.max(), 1))
-        bins = np.linspace(*bin_range, num_bins)    
-        counts, bins = np.histogram(stride_times, bins=bins)
+        bins = Metrics._get_hist_bins(values, num_bins, bin_range)
+        counts, bins = np.histogram(values, bins=bins)
         probabilities = counts / sum(counts)
         return entropy(probabilities, base=2)
+
+    @staticmethod
+    def _calculate_cond_entropy(S1: np.ndarray, S2: np.ndarray, num_bins: int, bin_range=None):
+        """
+        Calculate the conditional entropy H(S1|S2) given two 1D numpy arrays S1 and S2.
+        """
+        # Joint distribution of S1 and S2
+        bins = Metrics._get_hist_bins(np.concatenate([S1, S2]), num_bins, bin_range)
+        p_joint, _, _ = np.histogram2d(S1, S2, bins=bins, density=True)
+        p_S2 = np.sum(p_joint, axis=0) # Marginal distribution of S2
+        H_S1_S2 = entropy(p_joint.flatten(), base=2) # H(S1, S2)
+        H_S2 = entropy(p_S2, base=2) # H(S2)
+        H_S1_given_S2 = H_S1_S2 - H_S2 # H(S1 | S2)
+        return H_S1_given_S2
+
+    @staticmethod
+    def _get_hist_bins(values, num_bins: int, bin_range: Optional[tuple] = None):
+        if num_bins > len(values):
+            num_bins = len(values) - 1
+        if bin_range is None:
+            bin_range = (min(values.min(), 0), max(values.max(), 1))
+        return np.linspace(*bin_range, num_bins)
 
     def __add__(self, other: 'Metrics'):
         """Combines two Metrics objects by averaging their values."""

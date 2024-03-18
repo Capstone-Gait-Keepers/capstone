@@ -332,9 +332,15 @@ class AnalysisController:
         if plot_with_metrics:
             df = measured.by_tag()
             control = Metrics.get_control()
-            df = pd.concat([df, control], axis=0)
+            rows = {
+                'measurements': df,
+                'control': control, 
+            }
+            if len(true_steps):
+                rows['truth'] = source_of_truth.by_tag()
+            df = pd.concat(rows.values(), axis=0)
             df = df.apply(np.round, decimals=3)
-            df.insert(loc=0, column='data', value=['measurements', 'control'])
+            df.insert(loc=0, column='data', value=rows.keys())
             self._detector.get_step_groups(data.ts, plot_with_metrics, truth=true_steps, plot_table=df, plot_title=data.tag)
         return measured, source_of_truth, algorithm_error
 
@@ -428,8 +434,6 @@ class AnalysisController:
         - Missed steps: The algorithm missed a step (False Negative)
         - Measurement error: The algorithm found a step correctly, but at the wrong time
 
-
-
         Parameters
         ----------
         measured_times : np.ndarray
@@ -502,8 +506,10 @@ if __name__ == "__main__":
     sensor_type = SensorType.PIEZO
     params = get_optimal_analysis_params(sensor_type)
     controller = AnalysisController(**params)
-    datasets = DataHandler.from_sensor_type(sensor_type).get(user='ron', limit=1, location='Aarons Studio')
+    # datasets = DataHandler.from_sensor_type(sensor_type).get_lazy(user='ron', quality='normal', location='Aarons Studio')
     # print(controller.get_metric_error(datasets, plot_dist=True, plot_signals=False, plot_title=str(params)))
     # print(controller.get_false_rates(datasets, plot_dist=False))
-    # print(controller.get_metrics(datasets, plot_signals=False)[0].by_tag())
-    controller.get_recording_metrics(datasets[0], plot_with_metrics=True)
+    # print(controller.get_metrics(datasets, plot_signals=False)[0].by_tag()[['step_count', 'phase_sync', 'conditional_entropy']])
+    
+    rec = Recording.from_file('datasets/piezo/2024-02-11_18-28-53.yaml')
+    controller.get_recording_metrics(rec, plot_with_metrics=True)
