@@ -10,7 +10,9 @@ onMounted(fetchData);
 <template>
   <div>
     <header>
-      <Logo />
+      <RouterLink to="/">
+        <Logo />
+      </RouterLink>
       <nav>
         <RouterLink to="/"><img src="@/assets/icon-overview.svg" alt="overview-icon"/>Overview</RouterLink>
         <RouterLink to="/breakdown"><img src="@/assets/icon-breakdown.svg" alt="breakdown-icon"/>Breakdown</RouterLink>

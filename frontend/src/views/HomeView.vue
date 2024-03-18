@@ -1,19 +1,9 @@
-<script setup lang="ts">
-import { RouterLink } from 'vue-router';
-
-import BasePage from '@/components/BasePage.vue';
-import ChangeAlert from '@/components/ChangeAlert.vue';
-import StatusIndicator from '@/components/StatusIndicator.vue';
-import { store, Section, validSection } from '@/store';
-const { user } = store;
-</script>
-
 <template>
   <BasePage>
     <h1>Good Afternoon, {{ user?.name }}.</h1>
-    <ChangeAlert metric_type="balance" />
-    <h2>Welcome to your personal insights</h2>
-    
+    <ChangeAlert metric_type="'balance" v-model="alertOpen" />
+    <h2>Welcome to your personal insights.</h2>
+
     <div class="row" v-if="validSection(Section.Balance)">
       <h3>Balance Indicators</h3>
       <div class="row-grid">
@@ -82,6 +72,19 @@ const { user } = store;
     </i>
   </BasePage>
 </template>
+
+<script setup lang="ts">
+import { RouterLink } from 'vue-router';
+import { ref } from 'vue';
+
+import BasePage from '@/components/BasePage.vue';
+import ChangeAlert from '@/components/ChangeAlert.vue';
+import StatusIndicator from '@/components/StatusIndicator.vue';
+import { store, Section, validSection } from '@/store';
+const { user } = store;
+
+const alertOpen = ref(true);
+</script>
 
 <style scoped>
 .row {

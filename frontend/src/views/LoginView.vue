@@ -9,7 +9,9 @@
           <RouterLink to="/">Log In</RouterLink>
         </button>
         <p>or</p>
-        <button style="background-color: var(--green)">Sign Up</button>
+        <button style="background-color: var(--green)">
+          <RouterLink to="/signup">Sign Up</RouterLink>
+        </button>
       </div>
     </div>
   </main>

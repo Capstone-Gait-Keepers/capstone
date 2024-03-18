@@ -3,12 +3,10 @@ import { RouterLink } from 'vue-router'
 </script>
 
 <template>
-  <RouterLink to="/">
-    <div class="logo">
-      <img alt="WalkWise Logo" class="logo" src="@/assets/logo.svg" width="125" height="125" />
-      <p>WalkWise</p>
-    </div>
-  </RouterLink>
+  <div class="logo">
+    <img alt="WalkWise Logo" class="logo" src="@/assets/logo.svg" width="125" height="125" />
+    <p>WalkWise</p>
+  </div>
 </template>
 
 <style scoped>
