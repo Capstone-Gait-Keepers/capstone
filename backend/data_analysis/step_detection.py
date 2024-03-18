@@ -5,6 +5,7 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from typing import List, Tuple, Optional
 from logging import Logger, getLogger
+from itertools import product
 
 from data_types import Recording, SensorType
 
@@ -206,6 +207,19 @@ class TimeSeriesProcessor:
             peak_indices = np.setdiff1d(peak_indices, bad_peaks)
         return peak_indices
 
+    @staticmethod
+    def drop_uncertain_steps(signal: np.ndarray, uncertain_indices: np.ndarray, confirmed_indices: np.ndarray, reset_threshold: float) -> np.ndarray:
+        """
+        Remove uncertain steps that are too close to confirmed steps. Signal must drop below reset_threshold
+        before finding another peak, confirmed or unconfirmed.
+        """
+        uncertain_indices_to_drop = set()
+        for uncertain, certain in product(uncertain_indices, confirmed_indices):
+            if (certain > uncertain and signal[uncertain:certain].min() > reset_threshold) or (certain < uncertain and signal[certain:uncertain].min() > reset_threshold):
+                uncertain_indices_to_drop.add(uncertain)
+        return np.setdiff1d(uncertain_indices, [*uncertain_indices_to_drop, *confirmed_indices])
+
+
 
 class StepDetector(TimeSeriesProcessor):
     def __init__(self,
@@ -319,7 +333,8 @@ class StepDetector(TimeSeriesProcessor):
         confirmed_threshold, uncertain_threshold, reset_threshold = self._get_energy_thresholds(max_sig)
         confirmed_indices = self.get_peak_indices(energy, confirmed_threshold, reset_threshold)
         uncertain_indices = self.get_peak_indices(energy, uncertain_threshold, reset_threshold)
-        uncertain_indices = np.setdiff1d(uncertain_indices, confirmed_indices)    
+        # Drop uncertain steps that are too close to confirmed steps, defined by reset_threshold
+        uncertain_indices = self.drop_uncertain_steps(energy, uncertain_indices, confirmed_indices, reset_threshold)
         confirmed_stamps = timestamps[confirmed_indices]
         uncertain_stamps = timestamps[uncertain_indices]
         if plot:

@@ -187,7 +187,7 @@ class Metrics:
     def get_control() -> pd.DataFrame:
         return pd.DataFrame.from_dict({
             'step_count': [np.inf],
-            'STGA': [0],
+            'STGA': [0.005],
             'stride_time': [1.036],
             'cadence': [1.692],
             'var_coef': [0.017],
