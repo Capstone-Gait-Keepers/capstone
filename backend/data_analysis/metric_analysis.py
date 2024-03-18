@@ -333,7 +333,7 @@ class AnalysisController:
             control = Metrics.get_control()
             rows = {
                 'measurements': df,
-                'control': control, 
+                'healthy walk': control,
             }
             if len(true_steps):
                 rows['truth'] = source_of_truth.by_tag()

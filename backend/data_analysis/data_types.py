@@ -223,7 +223,7 @@ class Metrics:
 
     @staticmethod
     def _get_STGA(timestamps: np.ndarray):
-        if len(timestamps) < 3:
+        if len(timestamps) < 4:
             return np.nan
         stride_times = Metrics._get_stride_times(timestamps)
         # TODO: Does this match literature?
