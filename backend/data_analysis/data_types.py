@@ -223,9 +223,9 @@ class Metrics:
 
     @staticmethod
     def _get_STGA(timestamps: np.ndarray):
-        if len(timestamps) < 4:
+        if len(timestamps) < 3:
             return np.nan
-        stride_times = Metrics._get_stride_times(timestamps)
+        stride_times = np.diff(timestamps)
         # TODO: Does this match literature?
         # https://citeseerx.ist.psu.edu/document?repid=rep1&type=pdf&doi=aeee9316f2a72d0f89e59f3c5144bf69a695730b
         return np.abs(np.mean(stride_times[1:] / stride_times[:-1]) - 1) / np.mean(stride_times)
@@ -255,7 +255,7 @@ class Metrics:
         stride_times = np.empty((a.size + b.size,), dtype=timestamps.dtype)
         stride_times[0::2] = a
         stride_times[1::2] = b
-        return stride_times    
+        return stride_times
 
     @staticmethod
     def _get_side_stride_times(timestamps: np.ndarray) -> np.ndarray:
@@ -372,7 +372,7 @@ class Metrics:
     def by_tag(self, smooth_window=0) -> pd.DataFrame:
         df = self._df.groupby('recording_id').apply(self.aggregate)
         if smooth_window:
-            df = df.rolling(smooth_window, min_periods=1).median()
+            df = df.rolling(smooth_window, min_periods=1).mean()
         return df
 
     def set_index(self, new_ids: list):

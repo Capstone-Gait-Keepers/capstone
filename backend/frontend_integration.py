@@ -42,9 +42,10 @@ def plot_recording(recording_id: int):
 def get_metrics(email: str, fake=True):
     if fake:
         days = 90
-        asymmetry = decay(days, 0, 0.5)
-        cadence = decay(days, 2, 1)
-        df = generate_metrics(days=days, cadence=cadence, asymmetry=asymmetry).by_tag(smooth_window=7)
+        plateau_length = 30
+        asymmetry = np.concatenate([np.array([0.3] * plateau_length), decay(days - plateau_length, 0.3, 0)])
+        cadence = np.concatenate([decay(days - plateau_length, 1.5, 1), np.array([1] * plateau_length)])
+        df = generate_metrics(days=days, cadence=cadence, asymmetry=asymmetry, var=0.05).by_tag(smooth_window=7)
         df = df.replace(np.nan, None)
         df.reset_index(inplace=True, drop=False)
         print(df)
