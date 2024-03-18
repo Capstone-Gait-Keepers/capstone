@@ -15,7 +15,7 @@ const { user } = store;
     <h2>Welcome to your personal insights</h2>
     
     <div class="metrics-row" v-if="validSection(Section.Balance)">
-      <h3>Balance Metrics</h3>
+      <h3>Balance Indicators</h3>
       <div class="metrics-row-grid">
         <div>
           <p>WalkWise measures two metrics associated with balance.</p>
@@ -27,7 +27,7 @@ const { user } = store;
     </div>
 
     <div class="metrics-row" v-if="validSection(Section.Neurodegenerative)">
-      <h3>Neurodegenerative Metrics</h3>
+      <h3>Neurodegenerative Indicators</h3>
       <div class="metrics-row-grid">
         <div>
           <p>WalkWise measures three metrics associated with neurodegenerative diseases.</p>
@@ -39,7 +39,7 @@ const { user } = store;
     </div>
 
     <div class="metrics-row" v-if="validSection(Section.Dementia)">
-      <h3>Dementia Metrics</h3>
+      <h3>Dementia Indicators</h3>
       <div class="metrics-row-grid">
         <div>
           <p>WalkWise measures four metrics associated with Dementia.</p>

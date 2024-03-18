@@ -5,7 +5,7 @@
       <p>Dive into the measurements WalkWise has collected to learn how changes are determined.</p>
       <span v-if="store.data !== null" v-for="metric_keys, header in metric_sections">
         <div v-if="validSection(header)" :key="header" class="category" :id="header">
-          <h2>{{ header }} Metrics</h2>
+          <h2>{{ header }} Indicators</h2>
           <span v-for="key in metric_keys" :key="key">
             <Accordion v-if="validMetric(key)" :header="metric_titles[key]" :startOpen="hash === header" class="metric">
               <p>{{ metric_descriptions[key] }}</p>
