@@ -13,7 +13,7 @@
                 :x="cleanedDates(key)"
                 :y="cleanedMetric(key)"
                 xlabel="Date"
-                :ylabel="metric_titles[key]"
+                :ylabel="metric_units[key]"
                 plot_type="scatter"
               />
             </Accordion>
@@ -45,6 +45,15 @@ const metric_titles: Record<string, string> = {
   stride_time: 'Stride Time',
   cadence: 'Cadence',
   // Measurements: 'Measurements Collected',
+};
+
+const metric_units: Record<string, string> = {
+  var_coef: 'Coefficient of Variation',
+  STGA: 'Asymmetry Index',
+  phase_sync: 'Phase Synchronization Index',
+  conditional_entropy: 'Conditional Entropy',
+  stride_time: 'Seconds',
+  cadence: 'Steps per second',
 };
 
 const metric_descriptions: Record<string, string> = {
