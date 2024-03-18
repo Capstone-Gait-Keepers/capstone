@@ -57,6 +57,7 @@ function addUser(email: any) {
 <style scoped>
 .content {
   margin-bottom: 8rem;
+  background-color: white;
 }
 
 .connected-user {
