@@ -5,7 +5,7 @@
       <p>Dive into the measurements WalkWise has collected to learn how changes are determined.</p>
       <span v-if="store.data !== null" v-for="metric_keys, header in metric_sections">
         <div v-if="validSection(header)" :key="header" class="category" :id="header">
-          <h2>{{ header }} Indicators</h2>
+          <h2>{{ section_titles[header] }}</h2>
           <span v-for="key in metric_keys" :key="key">
             <Accordion v-if="validMetric(key)" :header="metric_titles[key]" :startOpen="hash === header" class="metric">
               <p>{{ metric_descriptions[key] }}</p>
@@ -32,7 +32,7 @@ import { ListLoader } from 'vue-content-loader'
 import BasePage from '@/components/BasePage.vue';
 import InteractivePlot from '@/components/InteractivePlot.vue';
 import Accordion from '@/components/Accordion.vue';
-import { store, metric_sections, validMetric, validSection } from '@/store';
+import { store, metric_sections, section_titles, validMetric, validSection } from '@/store';
 
 
 const hash = window.location.hash.slice(1);
@@ -44,7 +44,7 @@ const metric_titles: Record<string, string> = {
   conditional_entropy: 'Stride Time Conditional Entropy',
   stride_time: 'Stride Time',
   cadence: 'Cadence',
-  // Measurements: 'Measurements Collected',
+  step_count: 'Measurements Collected',
 };
 
 const metric_units: Record<string, string> = {
@@ -54,6 +54,7 @@ const metric_units: Record<string, string> = {
   conditional_entropy: 'Conditional Entropy',
   stride_time: 'Seconds',
   cadence: 'Steps per second',
+  step_count: 'Steps detected',
 };
 
 const metric_descriptions: Record<string, string> = {
@@ -63,7 +64,7 @@ const metric_descriptions: Record<string, string> = {
   "conditional_entropy": "Stride time conditional entropy measures the consistency or unpredictability of step timing during walking or running. Low entropy indicates consistent timing, while high entropy suggests variability. It helps assess gait stability and detect potential movement abnormalities.",
   "stride_time": "Stride time refers to the time it takes to complete one full step while walking or running. It's the duration from when your foot touches the ground to when it touches the ground again. Monitoring stride time helps understand the rhythm and pace of movement.",
   "cadence": "Cadence is the rhythm or pace at which you walk or run, determined by how many steps you take per minute. It's like the beat of a song for your movement. Faster cadence means quicker steps, while slower cadence means slower steps.",
-  // Measurements Collected: The number of measurements collected by the sensor each day. This can also be an indicator of daily activity.
+  "step_count": "The number of measurements collected by the sensor each day. This can also be an indicator of daily activity."
 };
 
 function cleanedMetric(metric: string) {

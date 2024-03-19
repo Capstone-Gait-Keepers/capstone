@@ -3,15 +3,23 @@ import type { Metrics, User } from '@/types'
 import { getMetrics } from '@/backend_interface';
 
 export enum Section {
-  Balance = 'Balance',
-  Neurodegenerative = 'Neurodegenerative',
-  Dementia = 'Dementia',
+  balance = 'balance',
+  neurodegenerative = 'neurodegenerative',
+  dementia = 'dementia',
+  reliability = 'reliability',
 }
+
+export const section_titles: Record<Section, string> = {
+  [Section.balance]: 'Balance Indicators',
+  [Section.neurodegenerative]: 'Neurodegenerative Indicators',
+  [Section.dementia]: 'Dementia Indicators',
+  [Section.reliability]: 'System Reliability',
+};
 
 export const store = reactive<{
   user: User | null;
   connected_users: string[];
-  view_sections: Record<string, boolean>;
+  view_sections: Record<Section, boolean>;
   data: Metrics | null;
 }>({
   user: {
@@ -22,17 +30,19 @@ export const store = reactive<{
   }, // TODO: Default should be null
   connected_users: ['dan@raymond.ch'],
   view_sections: {
-    "Balance": true,
-    "Neurodegenerative": true,
-    "Dementia": true,
+    [Section.balance]: true,
+    [Section.neurodegenerative]: true,
+    [Section.dementia]: true,
+    [Section.reliability]: true,
   },
   data: null,
 });
 
 export const metric_sections: Record<Section, string[]> = {
-  "Balance": ['var_coef', 'STGA'],
-  "Neurodegenerative": ['phase_sync', 'conditional_entropy', 'STGA'],
-  "Dementia": ['stride_time', 'cadence', 'var_coef', 'STGA'],
+  [Section.balance]: ['var_coef', 'STGA'],
+  [Section.neurodegenerative]: ['phase_sync', 'conditional_entropy', 'STGA'],
+  [Section.dementia]: ['stride_time', 'cadence', 'var_coef', 'STGA'],
+  [Section.reliability]: ['step_count']
 };
 
 export function validSection(section: Section): boolean {

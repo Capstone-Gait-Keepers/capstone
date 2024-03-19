@@ -27,9 +27,9 @@ const _id = uuidv4();
 
 function getLayout(y) {
   const maxY = Math.max(...y);
-  const rangeMax = Math.max(1, maxY + 0.1);
+  const rangeMax = Math.max(1, maxY * 1.1 + 0.1);
   const minY = Math.min(...y);
-  const rangeMin = Math.min(0, minY - 0.1);
+  const rangeMin = Math.min(0, minY * 0.9 - 0.1);
 
   return {
     title: props.title,

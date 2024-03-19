@@ -1,49 +1,52 @@
 <template>
   <BasePage>
     <h1>Good Afternoon, {{ user?.name }}.</h1>
-    <ChangeAlert metric_type="'balance" v-model="alertOpen" />
+    <ChangeAlert metric_type="balance" v-model="alertOpen" />
     <h2>Welcome to your personal insights.</h2>
 
-    <div class="row" v-if="validSection(Section.Balance)">
+    <div class="row" v-if="validSection(Section.balance)">
       <h3>Balance Indicators</h3>
       <div class="row-grid">
         <div class="row-info">
           <p>WalkWise measures two metrics associated with balance.</p>
           <button><RouterLink to="/breakdown#Balance">View Breakdown</RouterLink></button>
         </div>
-        <StatusIndicator :section="Section.Balance" timespan="Month" />
-        <StatusIndicator :section="Section.Balance" timespan="Year" />
+        <StatusIndicator :section="Section.balance" timespan="Month" />
+        <StatusIndicator :section="Section.balance" timespan="Year" />
       </div>
     </div>
 
-    <div class="row" v-if="validSection(Section.Neurodegenerative)">
+    <div class="row" v-if="validSection(Section.neurodegenerative)">
       <h3>Neurodegenerative Indicators</h3>
       <div class="row-grid">
         <div class="row-info">
           <p>WalkWise measures three metrics associated with neurodegenerative diseases.</p>
-          <button><RouterLink to="/breakdown#Neurodegenerative">View Breakdown</RouterLink></button>
+          <button><RouterLink to="/breakdown#neurodegenerative">View Breakdown</RouterLink></button>
         </div>
-        <StatusIndicator :section="Section.Neurodegenerative" timespan="Month" />
-        <StatusIndicator :section="Section.Neurodegenerative" timespan="Year" />
+        <StatusIndicator :section="Section.neurodegenerative" timespan="Month" />
+        <StatusIndicator :section="Section.neurodegenerative" timespan="Year" />
       </div>
     </div>
 
-    <div class="row" v-if="validSection(Section.Dementia)">
+    <div class="row" v-if="validSection(Section.dementia)">
       <h3>Dementia Indicators</h3>
       <div class="row-grid">
         <div class="row-info">
           <p>WalkWise measures four metrics associated with Dementia.</p>
           <button><RouterLink to="/breakdown#Dementia">View Breakdown</RouterLink></button>
         </div>
-        <StatusIndicator :section="Section.Dementia" timespan="Month" />
-        <StatusIndicator :section="Section.Dementia" timespan="Year" />
+        <StatusIndicator :section="Section.dementia" timespan="Month" />
+        <StatusIndicator :section="Section.dementia" timespan="Year" />
       </div>
     </div>
 
     <div class="row">
-      <h3>Measurements Collected</h3>
+      <h3>System Reliability</h3>
       <div class="row-grid">
-        <p>WalkWise needs to collect a certain amount of data for it to be reliable.</p>
+        <div class="row-info">
+          <p>WalkWise needs to collect a certain amount of data for it to be reliable.</p>
+          <button><RouterLink to="/breakdown#reliability">View Breakdown</RouterLink></button>
+        </div>
         <div class="status-indicator">
           <b>This Month</b>
           <h3 class="measurement-stat">16</h3>

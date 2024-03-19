@@ -83,7 +83,7 @@ if (data !== null) {
 .flat-bar {
   border-bottom: 4px solid var(--color-main);
   width: 80px;
-  height: 1.8rem;
-  margin: 1rem 0;
+  margin-top: 1.8rem;
+  margin-bottom: 2rem;
 }
 </style>
