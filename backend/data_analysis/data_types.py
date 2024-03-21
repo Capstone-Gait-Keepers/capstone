@@ -197,7 +197,7 @@ class Metrics:
     def get_control() -> pd.DataFrame:
         return pd.DataFrame.from_dict({
             'step_count': [np.inf],
-            'STGA': [0.005],
+            'STGA': [0.015],
             'stride_time': [1.036],
             'cadence': [1.692],
             'var_coef': [0.017],
@@ -423,7 +423,7 @@ def get_model_recording(sensor_type: SensorType, fs: int) -> Recording:
         raise ValueError(f'Invalid sensor type "{sensor_type}".')
     file_map = {
         SensorType.PIEZO: {
-            200: 'datasets/piezo/200Hz/2023-11-09_18-42-33.yaml',
+            200: 'datasets/piezo/2024-02-11_18-28-53.yaml',
             500: 'datasets/piezo_custom/1.1-alt.yml',
         },
         SensorType.ACCEL: {
@@ -459,17 +459,20 @@ PARAM_MAP = {
         {
             'window_duration': 0.15, # window_duration
             'min_step_delta': 0.4,  # min_step_delta
-            'max_step_delta': 1.4,  # max_step_delta
-            'confirm_coefs': [0.2, 0, 0, 0.012], # confirmed
-            'unconfirm_coefs': [0.1, 0, 0, 0.012], # unconfirmed
+            'max_step_delta': 1.2,  # max_step_delta
+            'confirm_coefs': [0.07, 0, 0, 0.012], # confirmed
+            'unconfirm_coefs': [0.04, 0, 0, 0.012], # unconfirmed
             'reset_coefs': [0, 0, 0, 0.012], # reset
         },
-        # Loss=1.4934
-        # {'window_duration': 0.07651325111386532, 'min_step_delta': 0.28728543500653747, 'max_step_delta': 1.9624417995855015, 'confirm_coefs': [0.12274372213065465, 0.7626214307643524, 0, 0.04280243735955702], 'unconfirm_coefs': [0.08369005629371874, 0.5199763325046283, 0, 0.02918388272694458], 'reset_coefs': [0.032797436960074526, 0.20377439974707315, 0, 1.3643770203004923]}
-        # Loss=1.3088
-        # {'window_duration': 0.11648350077697603, 'min_step_delta': 0.4150863786469203, 'max_step_delta': 0.8845543528875641, 'confirm_coefs': [0.17063864572680765, 1.050955361224744, 0, 0.006707608960081934], 'unconfirm_coefs': [0.11554395033793244, 0.7116297339768358, 0, 0.004541899833234671], 'reset_coefs': [0.054098661685426416, 0.33319110270253666, 0, 0.6680818654403913]}
-        # Loss=0.9768
-        # {'window_duration': 0.03550903714928874, 'min_step_delta': 0.2815251015586965, 'max_step_delta': 1.0891063959298786, 'confirm_coefs': [0.08066138203178252, 1.23231526247683, 0, 0.004939935555472119], 'unconfirm_coefs': [0.04740702497952803, 0.7242672882529297, 0, 0.0029033428683784496], 'reset_coefs': [0.028768641384099188, 0.4395168414592628, 0, 1.6405257154209594]}
+        # Loss=0.135
+        # {
+        #     'window_duration': 0.15917045728367368,
+        #     'min_step_delta': 0.2997857786406394,
+        #     'max_step_delta': 1.6592433964815125,
+        #     'confirm_coefs': [0.0019137034298423172, 0.45932149582073245, 0, 0.008695670392463106],
+        #     'unconfirm_coefs': [0.001490315322084881, 0.357701121453802, 0, 0.006771838634764541],
+        #     'reset_coefs': [0.0010589213649421108, 0.25415920655052526, 0, 1.6233978050719027]
+        # }
     ],
     SensorType.ACCEL: [
         # false-negative: 63.08%, false-positive: 61.54%

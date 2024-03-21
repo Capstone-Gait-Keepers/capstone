@@ -1,6 +1,6 @@
 env:
   location: Aarons Studio
-  fs: 500
+  fs: 200
   user: ron
   floor: cork
   footwear: socks
@@ -17,7 +17,21 @@ env:
   notes: ''
 events:
 - category: step
-  timestamp: 0.24
+  timestamp: 0.92
+- category: step
+  timestamp: 1.68
+- category: step
+  timestamp: 2.365
+- category: step
+  timestamp: 3.009
+- category: step
+  timestamp: 3.629
+- category: step
+  timestamp: 4.294
+- category: step
+  timestamp: 4.924
+- category: step
+  timestamp: 5.539
 ts:
 - 0.46
 - 0.47

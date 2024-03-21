@@ -24,16 +24,13 @@ def parse_analysis_params(x) -> dict:
     }
 
 
-def get_init_params(popsize: int, var=1) -> np.ndarray:
+def get_init_params(popsize: int, var=5) -> np.ndarray:
     """Generates initial population for the optimization around a known set of parameters."""
     defaults = [
-        0.2, # window_duration
-        0.01,  # min_signal
-        0.1,  # min_step_delta
-        2,  # max_step_delta
-        *(0.5, 0.3, 0, 0), # confirmed
-        *(0.25, 0.65, 0, 0), # unconfirmed
-        *(0, 1, 0, 0), # reset
+        0.15, # window_duration
+        0.4,  # min_step_delta
+        1,  # max_step_delta
+        0.07, 0, 0.012, 0.012, 4/7, 0, # coefs
     ]
     # Vary defaults by var to generate initial population of size popsize
     cases = [defaults]
@@ -128,13 +125,13 @@ def optimize_step_detection(datasets: List[Recording], model=None, sensor_type=N
         *([(0, 2)] * 4),  # threshold coefs
         *([(0, 1)] * 2),  # u & r relative threshold coefs
     ]
-    # init = get_init_params(popsize)
+    init = get_init_params(popsize)
     res = differential_evolution(
         objective_function,
         bounds,
         maxiter=maxiter,
         popsize=popsize,
-        # init=init,
+        init=init,
         constraints=[
             LinearConstraint([1] + [0] * (len(bounds) - 1), min_window, max_window, keep_feasible=True), # Window duration must be enforced
             LinearConstraint([0] + [-1, 1] + [0] * 6, lb=step_delta_min_range, keep_feasible=True), # max_step_delta - min_step_delta > step_delta_min_range
