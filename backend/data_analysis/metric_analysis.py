@@ -504,15 +504,15 @@ def compare_sensor_snrs(use_weights=True):
 
 if __name__ == "__main__":
     sensor_type = SensorType.PIEZO
-    params = get_optimal_analysis_params(sensor_type, fs=500)
+    params = get_optimal_analysis_params(sensor_type, fs=200)
     controller = AnalysisController(**params)
-    datasets = DataHandler('datasets/piezo_custom').get_lazy()
-    # datasets = DataHandler.from_sensor_type(sensor_type).get_lazy(user='ron', limit=4, quality='normal', location='Aarons Studio')
-    print(controller.get_metric_error(datasets, plot_dist=True, plot_signals=False, plot_title=str(params)))
+    # datasets = DataHandler('datasets/symposium').get_lazy()
+    datasets = DataHandler.from_sensor_type(sensor_type).get_lazy(user='ron', quality='normal', location='Aarons Studio')
+    df = controller.get_metric_error(datasets, plot_dist=False, plot_signals=False, plot_title=str(params))
     # print(controller.get_false_rates(datasets, plot_dist=False))
     # print(*controller.get_metrics(datasets, plot_signals=False))
 
-    # controller.get_recording_metrics(Recording.from_file('datasets/piezo_custom/2.0.yml'), plot_with_metrics=True)
+    # controller.get_recording_metrics(Recording.from_file('datasets/piezo_custom/2.1.yml'), plot_with_metrics=True)
 
     # for rec in datasets:
     #     controller.get_recording_metrics(rec, plot_with_metrics=True)
