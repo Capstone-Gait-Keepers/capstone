@@ -15,7 +15,21 @@ env:
   walk_speed: normal
   temperature:
   notes: ''
-events: []
+events:
+- category: step
+  timestamp: 0.1
+- category: step
+  timestamp: 0.88
+- category: step
+  timestamp: 1.33
+- category: step
+  timestamp: 1.88
+- category: step
+  timestamp: 2.44
+- category: step
+  timestamp: 2.86
+- category: step
+  timestamp: 3.58
 ts:
 - 0.02
 - 0.02

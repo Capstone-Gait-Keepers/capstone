@@ -14,7 +14,23 @@ env:
   quality: normal
   walk_speed: normal
   notes: Walked off
-events: []
+events:
+- category: step
+  timestamp: 0.08
+- category: step
+  timestamp: 0.80
+- category: step
+  timestamp: 1.38
+- category: step
+  timestamp: 1.97
+- category: step
+  timestamp: 2.59
+- category: step
+  timestamp: 3.18
+- category: step
+  timestamp: 3.84
+- category: step
+  timestamp: 4.54
 ts:
 - 0.03
 - 0.03

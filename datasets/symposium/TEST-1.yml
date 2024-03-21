@@ -1,8 +1,34 @@
 env:
   location: Custom Floor
-  notes: Stayed on
   fs: 500
-events: []
+  user: ron
+  floor: plywood
+  footwear: socks
+  walk_type: normal
+  obstacle_radius: 0
+  path:
+    start: 1.8
+    stop: 1.8
+    length: 3.0
+  wall_radius: 0
+  quality: normal
+  walk_speed: normal
+  notes: Stayed on
+events:
+- category: step
+  timestamp: 0.09
+- category: step
+  timestamp: 0.77
+- category: step
+  timestamp: 1.36
+- category: step
+  timestamp: 1.95
+- category: step
+  timestamp: 2.52
+- category: step
+  timestamp: 3.10
+- category: step
+  timestamp: 3.74
 ts:
 - 0.03
 - 0.03
