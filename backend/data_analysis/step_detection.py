@@ -44,7 +44,7 @@ class DataHandler:
         filters : keyword arguments
             Key-value pairs to filter the environmental variables by
         """
-        filepaths = [file for file in os.listdir(self.folder) if file.endswith(".yaml")]
+        filepaths = [file for file in os.listdir(self.folder) if file.endswith(".yaml") or file.endswith(".yml")]
         if 'example.yaml' in filepaths:
             filepaths.remove('example.yaml')
         if session is not None:
@@ -66,6 +66,8 @@ class DataHandler:
     def plot(self, clip=False, truth=True, **filters):
         """Walk through datasets folder and plot all recording that match the filters"""
         datasets = self.get(**filters)
+        if len(datasets) == 0:
+            raise ValueError("No datasets found")
         fig = make_subplots(
             rows=len(datasets),
             cols=2,
@@ -147,6 +149,8 @@ class TimeSeriesProcessor:
         Creates a rolling window of a time series and computes the FFT of each window
         """
         window_size = self.timestamp_to_index(window_duration)
+        if len(a) < window_size:
+            raise ValueError(f"Time series length ({len(a)}) is less than window size ({window_size})")
         intervals = TimeSeriesProcessor.rolling_window(a, window_size, stride)
         if ignore_dc:
             intervals -= np.mean(intervals, axis=1, keepdims=True)
@@ -435,14 +439,14 @@ class StepDetector(TimeSeriesProcessor):
 
     def _enforce_min_step_delta(self, step_groups: List[np.ndarray]) -> List[np.ndarray]:
         """Drop steps that are too close together"""
-        new_step_groups = [self._enforce_min_step_delta_single_group(steps, i) for i, steps in enumerate(step_groups)]
-        return new_step_groups
+        return [self._enforce_min_step_delta_single_group(steps) for steps in step_groups]
 
-    def _enforce_min_step_delta_single_group(self, steps: np.ndarray, group_index: int):
+    def _enforce_min_step_delta_single_group(self, steps: np.ndarray):
         steps_too_close = np.diff(steps) < self._min_step_delta
         if np.any(steps_too_close):
-            self.logger.debug(f"Enforcing min step delta, removed {steps_too_close.sum()} step(s) in group {group_index}")
-            return steps[~np.insert(steps_too_close, 0, False)]
+            bad_step_indices = np.insert(steps_too_close, 0, False)
+            self.logger.debug(f"Enforcing min step delta, removed {bad_step_indices.sum()} step(s) at t={steps[bad_step_indices]}")
+            return steps[~bad_step_indices]
         return steps
 
     def _enforce_max_step_delta(self, step_groups: List[np.ndarray], max_step_delta=None) -> List[np.ndarray]:

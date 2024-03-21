@@ -26,8 +26,10 @@ class RecordingProcessor:
         step_measurements = []
         for event in rec.events:
             if event.category == 'step':
-                start = proc.timestamp_to_index(event.timestamp) - offset
+                start = max(0, proc.timestamp_to_index(event.timestamp) - offset)
                 step_data = rec.ts[start : start+window_size]
+                if len(step_data) != window_size:
+                    raise ValueError(f"Step data is the wrong size: {len(step_data)} != {window_size} ({len(rec.ts)=}, {start=}, {start+window_size=})")
                 if align_peak:
                     energy = proc.get_energy(step_data, step_duration / 5)
                     start += np.argmax(energy) - offset
@@ -225,7 +227,6 @@ class AnalysisController:
                     hover_data="index",
                     points="all",
                     title=plot_title if plot_title else "Metric Error Distribution",
-                    labels={"error": "Error (%)", "metric": "Metric"}
                 )
             fig.show()
         if plot_vs_env:
@@ -503,12 +504,15 @@ def compare_sensor_snrs(use_weights=True):
 
 if __name__ == "__main__":
     sensor_type = SensorType.PIEZO
-    params = get_optimal_analysis_params(sensor_type)
+    params = get_optimal_analysis_params(sensor_type, fs=500)
     controller = AnalysisController(**params)
-    # datasets = DataHandler.from_sensor_type(sensor_type).get_lazy(user='ron', quality='normal', location='Aarons Studio')
-    # print(controller.get_metric_error(datasets, plot_dist=True, plot_signals=False, plot_title=str(params)))
+    datasets = DataHandler('datasets/piezo_custom').get_lazy()
+    # datasets = DataHandler.from_sensor_type(sensor_type).get_lazy(user='ron', limit=4, quality='normal', location='Aarons Studio')
+    print(controller.get_metric_error(datasets, plot_dist=True, plot_signals=False, plot_title=str(params)))
     # print(controller.get_false_rates(datasets, plot_dist=False))
-    # print(controller.get_metrics(datasets, plot_signals=False)[0].by_tag()[['step_count', 'phase_sync', 'conditional_entropy']])
-    
-    rec = Recording.from_file('datasets/piezo/2024-02-11_18-28-53.yaml')
-    controller.get_recording_metrics(rec, plot_with_metrics=True)
+    # print(*controller.get_metrics(datasets, plot_signals=False))
+
+    # controller.get_recording_metrics(Recording.from_file('datasets/piezo_custom/2.0.yml'), plot_with_metrics=True)
+
+    # for rec in datasets:
+    #     controller.get_recording_metrics(rec, plot_with_metrics=True)

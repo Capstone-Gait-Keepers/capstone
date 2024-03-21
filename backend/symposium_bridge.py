@@ -9,7 +9,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), 'data_analysis'))
 from data_analysis.metric_analysis import AnalysisController
 
 START_SIGNAL = b'BEGIN_TRANSMISSION'
-ctrl = AnalysisController(**get_optimal_analysis_params(SensorType.PIEZO))
+ctrl = AnalysisController(**get_optimal_analysis_params(SensorType.PIEZO, fs=500))
 
 
 def serial_bridge(serial_port='/dev/cu.usbserial-0001', baud_rate=115200):

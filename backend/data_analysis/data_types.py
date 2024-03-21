@@ -160,6 +160,16 @@ class Metrics:
 
     summed_vars = set(['step_count'])
 
+    STEP_REQUIREMENTS = {
+        'step_count': 0,
+        'STGA': 4,
+        'stride_time': 3,
+        'cadence': 2,
+        'var_coef': 6,
+        'phase_sync': 8,
+        'conditional_entropy': 6,
+    }
+
     def __init__(self, timestamp_groups: List[np.ndarray], recording_id=0):
         func_map = self.get_func_map()
         self.keys = self.get_keys()
@@ -223,7 +233,7 @@ class Metrics:
 
     @staticmethod
     def _get_STGA(timestamps: np.ndarray):
-        if len(timestamps) < 3:
+        if len(timestamps) < Metrics.STEP_REQUIREMENTS['STGA']:
             return np.nan
         stride_times = np.diff(timestamps)
         # TODO: Does this match literature?
@@ -232,19 +242,20 @@ class Metrics:
 
     @staticmethod
     def _get_cadence(timestamps: np.ndarray):
-        if len(timestamps) < 2:
+        if len(timestamps) < Metrics.STEP_REQUIREMENTS['cadence']:
             return np.nan
         return 1 / np.mean(np.diff(timestamps))
 
     @staticmethod
     def _get_stride_time(timestamps):
-        stride_times = Metrics._get_stride_times(timestamps)
-        if len(stride_times):
-            return np.mean(stride_times)
-        return np.nan
+        if len(timestamps) < Metrics.STEP_REQUIREMENTS['stride_time']:
+            return np.nan
+        return np.mean(Metrics._get_stride_times(timestamps))
 
     @staticmethod
     def _get_stride_time_CV(timestamps: np.ndarray):
+        if len(timestamps) < Metrics.STEP_REQUIREMENTS['var_coef']:
+            return np.nan
         return Metrics._get_var_coef(Metrics._get_stride_times(timestamps))
 
     @staticmethod
@@ -274,7 +285,7 @@ class Metrics:
 
     @staticmethod
     def _get_phase_sync(timestamps: np.ndarray, num_bins=8):
-        if len(timestamps) < 8:
+        if len(timestamps) < Metrics.STEP_REQUIREMENTS['phase_sync']:
             return np.nan
         if len(timestamps) % 2 != 0:
             timestamps = np.copy(timestamps)[:-1]
@@ -291,7 +302,7 @@ class Metrics:
     # https://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=7247739
     @staticmethod
     def _get_conditional_entropy(timestamps: np.ndarray, num_bins=8):
-        if len(timestamps) < 6:
+        if len(timestamps) < Metrics.STEP_REQUIREMENTS['conditional_entropy']:
             return np.nan
         if len(timestamps) % 2 != 0:
             timestamps = np.copy(timestamps)[:-1]
@@ -347,7 +358,7 @@ class Metrics:
         """Combines two Metrics objects by averaging their values."""
         return self if other == 0 else self.__add__(other)
 
-    def error(self, truth: 'Metrics') -> pd.DataFrame:
+    def error(self, truth: 'Metrics', normalize=True) -> pd.DataFrame:
         """Returns the % error between two Metrics objects. Groups by recording_id."""
         if not isinstance(truth, Metrics):
             raise ValueError('Can only compare Metrics to Metrics.')
@@ -356,10 +367,11 @@ class Metrics:
         self_rec_metrics = self.by_tag()
         truth_rec_metrics = truth.by_tag()
         error = abs(self_rec_metrics - truth_rec_metrics)
-        # Normalize for non-summed metrics
-        for key in Metrics.get_keys():
-            if key not in Metrics.summed_vars:
-                error[key] = error[key] / truth_rec_metrics[key]
+        if normalize:
+            for key in Metrics.get_keys():
+                if key not in Metrics.summed_vars:
+                    normalizer = np.max(np.concatenate([truth_rec_metrics[key], np.ones(len(truth_rec_metrics))]))
+                    error[key] /= normalizer
         # Where they are both NaN, the error is 0
         error = error.where(error != np.inf, np.nan)
         error = error.where(truth_rec_metrics.notna() | self_rec_metrics.notna(), 0)
@@ -405,15 +417,20 @@ class SensorType(Enum):
     ACCEL = 'bno055'
 
 
-def get_model_recording(sensor_type: SensorType) -> Recording:
+def get_model_recording(sensor_type: SensorType, fs: int) -> Recording:
     """Returns a model recording for the given sensor type, hand picked for its quality."""
     if not isinstance(sensor_type, SensorType):
         raise ValueError(f'Invalid sensor type "{sensor_type}".')
     file_map = {
-        SensorType.PIEZO: 'datasets/piezo/2024-02-11_18-28-53.yaml',
-        SensorType.ACCEL: 'datasets/bno055/2023-11-09_18-42-33.yaml',
+        SensorType.PIEZO: {
+            200: 'datasets/piezo/200Hz/2023-11-09_18-42-33.yaml',
+            500: 'datasets/piezo_custom/1.1-alt.yml',
+        },
+        SensorType.ACCEL: {
+            100: 'datasets/bno055/2023-11-09_18-42-33.yaml',
+        },
     }
-    return Recording.from_file(file_map[sensor_type])
+    return Recording.from_file(file_map[sensor_type][fs])
 
 
 PARAM_MAP = {
@@ -440,14 +457,19 @@ PARAM_MAP = {
         },
         # false-negative: 46.67%, false-positive: 23.08%
         {
-            'window_duration': 0.2, # window_duration
-            'min_signal': 0.01,  # min_signal
-            'min_step_delta': 0.1,  # min_step_delta
-            'max_step_delta': 2,  # max_step_delta
-            'confirm_coefs': [0.4, 0.3, 0, 0], # confirmed
-            'unconfirm_coefs': [0.2, 0.65, 0, 0], # unconfirmed
-            'reset_coefs': [0, 0.7, 0, 0], # reset
+            'window_duration': 0.15, # window_duration
+            'min_step_delta': 0.4,  # min_step_delta
+            'max_step_delta': 1.4,  # max_step_delta
+            'confirm_coefs': [0.2, 0, 0, 0.012], # confirmed
+            'unconfirm_coefs': [0.1, 0, 0, 0.012], # unconfirmed
+            'reset_coefs': [0, 0, 0, 0.012], # reset
         },
+        # Loss=1.4934
+        # {'window_duration': 0.07651325111386532, 'min_step_delta': 0.28728543500653747, 'max_step_delta': 1.9624417995855015, 'confirm_coefs': [0.12274372213065465, 0.7626214307643524, 0, 0.04280243735955702], 'unconfirm_coefs': [0.08369005629371874, 0.5199763325046283, 0, 0.02918388272694458], 'reset_coefs': [0.032797436960074526, 0.20377439974707315, 0, 1.3643770203004923]}
+        # Loss=1.3088
+        # {'window_duration': 0.11648350077697603, 'min_step_delta': 0.4150863786469203, 'max_step_delta': 0.8845543528875641, 'confirm_coefs': [0.17063864572680765, 1.050955361224744, 0, 0.006707608960081934], 'unconfirm_coefs': [0.11554395033793244, 0.7116297339768358, 0, 0.004541899833234671], 'reset_coefs': [0.054098661685426416, 0.33319110270253666, 0, 0.6680818654403913]}
+        # Loss=0.9768
+        # {'window_duration': 0.03550903714928874, 'min_step_delta': 0.2815251015586965, 'max_step_delta': 1.0891063959298786, 'confirm_coefs': [0.08066138203178252, 1.23231526247683, 0, 0.004939935555472119], 'unconfirm_coefs': [0.04740702497952803, 0.7242672882529297, 0, 0.0029033428683784496], 'reset_coefs': [0.028768641384099188, 0.4395168414592628, 0, 1.6405257154209594]}
     ],
     SensorType.ACCEL: [
         # false-negative: 63.08%, false-positive: 61.54%
@@ -480,11 +502,12 @@ PARAM_MAP = {
             'unconfirm_coefs': [1.3976705681092856, 1.5234063263359925, 0.7101148865664979, 1.5667306931088163],
             'reset_coefs': [0.9161274358669074, 1.5974889872123756, 1.5278097857114015, 0.6556597273881369]
         },
+        # {'window_duration': 0.1528245877697354, 'min_signal': 0.009775206784765858, 'min_step_delta': 0.6002018071406573, 'max_step_delta': 1.3097133385347495, 'confirm_coefs': [0.3307906011750318, 0.3307653564083102, 1.113442691369579, 0.0061192363028736985], 'unconfirm_coefs': [0.04492663010156339, 1.827242358777819, 0.2522668781282773, 0.7158149543809781], 'reset_coefs': [0.5989798589222364, 1.9959103922131698, 0.6011319760688445, 1.9103389380818625]}
     ],
 }
 
 
-def get_optimal_analysis_params(sensor_type: SensorType, include_model=True, version=-1) -> dict:
+def get_optimal_analysis_params(sensor_type: SensorType, fs: int, include_model=True, version=-1) -> dict:
     """
     Returns the optimal analysis parameters for the given sensor type, based on previous optimize.py results.
     False rates are based on all available data for the given sensor type.
@@ -500,5 +523,5 @@ def get_optimal_analysis_params(sensor_type: SensorType, include_model=True, ver
     """
     params = PARAM_MAP[sensor_type][version]
     if include_model:
-        params['model'] = get_model_recording(sensor_type)
+        params['model'] = get_model_recording(sensor_type, fs)
     return params
