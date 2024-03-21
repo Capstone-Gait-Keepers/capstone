@@ -9,7 +9,7 @@
       <div class="row-grid">
         <div class="row-info">
           <p>WalkWise measures two metrics associated with balance.</p>
-          <button><RouterLink to="/breakdown#Balance">View Breakdown</RouterLink></button>
+          <button><RouterLink to="/breakdown#balance">View Breakdown</RouterLink></button>
         </div>
         <StatusIndicator :section="Section.balance" timespan="Month" />
         <StatusIndicator :section="Section.balance" timespan="Year" />
