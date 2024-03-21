@@ -23,14 +23,14 @@ ESP8266Timer i_timer;  // Hardware Timer
 #define USER_ID 821094 // User ID for this device
 
 #define INTERRUPT_INTERVAL_US (1000000/SAMPLE_RATE) // Interval between samples in microseconds
-#define START_BUFFER_TIME 0.5 // Size of buffer to store acceleration data prior to first step (in seconds)
+#define START_BUFFER_TIME 0.1 // Size of buffer to store acceleration data prior to first step (in seconds)
 #define END_BUFFER_TIME 2 // Size of buffer to store acceleration data after last step (in seconds)
 #define START_BUFFER_SAMPLES int(START_BUFFER_TIME * SAMPLE_RATE)  // In samples
 #define END_BUFFER_SAMPLES END_BUFFER_TIME * SAMPLE_RATE // Number of bad samples to save before stopping saving data
-#define CALIBRATION_TIME 2 // Time to run calibration for (in seconds)
+#define CALIBRATION_TIME 6 // Time to run calibration for (in seconds)
 
 // #define AMP_THRESHOLD 0.5 // Threshold for amplitude of acceleration data to be considered "good" (in m/s^2)
-float amp_threshold = 0.8; // Threshold for amplitude of acceleration data to be considered "good" (in m/s^2)
+float amp_threshold = 0.05; // Threshold for amplitude of acceleration data to be considered "good" (in m/s^2)
 
 volatile bool start_sampling = false; // Flag to indicate if a new sample should be taken based on timer interrupt
 
@@ -148,7 +148,7 @@ void setup(void)
   i_timer.attachInterruptInterval(INTERRUPT_INTERVAL_US, TimerHandler);
   i_timer.enableTimer();
 
-  calibration_flag = true;
+  calibration_flag = false;
 }
 
 void loop(void)

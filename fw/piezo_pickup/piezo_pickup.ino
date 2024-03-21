@@ -4,7 +4,7 @@ const int microphonePin = A0;
 uint16_t output = 0;
 
 void setup() {
-  Serial.begin(9600);
+  Serial.begin(115200);
 }
 
 uint16_t EWMA(uint16_t old_output, uint16_t reading) {

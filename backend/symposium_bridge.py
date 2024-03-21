@@ -3,7 +3,8 @@ import time
 import json
 import sys
 import os
-from data_analysis.data_types import Recording, get_optimal_analysis_params, SensorType
+import numpy as np
+from data_analysis.data_types import Recording, get_optimal_analysis_params, SensorType, RecordingEnvironment, WalkPath
 sys.path.append(os.path.join(os.path.dirname(__file__), 'data_analysis'))
 from data_analysis.metric_analysis import AnalysisController
 
@@ -26,12 +27,36 @@ def serial_bridge(serial_port='/dev/cu.usbserial-0001', baud_rate=115200):
             url = ser.readline().decode().strip()
             data_test = ser.readline().strip()
             json_ts_data = json.loads(data_test)['ts_data']
-            print(f"Data length {len(json_ts_data)}")
-
-            # plot the data
-            rec = Recording.from_real_data(fs=500, data=json_ts_data)
-            # Recording.from_real_data(fs=500, data=json_ts_data).plot()
-            ctrl.get_recording_metrics(rec, plot_with_metrics=True)
+            max_amp = np.max(np.abs(json_ts_data))
+            if max_amp < 0.1:
+                print(f"Max amplitude too low ({max_amp}), skipping")
+            else:
+                print(f"Data length {len(json_ts_data)}")
+                rec = Recording.from_real_data(fs=ctrl.fs, data=json_ts_data)
+                ctrl.get_recording_metrics(rec, plot_with_metrics=True)
+                if input('Save?') == 'y':
+                    index = 2
+                    while os.path.exists(f"data-{index}.yml"):
+                        index += 1
+                    rec.env = RecordingEnvironment(
+                        ctrl.fs,
+                        location="Custom Floor",
+                        user="ron",
+                        floor="plywood",
+                        footwear="socks",
+                        walk_type="normal",
+                        obstacle_radius=0,
+                        path=WalkPath(
+                            start=1.8,
+                            stop=1.8,
+                            length=3.0,
+                        ),
+                        wall_radius=0,
+                        quality="normal",
+                        walk_speed="normal",
+                        # notes="Walked off",
+                    )
+                    rec.to_file(f'data-{index}.yml')
         except UnicodeDecodeError:
             print(f"500: Couldn't decode")
 
@@ -39,3 +64,5 @@ def serial_bridge(serial_port='/dev/cu.usbserial-0001', baud_rate=115200):
 
 if __name__ == '__main__':
     serial_bridge()
+    # rec = Recording.from_file('TEST-0.yml')
+    # rec.plot()
