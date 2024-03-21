@@ -3,7 +3,7 @@
     <p class="exclamation">!</p>
     <div>
       <strong>Changes detected!</strong>
-      <p>Negative changes were detected in your {{ props.metric_type }} over the last month. Consider setting an appointment up with your doctor to check in on your balance.</p>
+      <p>Negative changes were detected in your {{ props.metric_type }} over the last month. Consider setting an appointment up with your doctor to check in on your {{ props.metric_type }}.</p>
     </div>
     <p @click="open = false" class="close-button">X</p>
   </div>
