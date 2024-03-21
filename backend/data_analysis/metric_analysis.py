@@ -340,6 +340,7 @@ class AnalysisController:
                 rows['truth'] = source_of_truth.by_tag()
             df = pd.concat(rows.values(), axis=0)
             df = df.apply(np.round, decimals=3)
+            df = df.filter(['step_count', 'STGA', 'stride_time', 'cadence', 'var_coef'])
             df.insert(loc=0, column='data', value=rows.keys())
             self._detector.get_step_groups(data.ts, plot_with_metrics, truth=true_steps, plot_table=df, plot_title=data.tag)
         return measured, source_of_truth, algorithm_error

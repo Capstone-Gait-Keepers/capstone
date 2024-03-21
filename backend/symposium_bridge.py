@@ -34,11 +34,16 @@ def serial_bridge(serial_port='/dev/cu.usbserial-0001', baud_rate=115200):
                 print(f"Data length {len(json_ts_data)}")
                 rec = Recording.from_real_data(fs=ctrl.fs, data=json_ts_data)
                 ctrl.get_recording_metrics(rec, plot_with_metrics=True)
-                if input('Save?') == 'y':
-                    index = 2
-                    while os.path.exists(f"data-{index}.yml"):
-                        index += 1
-                    rec.env = RecordingEnvironment(
+                # if input('Save?') == 'y':
+                #     save_attempt(rec)
+        except UnicodeDecodeError:
+            print(f"500: Couldn't decode")
+
+def save_attempt(rec: Recording):
+    index = 2
+    while os.path.exists(f"data-{index}.yml"):
+        index += 1
+    rec.env = RecordingEnvironment(
                         ctrl.fs,
                         location="Custom Floor",
                         user="ron",
@@ -56,9 +61,7 @@ def serial_bridge(serial_port='/dev/cu.usbserial-0001', baud_rate=115200):
                         walk_speed="normal",
                         # notes="Walked off",
                     )
-                    rec.to_file(f'data-{index}.yml')
-        except UnicodeDecodeError:
-            print(f"500: Couldn't decode")
+    rec.to_file(f'data-{index}.yml')
 
 
 
