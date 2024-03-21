@@ -1,7 +1,7 @@
 <template>
   <BasePage>
     <h1>Good Afternoon, {{ user?.name }}.</h1>
-    <ChangeAlert metric_type="balance" v-model="alertOpen" />
+    <ChangeAlert metric_type="dementia" v-model="alertOpen" />
     <h2>Welcome to your personal insights.</h2>
 
     <div class="row" v-if="validSection(Section.balance)">
