@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API Documentation</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        h1 {
+            color: #333;
+        }
+        h2 {
+            color: #555;
+        }
+        code {
+            background-color: #f4f4f4;
+            padding: 2px 6px;
+            border: 1px solid #ddd;
+        }
+    </style>
+</head>
+<body>
+    <h1 style="color: #5a4fcf;">API Documentation</h1>
+
+    <!-- Links to Endpoint Sections -->
+    <ul>
+        <li><a href="#send_recording">/api/send_recording</a></li>
+        <li><a href="#add_sensorconfig">/api/add_sensorconfig</a></li>
+    </ul>
+
+    <!-- /api/send_recording Section -->
+    <section id="send_recording">
+        <h2 style="color: #8470ff;">/api/send_recording</h2>
+        <p><strong>URL:</strong> <code>/api/send_recording</code></p>
+        <p><strong>Type:</strong> <code>POST</code></p>
+        <p><strong>Status Codes:</strong> <code>201 Created</code>, <code>400 Bad Request</code></p>
+        <h3>Example Request</h3>
+        <pre><code>{
+    "sensorid": 74464,
+    "timestamp": datetime.utcnow().isoformat(),
+    "ts_data": [1.00,2.00,3.00]
+}</code></pre>
+        <h3>Example Response</h3>
+        <pre><code>{
+    "message": "Data added successfully"
+}</code></pre>
+    </section>
+
+    <!-- /api/add_sensorconfig Section -->
+    <section id="add_sensorconfig">
+        <h2 style="color: #8470ff;">/api/add_sensorconfig</h2>
+        <p><strong>URL:</strong> <code>/api/add_sensorconfig</code></p>
+        <p><strong>Type:</strong> <code>POST</code></p>
+        <p><strong>Status Codes:</strong> <code>201 Created</code>, <code>400 Bad Request</code></p>
+        <h3>Example Request</h3>
+        <pre><code>{
+    "model": "ExampleModel",
+    "userid": 1,
+    "floor": "ExampleFloor",
+    "wall_radius": 2.5,
+    "obstacle_radius": 1.0
+}</code></pre>
+        <h3>Example Response</h3>
+        <pre><code>{
+    "message": "Sensor record created",
+    "sensorid": "74464"
+}</code></pre>
+    </section>
+
+</body>
+</html>
