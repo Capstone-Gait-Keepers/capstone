@@ -348,6 +348,7 @@ class StepDetector(TimeSeriesProcessor):
                 cols=1,
                 shared_xaxes=True,
                 subplot_titles=titles,
+                vertical_spacing=0.07,
                 specs=[[{'type': 'xy'}], [{'type': 'xy'}], [{'type': 'xy'}], [{'type': 'table'}]] if plot_table is not None else None
             )
             if plot_title is not None:
@@ -375,7 +376,11 @@ class StepDetector(TimeSeriesProcessor):
                 fig.add_vline(x=uncertain, line_dash="dot", row=1, col=1)
                 fig.add_annotation(x=uncertain, y=DC - offset, xshift=-10, text="U", showarrow=False, row=1, col=1)
             if plot_table is not None:
-                fig.add_table(header=dict(values=plot_table.columns), cells=dict(values=plot_table.values.T), row=4, col=1)
+                fig.add_table(
+                    header=dict(values=plot_table.columns, height=40, font=dict(size=30)),
+                    cells=dict(values=plot_table.values.T, height=40, font=dict(size=30)),
+                    row=4, col=1
+                )
             fig.show()
         if self._min_signal is not None and max_sig < self._min_signal:
             return [], []

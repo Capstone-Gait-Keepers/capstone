@@ -162,7 +162,7 @@ class Metrics:
 
     STEP_REQUIREMENTS = {
         'step_count': 0,
-        'STGA': 4,
+        'STGA': 3,
         'stride_time': 3,
         'cadence': 2,
         'var_coef': 6,
@@ -458,11 +458,11 @@ PARAM_MAP = {
         # false-negative: 46.67%, false-positive: 23.08%
         {
             'window_duration': 0.15, # window_duration
-            'min_step_delta': 0.4,  # min_step_delta
+            'min_step_delta': 0.3,  # min_step_delta
             'max_step_delta': 1.2,  # max_step_delta
-            'confirm_coefs': [0.07, 0, 0, 0.012], # confirmed
-            'unconfirm_coefs': [0.04, 0, 0, 0.012], # unconfirmed
-            'reset_coefs': [0, 0, 0, 0.012], # reset
+            'confirm_coefs': [0.07, 0, 0, 0.013], # confirmed
+            'unconfirm_coefs': [0.04, 0, 0, 0.013], # unconfirmed
+            'reset_coefs': [0, 0, 0, 0.013], # reset
         },
         # Loss=0.135
         # {
@@ -471,7 +471,7 @@ PARAM_MAP = {
         #     'max_step_delta': 1.6592433964815125,
         #     'confirm_coefs': [0.0019137034298423172, 0.45932149582073245, 0, 0.008695670392463106],
         #     'unconfirm_coefs': [0.001490315322084881, 0.357701121453802, 0, 0.006771838634764541],
-        #     'reset_coefs': [0.0010589213649421108, 0.25415920655052526, 0, 1.6233978050719027]
+        #     'reset_coefs': [0.0010589, 0, 0, 0.008]
         # }
     ],
     SensorType.ACCEL: [

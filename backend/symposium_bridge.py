@@ -3,6 +3,7 @@ import time
 import json
 import sys
 import os
+from datetime import datetime
 import numpy as np
 from data_analysis.data_types import Recording, get_optimal_analysis_params, SensorType, RecordingEnvironment, WalkPath
 sys.path.append(os.path.join(os.path.dirname(__file__), 'data_analysis'))
@@ -10,6 +11,8 @@ from data_analysis.metric_analysis import AnalysisController
 
 START_SIGNAL = b'BEGIN_TRANSMISSION'
 ctrl = AnalysisController(**get_optimal_analysis_params(SensorType.PIEZO, fs=500))
+
+MIN_AMP = 0.08
 
 
 def serial_bridge(serial_port='/dev/cu.usbserial-0001', baud_rate=115200):
@@ -28,25 +31,22 @@ def serial_bridge(serial_port='/dev/cu.usbserial-0001', baud_rate=115200):
             data_test = ser.readline().strip()
             json_ts_data = json.loads(data_test)['ts_data']
             max_amp = np.max(np.abs(json_ts_data))
-            if max_amp < 0.1:
+            if max_amp < MIN_AMP:
                 print(f"Max amplitude too low ({max_amp}), skipping")
             else:
                 print(f"Data length {len(json_ts_data)}")
                 rec = Recording.from_real_data(fs=ctrl.fs, data=json_ts_data)
                 ctrl.get_recording_metrics(rec, plot_with_metrics=True)
-                # if input('Save?') == 'y':
-                #     save_attempt(rec)
+                save_attempt(rec)
         except UnicodeDecodeError:
             print(f"500: Couldn't decode")
 
 def save_attempt(rec: Recording):
-    index = 2
-    while os.path.exists(f"data-{index}.yml"):
-        index += 1
+    timestamp = datetime.now().strftime('%Y-%m-%d-%H-%M-%S')
     rec.env = RecordingEnvironment(
                         ctrl.fs,
                         location="Custom Floor",
-                        user="ron",
+                        user="guest",
                         floor="plywood",
                         footwear="socks",
                         walk_type="normal",
@@ -59,9 +59,9 @@ def save_attempt(rec: Recording):
                         wall_radius=0,
                         quality="normal",
                         walk_speed="normal",
-                        # notes="Walked off",
+                        notes="Symposium",
                     )
-    rec.to_file(f'data-{index}.yml')
+    rec.to_file(f'datasets/piezo_symposium/{timestamp}.yml')
 
 
 
