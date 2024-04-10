@@ -5,6 +5,7 @@ from flask import jsonify, Blueprint, request, send_from_directory
 from http import HTTPStatus
 from sqlalchemy.exc import OperationalError
 import numpy as np
+from time import time
 
 from database import db, Recordings, NewSensor, FakeUser
 # This is hack, but it's the simplest way to get things to work without changing things - Daniel
@@ -67,12 +68,15 @@ def get_metrics(email: str, fake=True):
         recordings = db.session.query(Recordings).filter(Recordings.sensorid == sensor._id).all()
         datasets = [Recording.from_real_data(sensor.fs, recording.ts_data, tag=recording.timestamp.strftime('%Y-%m-%d')) for recording in recordings]
         print("Datasets:", len(datasets))
+        start_time = time.time() # for performance testing
         analysis_controller = AnalysisController(fs=sensor.fs, noise_amp=0.05)
 
         metrics = analysis_controller.get_metrics(datasets)[0]
         df = metrics.by_tag()
         df = df.replace(np.nan, None)
         df.reset_index(inplace=True, drop=False)
+        time_taken = time.time() - start_time
+        print(time_taken) # will print to server log for performance testing
         print(df)
         response = jsonify(df.to_dict('list'))
         print(response)

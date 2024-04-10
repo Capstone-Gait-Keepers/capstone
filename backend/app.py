@@ -144,13 +144,13 @@ def add_recording():
     max_retries = 3
 
     for attempt in range(max_retries): # retry twice
-        print("Trying!")
+        #print("Trying!")
         try:
 
-            print("Wakey Wakey Mr Database!")
+            print("Waking up the database...")
             database_wakeup()
 
-            print("Thanks for the data..")
+            #print("Thanks for the data..")
             new_data = Recordings(
                 _id=generate_unique_id(), # calls function, populates with value
                 sensorid=int(data['sensorid']), # sensor property
@@ -158,12 +158,12 @@ def add_recording():
                 ts_data=data['ts_data'], # float 8 array
             )
 
-            print("Ok I'm trying to add data now cross your fingers")
+            print("Now trying to send data.")
 
             db.session.add(new_data)
             db.session.commit() # add to database
 
-            print("Omg girls I did it")
+            print("Data has been received by the database!")
 
             time_taken = time.time() - start_time
             print(time_taken) # will print to server logs for performance testing
@@ -181,7 +181,7 @@ def add_recording():
             error = e
             #return jsonify({"error": str(e)}), HTTPStatus.BAD_REQUEST    
         finally:
-            print("I'm closing!")
+            print("Closing the database session.")
             db.session.close()
                 
     print("I give up!")
