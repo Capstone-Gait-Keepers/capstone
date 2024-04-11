@@ -1,5 +1,7 @@
 import numpy as np
 import pandas as pd
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 from scipy.signal import hilbert
 from scipy.stats import entropy
 from typing import List
@@ -30,6 +32,18 @@ class Metrics:
         'conditional_entropy': 6,
     }
 
+    stats = pd.DataFrame.from_dict({
+            'STGA': [0.015,0.050,0.1,0.2,0.15], # TODO: FAKE NUMBERS
+            'stride_time': [1.036,0.1,1.128,0.107,0.092],
+            'cadence': [1.692,0.202,1.588,0.197,0.107],
+            'var_coef': [0.017,0.05,0.031,0.012,0.14],
+            'phase_sync': [0.812,0.001,0.788,0.045,np.nan],
+            'conditional_entropy': [0.007,0.015,0.054,0.094,np.nan],
+        },
+        columns=['ctrl_mu', 'ctrl_std', 'bad_mu', 'bad_std', 'measure_std'],
+        orient='index',
+    )
+
     def __init__(self, timestamp_groups: List[np.ndarray], recording_id=0):
         func_map = self.get_func_map()
         self.keys = self.get_keys()
@@ -54,24 +68,16 @@ class Metrics:
         }
 
     @staticmethod
-    def get_control() -> pd.DataFrame:
-        return pd.DataFrame.from_dict({
-            'step_count': [np.inf],
-            'STGA': [0.015],
-            'stride_time': [1.036],
-            'cadence': [1.692],
-            'var_coef': [0.017],
-            'phase_sync': [0.812],
-            'conditional_entropy': [0.007],
-        })
+    def get_control() -> pd.Series:
+        return Metrics.stats['ctrl_mu']
 
-    @classmethod
-    def get_keys(cls):
-        return list(cls.get_func_map().keys())
+    @staticmethod
+    def get_keys():
+        return list(Metrics.STEP_REQUIREMENTS.keys())
 
-    @classmethod
-    def get_metric_names(cls):
-        return list(set(cls.get_func_map().keys()) - cls.summed_vars)
+    @staticmethod
+    def get_metric_names():
+        return list(Metrics.stats.index)
 
     def __getitem__(self, key):
         return self.aggregate_metric(self._df[key], weights=self._df['step_count'])
@@ -275,32 +281,52 @@ class Metrics:
     def __str__(self) -> str:
         return str(self._df)
     
+    def plot(self, metrics=None):
+        keys = metrics or self.get_metric_names()
+        data = self.by_tag()[keys]
+        fig = make_subplots(rows=len(keys), cols=1, shared_xaxes=True, subplot_titles=keys)
+        for i, key in enumerate(keys):
+            fig.add_trace(go.Scatter(x=data.index, y=data[key], mode='lines', name=key), row=i+1, col=1)
+        fig.update_layout(showlegend=False)
+        fig.show()
+
     def significant_change(self) -> pd.Series:
         """Detects significant changes in a series, based on CUSUM SPC"""
         d = {}
+        w = Metrics.stats['ctrl_std']
         for metric in self.get_metric_names():
-            d[metric] = self._positive_change(self._df[metric]) or self._positive_change(-self._df[metric])
-        return pd.Series(d)
-    
+            pos_change = self._positive_change(self._df[metric], w[metric])
+            neg_change = self._positive_change(-self._df[metric], w[metric])
+            if pos_change != -1:
+                d[metric] = pos_change
+            elif neg_change != -1:
+                d[metric] = neg_change
+            else:
+                d[metric] = -1
+        return pd.Series(d) > 0
+
     @staticmethod
-    def _positive_change(metric, w=0.1) -> bool:
-        """Detects significant changes in a series, based on CUSUM SPC"""
+    def _positive_change(metric: pd.Series, w: float) -> int:
+        """
+        Detects significant changes in a series, based on CUSUM SPC. W is the threshold for change.
+        Commonly, w = 1/2 * | u1 - u2 |, where u1 and u2 are the means of the control and bad groups.
+        Returns the index of the first significant change, or -1 if no change is detected.
+        """
         Sn = 0
         for i in range(1, len(metric)):
             Snext = max(0, Sn + metric.iloc[i] - metric.iloc[i - 1] - w)
             if Snext > 0:
-                print(f"Significant change detected at index {i} in metric {metric.name}")
-                return True
+                return i
             Sn = Snext
-        return False
+        return -1
 
 
 if __name__ == "__main__":
     from generate_dummies import generate_metrics, decay
-    days = 5
-    asymmetry = decay(days, 0, 0)
-    cadence = decay(days, 2, 0.5)
-    var = decay(days, 0, 0)
+    days = 30
+    asymmetry = decay(days, 0, 0.2)
+    cadence = decay(days, 2, 2)
+    var = decay(days, 0.02, 0.02)
     data = generate_metrics(days=days, cadence=cadence, asymmetry=asymmetry, var=var)
     print(data.significant_change())
-    # plot_metrics(data)
+    data.plot(['stride_time', 'var_coef', 'STGA'])
