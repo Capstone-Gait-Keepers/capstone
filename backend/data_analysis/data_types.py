@@ -358,7 +358,7 @@ class Metrics:
         """Combines two Metrics objects by averaging their values."""
         return self if other == 0 else self.__add__(other)
 
-    def error(self, truth: 'Metrics', normalize=True) -> pd.DataFrame:
+    def error(self, truth: 'Metrics', absolute=False, normalize=False) -> pd.DataFrame:
         """Returns the % error between two Metrics objects. Groups by recording_id."""
         if not isinstance(truth, Metrics):
             raise ValueError('Can only compare Metrics to Metrics.')
@@ -366,12 +366,13 @@ class Metrics:
             raise ValueError(f'Cannot compare Metrics of different lengths. truth.recordings ({len(truth.recordings)}) != self.recordings ({self.recordings}) (len(self) = {len(self)})')
         self_rec_metrics = self.by_tag()
         truth_rec_metrics = truth.by_tag()
-        error = abs(self_rec_metrics - truth_rec_metrics)
+        error = self_rec_metrics - truth_rec_metrics
+        if absolute:
+            error = error.abs()
         if normalize:
             for key in Metrics.get_keys():
                 if key not in Metrics.summed_vars:
-                    normalizer = np.max(np.concatenate([truth_rec_metrics[key], np.ones(len(truth_rec_metrics))]))
-                    error[key] /= normalizer
+                    error[key] /= truth_rec_metrics[key]
         # Where they are both NaN, the error is 0
         error = error.where(error != np.inf, np.nan)
         error = error.where(truth_rec_metrics.notna() | self_rec_metrics.notna(), 0)

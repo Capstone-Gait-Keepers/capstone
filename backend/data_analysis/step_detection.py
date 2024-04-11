@@ -284,10 +284,12 @@ class StepDetector(TimeSeriesProcessor):
         self.logger.debug(f"Found {len(steps)} confirmed steps and {len(uncertain_steps)} uncertain steps")
         if len(steps) > 1: # We need at least two confirmed steps to do anything
             step_groups = self._resolve_step_sections(steps, uncertain_steps)
-            self.logger.info(f"Resolved {len(steps)} steps into {len(step_groups)} step groups of lengths {[len(group) for group in step_groups]}")
             if len(step_groups):
+                self.logger.info(f"Resolved {len(steps)} steps into {len(step_groups)} step groups of lengths {[len(group) for group in step_groups]}")
                 step_groups = self._enforce_min_step_delta(step_groups)
                 step_groups = self._enforce_max_step_delta(step_groups)
+            else:
+                self.logger.debug(f"Found {len(steps)} steps, but none could be grouped into a walk")
             return step_groups
         return []
 
@@ -426,7 +428,7 @@ class StepDetector(TimeSeriesProcessor):
 
         # Grouping confirmed steps into sections
         current_section = 0
-        section_indices = [current_section] * len(confirmed)
+        section_indices = np.zeros(len(confirmed), dtype=int)
         for i, (prev_step, current_step) in enumerate(zip(confirmed.iloc[:-1], confirmed.iloc[1:]), 1):
             if current_step and not prev_step:
                 current_section += 1
@@ -438,7 +440,7 @@ class StepDetector(TimeSeriesProcessor):
         steps = steps[steps.confirmed] # Ignore unconfirmed steps that were not upgraded
         if not len(steps):
             return []
-        steps = steps.groupby('section').filter(lambda x: len(x) >= 3) # Ignore sections with less than 3 steps
+        steps = steps.groupby('section').filter(lambda x: len(x) > 1) # Ignore sections with only one step
         sections = [group.index.values for _, group in steps.groupby('section')]
         return sections
 

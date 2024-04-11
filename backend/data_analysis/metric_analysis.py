@@ -200,7 +200,7 @@ class AnalysisController:
         logger.addHandler(handler)
         return logger
 
-    def get_metric_error(self, datasets: Iterable[Recording], append_env=False, plot_signals=False, plot_title=None, plot_dist=False, plot_vs_env=False) -> pd.DataFrame:
+    def get_metric_error(self, datasets: Iterable[Recording], absolute=False, normalize=False, append_env=False, plot_signals=False, plot_title=None, plot_dist=False, plot_vs_env=False) -> pd.DataFrame:
         """Calculates the metric error based on a set of datasets and returns a dataframe"""
         results = []
         recordings = []
@@ -209,7 +209,7 @@ class AnalysisController:
             result = self.get_recording_metrics(data, plot_signals)
             results.append(result)
         measured, truth, alg_err = self._parse_metric_results(results)
-        err = measured.error(truth)
+        err = measured.error(truth, absolute, normalize)
         err.index = [rec.tag for rec in recordings]
         # Log false negative and false positive rates
         env_df = self.get_env_df(recordings)
@@ -506,15 +506,25 @@ def compare_sensor_snrs(use_weights=True):
 
 if __name__ == "__main__":
     sensor_type = SensorType.PIEZO
-    params = get_optimal_analysis_params(sensor_type, fs=200)
+    params = get_optimal_analysis_params(sensor_type, fs=500)
     controller = AnalysisController(**params)
-    # datasets = DataHandler('datasets/symposium').get_lazy()
-    datasets = DataHandler.from_sensor_type(sensor_type).get_lazy(user='ron', quality='normal', location='Aarons Studio')
-    df = controller.get_metric_error(datasets, plot_dist=False, plot_signals=False, plot_title=str(params))
+    # datasets = DataHandler.from_sensor_type(sensor_type).get_lazy(user='ron', location='Aarons Studio')
+    datasets = DataHandler('datasets/piezo_custom').get_lazy()
+    df = controller.get_metric_error(datasets, absolute=False, normalize=False, plot_dist=False, plot_title=str(params))
+    for metric in df.columns:
+        errors = df[metric].dropna()
+        print(f"{metric} error: {errors.mean():.3f} ± {errors.std():.3f}")
+
     # print(controller.get_false_rates(datasets, plot_dist=False))
     # print(*controller.get_metrics(datasets, plot_signals=False))
 
-    # controller.get_recording_metrics(Recording.from_file('datasets/piezo_custom/2.1.yml'), plot_with_metrics=True)
 
-    # for rec in datasets:
-    #     controller.get_recording_metrics(rec, plot_with_metrics=True)
+    # from scipy import stats
+    # df = pd.read_csv("error.csv", index_col=0)
+    # print(len(df))
+    # for metric in df.columns:
+    #     data = df[metric].dropna()
+    #     trimmed = data[(np.abs(stats.zscore(data)) < 3)]
+    #     print(f"{metric} error: {data.mean():.3f} ± {data.std():.3f}")
+    #     print(f"{metric} error: {trimmed.mean():.3f} ± {trimmed.std():.3f}")
+    # print(df.head())
