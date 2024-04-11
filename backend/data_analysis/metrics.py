@@ -274,3 +274,33 @@ class Metrics:
 
     def __str__(self) -> str:
         return str(self._df)
+    
+    def significant_change(self) -> pd.Series:
+        """Detects significant changes in a series, based on CUSUM SPC"""
+        d = {}
+        for metric in self.get_metric_names():
+            d[metric] = self._positive_change(self._df[metric]) or self._positive_change(-self._df[metric])
+        return pd.Series(d)
+    
+    @staticmethod
+    def _positive_change(metric, w=0.1) -> bool:
+        """Detects significant changes in a series, based on CUSUM SPC"""
+        Sn = 0
+        for i in range(1, len(metric)):
+            Snext = max(0, Sn + metric.iloc[i] - metric.iloc[i - 1] - w)
+            if Snext > 0:
+                print(f"Significant change detected at index {i} in metric {metric.name}")
+                return True
+            Sn = Snext
+        return False
+
+
+if __name__ == "__main__":
+    from generate_dummies import generate_metrics, decay
+    days = 5
+    asymmetry = decay(days, 0, 0)
+    cadence = decay(days, 2, 0.5)
+    var = decay(days, 0, 0)
+    data = generate_metrics(days=days, cadence=cadence, asymmetry=asymmetry, var=var)
+    print(data.significant_change())
+    # plot_metrics(data)

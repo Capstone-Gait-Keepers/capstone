@@ -2,7 +2,7 @@ import numpy as np
 from datetime import datetime, timedelta
 from typing import Optional
 
-from data_types import Metrics
+from metrics import Metrics
 
 np.random.seed(0)
 
