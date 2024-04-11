@@ -7,7 +7,8 @@ from plotly import graph_objects as go
 from typing import List, Tuple, Optional, Iterable
 from logging import Logger, getLogger, StreamHandler, FileHandler, Formatter
 
-from data_types import Metrics, Recording, RecordingEnvironment, SensorType, get_optimal_analysis_params
+from data_types import Recording, RecordingEnvironment, SensorType, get_optimal_analysis_params
+from metrics import Metrics
 from step_detection import DataHandler, StepDetector, TimeSeriesProcessor
 
 

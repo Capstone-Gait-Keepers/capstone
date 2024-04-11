@@ -5,7 +5,8 @@ from scipy.optimize import differential_evolution, LinearConstraint
 from tqdm import tqdm
 from typing import List
 
-from data_types import Recording, Metrics, get_model_recording
+from data_types import Recording, get_model_recording
+from metrics import Metrics
 from step_detection import DataHandler
 from metric_analysis import AnalysisController
 
