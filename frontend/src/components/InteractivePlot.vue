@@ -41,7 +41,7 @@ const slice_index = computed(() => datesBackIndex(span.value));
 }
 
 button {
-  font-size: .8rem;
+  font-size: .8em;
   color: #525252;
   background-color: #F4F4F4;
   box-shadow: none;

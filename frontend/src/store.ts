@@ -20,6 +20,10 @@ export const store = reactive<{
   user: User | null;
   connected_users: string[];
   view_sections: Record<Section, boolean>;
+  display: {
+    large_font: boolean;
+    high_contrast: boolean;
+  };
   data: Metrics | null;
 }>({
   user: {
@@ -34,6 +38,10 @@ export const store = reactive<{
     [Section.neurodegenerative]: true,
     [Section.dementia]: true,
     [Section.reliability]: true,
+  },
+  display: {
+    large_font: false,
+    high_contrast: false,
   },
   data: null,
 });

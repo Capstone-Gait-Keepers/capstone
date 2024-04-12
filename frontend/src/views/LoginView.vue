@@ -27,13 +27,13 @@ import Logo from '@/components/Logo.vue';
   flex-direction: column;
   align-items: center;
   margin-top: 20vh;
-  font-size: 1.5rem;
+  font-size: 1.5em;
   gap: 1rem;
 }
 
 h1 {
   text-align: center;
-  font-size: 4rem;
+  font-size: 4em;
 }
 
 .options {

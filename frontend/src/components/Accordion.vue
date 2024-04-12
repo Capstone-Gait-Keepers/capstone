@@ -52,7 +52,7 @@ function end(el: any) {
   justify-content: space-between;
   align-items: center;
   font-weight: bold;
-  font-size: 1.2rem;
+  font-size: 1.2em;
   color: var(--color-main);
 }
 

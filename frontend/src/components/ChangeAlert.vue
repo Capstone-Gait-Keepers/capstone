@@ -35,13 +35,13 @@ const open = defineModel<boolean>();
 }
 
 .exclamation {
-  font-size: 3rem;
+  font-size: 3em;
   color: var(--yellow);
   line-height: 1;
 }
 
 .close-button {
-  font-size: 1.2rem;
+  font-size: 1.2em;
   color: var(--yellow);
   cursor: pointer;
   margin-left: auto;

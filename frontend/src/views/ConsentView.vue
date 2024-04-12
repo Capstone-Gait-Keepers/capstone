@@ -61,7 +61,7 @@ header {
 
 header h1 {
   text-align: center;
-  font-size: 24px;
+  font-size: 2em;
 }
 
 .body {
@@ -72,6 +72,6 @@ header h1 {
 footer {
   display: flex;
   justify-content: space-around;
-  font-size: 1.2rem;
+  font-size: 1.2em;
 }
 </style>

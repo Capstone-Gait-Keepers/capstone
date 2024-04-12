@@ -7,6 +7,10 @@
     <FormInput label="Password" type="password" v-model="user.password" />
     <FormInput label="Sensor ID" type="text" v-model="user.sensor_id" />
     <!-- <FormInput label="Notifications" type="text" v-model="user.notifications" /> -->
+    <h2>Visual Display Settings</h2>
+    <p>Personalize your display to improve accessibility.</p>
+    <FormSwitch label="Large font" id="font" v-model="display.large_font" />
+    <FormSwitch label="High contrast" id="contrast" v-model="display.high_contrast" />
     <h2>Health Indicators</h2>
     <p>Choose what information to view on the Home Insights page. If you don't want to see a specific group of insights or recommendations simply turn the toggle off. The system will still collect the data it just won't display it to you so you can turn them back on at any time if you decide you want to see the insights.</p>
     <FormSwitch label="Balance indicators" id="balance" v-model="view_sections.balance" />
@@ -36,7 +40,7 @@ import BasePage from '@/components/BasePage.vue';
 import FormInput from '@/components/FormInput.vue';
 import FormSwitch from '@/components/FormSwitch.vue';
 import { store } from '@/store';
-const { view_sections, user, connected_users } = store;
+const { view_sections, display, user, connected_users } = store;
 
 const addingUser = ref(false);
 const successMessage = ref('');

@@ -1,14 +1,15 @@
 <script setup lang="ts">
 import { RouterLink } from 'vue-router'
 import { onMounted } from 'vue';
-import { fetchData } from '@/store';
+import { fetchData, store } from '@/store';
 import Logo from '@/components/Logo.vue'
 
+const { display } = store;
 onMounted(fetchData);
 </script>
 
 <template>
-  <div>
+  <div :style="{'font-size': display.large_font ? '20px': '15px'}">
     <header>
       <RouterLink to="/">
         <Logo />
