@@ -23,7 +23,7 @@ function highContrast() {
       </RouterLink>
       <nav>
         <RouterLink to="/"><img src="@/assets/icon-overview.svg" alt="overview-icon"/>Overview</RouterLink>
-        <RouterLink to="/breakdown"><img src="@/assets/icon-breakdown.svg" alt="breakdown-icon"/>Breakdown</RouterLink>
+        <RouterLink to="/trends"><img src="@/assets/icon-breakdown.svg" alt="trends-icon"/>View Trends</RouterLink>
         <RouterLink to="/settings"><img src="@/assets/icon-settings.svg" alt="settings-icon"/>Settings</RouterLink>
         <!-- <RouterLink to="/status">Status</RouterLink> -->
         <button><RouterLink to="/login">Sign out</RouterLink></button>

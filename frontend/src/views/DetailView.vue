@@ -1,7 +1,7 @@
 <template>
   <BasePage>
     <div class="main">
-      <h1>Breakdown</h1>
+      <h1>Your Trends</h1>
       <p>Dive into the measurements WalkWise has collected to learn how changes are determined.</p>
       <span v-if="store.data !== null" v-for="metric_keys, header in metric_sections">
         <div v-if="validSection(header)" :key="header" class="category" :id="header">

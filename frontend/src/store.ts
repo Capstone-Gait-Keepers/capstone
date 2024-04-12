@@ -49,7 +49,7 @@ export const store = reactive<{
 export const metric_sections: Record<Section, string[]> = {
   [Section.balance]: ['var_coef', 'STGA'],
   [Section.neurodegenerative]: ['phase_sync', 'conditional_entropy', 'STGA'],
-  [Section.dementia]: ['stride_time', 'cadence', 'var_coef', 'STGA'],
+  [Section.dementia]: ['stride_time', 'cadence', 'var_coef'],
   [Section.reliability]: ['step_count']
 };
 

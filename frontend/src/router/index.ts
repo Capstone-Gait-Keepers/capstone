@@ -20,8 +20,8 @@ const router = createRouter({
       component: () => import('../views/ConsentView.vue')
     },
     {
-      path: '/breakdown',
-      name: 'breakdown',
+      path: '/trends',
+      name: 'trends',
       component: () => import('../views/DetailView.vue')
     },
     {

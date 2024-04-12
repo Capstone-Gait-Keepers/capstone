@@ -9,7 +9,7 @@
       <div class="row-grid">
         <div class="row-info">
           <p>WalkWise measures two metrics associated with balance.</p>
-          <button><RouterLink to="/breakdown#balance">View Breakdown</RouterLink></button>
+          <button><RouterLink to="/trends#balance">View Trends</RouterLink></button>
         </div>
         <StatusIndicator :section="Section.balance" timespan="Month" />
         <StatusIndicator :section="Section.balance" timespan="Year" />
@@ -21,7 +21,7 @@
       <div class="row-grid">
         <div class="row-info">
           <p>WalkWise measures three metrics associated with neurodegenerative diseases.</p>
-          <button><RouterLink to="/breakdown#neurodegenerative">View Breakdown</RouterLink></button>
+          <button><RouterLink to="/trends#neurodegenerative">View Trends</RouterLink></button>
         </div>
         <StatusIndicator :section="Section.neurodegenerative" timespan="Month" />
         <StatusIndicator :section="Section.neurodegenerative" timespan="Year" />
@@ -33,7 +33,7 @@
       <div class="row-grid">
         <div class="row-info">
           <p>WalkWise measures four metrics associated with Dementia.</p>
-          <button><RouterLink to="/breakdown#dementia">View Breakdown</RouterLink></button>
+          <button><RouterLink to="/trends#dementia">View Trends</RouterLink></button>
         </div>
         <StatusIndicator :section="Section.dementia" timespan="Month" />
         <StatusIndicator :section="Section.dementia" timespan="Year" />
@@ -45,7 +45,7 @@
       <div class="row-grid">
         <div class="row-info">
           <p>WalkWise needs to collect a certain amount of data for it to be reliable.</p>
-          <button><RouterLink to="/breakdown#reliability">View Breakdown</RouterLink></button>
+          <button><RouterLink to="/trends#reliability">View Trends</RouterLink></button>
         </div>
         <div class="status-indicator">
           <b>This Month</b>
