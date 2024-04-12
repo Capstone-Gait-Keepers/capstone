@@ -48,8 +48,8 @@ nav {
   align-items: center;
 }
 
-nav a.router-link-exact-active:hover {
-  background-color: transparent;
+nav a.router-link-exact-active {
+  background-color: var(--color-accent);
 }
 
 nav button {
@@ -60,7 +60,9 @@ nav button {
 nav a {
   display: flex;
   align-items: center;
-  padding: 0 1rem;
+  padding: 0 .5rem;
+  margin: 0 .5rem;
+  border-radius: 4px;
   gap: .5rem;
 }
 
