@@ -13,6 +13,7 @@ const props = defineProps({
   y: Array,
   xlabel: String,
   ylabel: String,
+  hline: { type: Number, default: null },
   plot_type: { plot_type: String, default: 'scatter' },
   title: { type: String | null, default: null },
 });
@@ -27,15 +28,13 @@ const _id = uuidv4();
 
 function getLayout(y) {
   const maxY = Math.max(...y);
-  const rangeMax = Math.max(1, maxY * 1.1 + 0.1);
+  const rangeMax = Math.max(0.5, props.hline * 1.1 + 0.1, maxY * 1.1 + 0.1);
   const minY = Math.min(...y);
   const rangeMin = Math.min(0, minY * 0.9 - 0.1);
 
-  return {
+  let layout = {
     title: props.title,
     margin: {r: 0, t: 0},
-    // paper_bgcolor: "#fff", // Transparent background
-    // plot_bgcolor: "#fff", // Transparent plot area
     xaxis: {
       title: {
         text: props.xlabel,
@@ -54,8 +53,24 @@ function getLayout(y) {
           color: '#000'
         }
       }
-    }
+    },
   };
+  if (props.hline !== null) {
+    layout.shapes = [{
+      type: 'line',
+      xref: 'paper',
+      x0: 0,
+      y0: props.hline,
+      x1: 1,
+      y1: props.hline,
+      line: {
+        width: 2,
+        dash:'dash',
+      },
+      name: 'Typical',
+    }];
+  }
+  return layout;
 }
 
 const config = {displayModeBar: false, responsive: true};
@@ -66,6 +81,7 @@ function getTrace(x, y) {
     type: props.plot_type,
     mode: 'lines+markers',
     line: { shape: 'spline' },
+    name: props.ylabel,
   };
 }
 

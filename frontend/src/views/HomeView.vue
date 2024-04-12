@@ -33,7 +33,7 @@
       <div class="row-grid">
         <div class="row-info">
           <p>WalkWise measures four metrics associated with Dementia.</p>
-          <button><RouterLink to="/breakdown#Dementia">View Breakdown</RouterLink></button>
+          <button><RouterLink to="/breakdown#dementia">View Breakdown</RouterLink></button>
         </div>
         <StatusIndicator :section="Section.dementia" timespan="Month" />
         <StatusIndicator :section="Section.dementia" timespan="Year" />

@@ -1,6 +1,6 @@
 <template>
-  <div @click="isOpen = !isOpen" class="main">
-    <div class="header">
+  <div class="main">
+    <div @click="isOpen = !isOpen" class="header">
       {{ header }}
       <slot name="header"></slot>
       <svg :class="{flipped: isOpen}" width="33" height="22" viewBox="0 0 33 22" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -44,8 +44,6 @@ function end(el: any) {
   border: 2px solid var(--color-main);
   border-radius: 1rem;
   box-shadow: 0 4px 4px 0 rgba(0, 0, 0, 0.25);
-  cursor: pointer;
-
 }
 
 .header {
@@ -55,6 +53,7 @@ function end(el: any) {
   font-weight: bold;
   font-size: 1.2em;
   color: var(--color-main);
+  cursor: pointer;
 }
 
 .header svg {

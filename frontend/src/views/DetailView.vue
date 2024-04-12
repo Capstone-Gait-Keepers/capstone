@@ -23,6 +23,7 @@
                 :y="cleanedMetric(key)"
                 xlabel="Date"
                 :ylabel="metric_units[key]"
+                :hline="metric_controls[key]"
                 plot_type="scatter"
               />
             </Accordion>
@@ -74,6 +75,15 @@ const metric_descriptions: Record<string, string> = {
   "stride_time": "Stride time refers to the time it takes to complete one full step while walking or running. It's the duration from when your foot touches the ground to when it touches the ground again. Monitoring stride time helps understand the rhythm and pace of movement.",
   "cadence": "Cadence is the rhythm or pace at which you walk or run, determined by how many steps you take per minute. It's like the beat of a song for your movement. Faster cadence means quicker steps, while slower cadence means slower steps.",
   "step_count": "The number of measurements collected by the sensor each day. This can also be an indicator of daily activity."
+};
+
+const metric_controls: Record<string, number> = {
+  "STGA": 0.023,
+  "stride_time": 1.036,
+  "cadence": 1.692,
+  "var_coef": 0.017,
+  "phase_sync": 0.812,
+  "conditional_entropy": 0.007,
 };
 
 const metric_changes: Record<string, number> = {

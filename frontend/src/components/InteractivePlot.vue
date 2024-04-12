@@ -4,12 +4,20 @@
     :y="y.slice(slice_index)"
     :xlabel="xlabel"
     :ylabel="ylabel"
+    :hline="hline"
     :plot_type="plot_type"
     :title="title"
   />
-  <div class="buttons">
-    <button @click.stop="span = 30" :class="{'active': span == 30}">Month</button>
-    <button @click.stop="span = 365" :class="{'active': span == 365}">Year</button>
+  <div class="footer">
+    <div>
+      <p>Legend</p>
+      <div class="legend-entry"><div class="flat-bar"/>You</div>
+      <div class="legend-entry"><div class="flat-bar" style="border-color: black; border-style: dashed;"/>Typical</div>
+    </div>
+    <div class="buttons">
+      <button @click.stop="span = 30" :class="{'active': span == 30}">Month</button>
+      <button @click.stop="span = 365" :class="{'active': span == 365}">Year</button>
+    </div>
   </div>
 </template>
 
@@ -24,6 +32,7 @@ const { x } = withDefaults(defineProps<{
   xlabel: string,
   ylabel: string,
   plot_type: string,
+  hline?: number,
   title?: string,
 }>(), {
   plot_type: 'scatter',
@@ -34,6 +43,11 @@ const slice_index = computed(() => datesBackIndex(span.value));
 </script>
 
 <style scoped>
+.footer {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+}
+
 .buttons {
   display: flex;
   justify-content: center;
@@ -60,5 +74,18 @@ button {
 .active {
   background-color: var(--color-main);
   color: white;
+}
+
+.flat-bar {
+  border: 0px;
+  border-bottom: 3px solid var(--color-main);
+  width: 40px;
+  margin: 0rem;
+}
+
+.legend-entry {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
 }
 </style>
