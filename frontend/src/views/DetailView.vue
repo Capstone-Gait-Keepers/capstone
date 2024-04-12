@@ -122,7 +122,7 @@ function cleanedDates(metric: string) {
 
 <style scoped>
 .main {
-  margin-bottom: 8rem;
+  margin-bottom: 2rem;
 }
 
 .main h1 {

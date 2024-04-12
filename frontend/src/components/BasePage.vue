@@ -6,10 +6,17 @@ import Logo from '@/components/Logo.vue'
 
 const { display } = store;
 onMounted(fetchData);
+
+function highContrast() {
+  if (display.high_contrast) {
+    return {'background': 'white', 'color': 'black'};
+  }
+  return {};
+} 
 </script>
 
 <template>
-  <div :style="{'font-size': display.large_font ? '20px': '15px'}">
+  <div :style="{'font-size': display.large_font ? '20px': '15px', ...highContrast()}">
     <header>
       <RouterLink to="/">
         <Logo />
@@ -41,6 +48,7 @@ header {
 
 main {
   margin: 1rem 3rem;
+  padding-bottom: 4rem;
 }
 
 nav {

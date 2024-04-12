@@ -17,6 +17,10 @@
   font-weight: normal;
 }
 
+html {
+  height: 100%;
+}
+
 body {
   color: var(--color-text);
   background: var(--color-background);

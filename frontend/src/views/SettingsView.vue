@@ -1,5 +1,5 @@
 <template>
-  <BasePage class="content" v-if="user">
+  <BasePage v-if="user">
     <h1>Account Settings</h1>
     <h2>Account Information</h2>
     <FormInput label="Name" type="text" v-model="user.name" />
@@ -64,9 +64,8 @@ function removeUser(index: number) {
 </script>
 
 <style scoped>
-.content {
-  margin-bottom: 8rem;
-  background-color: white;
+h2 {
+  margin-top: .5rem;
 }
 
 .connected-user {
@@ -81,6 +80,7 @@ function removeUser(index: number) {
   width: 30rem;
   max-width: 100%;
   margin-right: 2rem;
+  background-color: white;
 }
 
 .connected-user > button {

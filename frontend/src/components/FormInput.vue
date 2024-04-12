@@ -46,5 +46,6 @@ input {
   width: 30rem;
   max-width: 100%;
   margin-right: 2rem;
+  background-color: white;
 }
 </style>
