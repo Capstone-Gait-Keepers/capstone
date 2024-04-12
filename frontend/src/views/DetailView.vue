@@ -7,7 +7,16 @@
         <div v-if="validSection(header)" :key="header" class="category" :id="header">
           <h2>{{ section_titles[header] }}</h2>
           <span v-for="key in metric_keys" :key="key">
-            <Accordion v-if="validMetric(key)" :header="metric_titles[key]" :startOpen="hash === header" class="metric">
+            <Accordion v-if="validMetric(key)" :startOpen="hash === header" class="metric">
+              <template v-slot:header>
+                <div class="accordion-header">
+                  {{ metric_titles[key] }}
+                  <p
+                    :style="{'color': getMetricColor(key)}">
+                    {{ metric_changes[key] > 0 ? '+' : '' }}{{ metric_changes[key] }}%
+                  </p>
+                </div>
+              </template>
               <p>{{ metric_descriptions[key] }}</p>
               <InteractivePlot
                 :x="cleanedDates(key)"
@@ -67,8 +76,28 @@ const metric_descriptions: Record<string, string> = {
   "step_count": "The number of measurements collected by the sensor each day. This can also be an indicator of daily activity."
 };
 
+const metric_changes: Record<string, number> = {
+  "var_coef": 0,
+  "STGA": -10,
+  "phase_sync": 0,
+  "conditional_entropy": 0,
+  "stride_time": 0,
+  "cadence": 0,
+  "step_count": 0,
+};
+
 function cleanedMetric(metric: string) {
   return store.data?.metrics[metric].filter((x: number) => x !== null) || [];
+}
+
+function getMetricColor(metric: string) {
+  if (metric_changes[metric] === 0) {
+    return '';
+  } else if (metric_changes[metric] > 0) {
+    return 'var(--red)';
+  } else {
+    return 'var(--green)';
+  }
 }
 
 function cleanedDates(metric: string) {
@@ -94,6 +123,17 @@ function cleanedDates(metric: string) {
   margin-bottom: 2rem;
 }
 
+.accordion-header {
+  display: flex;
+  justify-content: space-between;
+  width: 100%;
+  align-items: center;
+  font-weight: bold;
+}
+
+.accordion-header p {
+  font-weight: bold;
+}
 
 .category {
   margin-bottom: 2rem;

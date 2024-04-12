@@ -2,6 +2,7 @@
   <div @click="isOpen = !isOpen" class="main">
     <div class="header">
       {{ header }}
+      <slot name="header"></slot>
       <svg :class="{flipped: isOpen}" width="33" height="22" viewBox="0 0 33 22" fill="none" xmlns="http://www.w3.org/2000/svg">
         <path d="M3 3L16.5624 17L29.5563 3" stroke="#3481B9" stroke-width="6" stroke-linecap="round"/>
       </svg>
@@ -35,7 +36,7 @@ function end(el: any) {
 
 <style scoped>
 .main {
-  padding: 1rem;
+  padding: .5rem 1rem;
   display: flex;
   flex-direction: column;
 
