@@ -36,7 +36,7 @@ function end(el: any) {
 
 <style scoped>
 .main {
-  padding: .5rem 1rem;
+  padding: 1rem;
   display: flex;
   flex-direction: column;
 

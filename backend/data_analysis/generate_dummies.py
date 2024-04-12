@@ -10,10 +10,11 @@ np.random.seed(0)
 def get_timestamps(count: int, cadence=2, asymmetry=0, var=0) -> np.array:
     timestamps = np.arange(0, count/cadence - 0.0001, 1/cadence) + np.random.normal(0, var, count)
     timestamps[1::2] += asymmetry/cadence
+    assert np.all(np.diff(timestamps) > 0)
     return timestamps
 
 
-def generate_metrics(days: int, current_date: Optional[datetime]=None, asymmetry=0, cadence=2, var=0.01) -> Metrics:
+def generate_metrics(days: int, current_date: Optional[datetime]=None, asymmetry=0, cadence=2, var=0.01, hard_max=5) -> Metrics:
     if current_date is None:
         current_date = datetime.now()
 
@@ -34,6 +35,7 @@ def generate_metrics(days: int, current_date: Optional[datetime]=None, asymmetry
     metrics: Metrics = sum(metric_arr)
     metrics.set_index(date_range[::-1])
     metrics._df = metrics._df[metrics._df['step_count'] > 2]
+    metrics._df[metrics._df[metrics.get_metric_names()] > hard_max] = np.nan
     return metrics
 
 
@@ -55,5 +57,5 @@ if __name__ == "__main__":
     days = 5
     asymmetry = decay(days, 0, 0)
     cadence = decay(days, 2, 0.5)
-    var = decay(days, 0, 0)
+    var = decay(days, 0.5, 1)
     print(generate_metrics(days=days, cadence=cadence, asymmetry=asymmetry, var=var))

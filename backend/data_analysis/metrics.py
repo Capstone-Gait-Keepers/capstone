@@ -162,8 +162,8 @@ class Metrics:
         left_stride_times, right_stride_times = Metrics._get_side_stride_times(timestamps)
         analytic_signal1 = hilbert(left_stride_times)
         analytic_signal2 = hilbert(right_stride_times)
-        phase1 = np.unwrap(np.angle(analytic_signal1))
-        phase2 = np.unwrap(np.angle(analytic_signal2))
+        phase1 = (np.unwrap(np.angle(analytic_signal1)) / (2 * np.pi)) % 1
+        phase2 = (np.unwrap(np.angle(analytic_signal2)) / (2 * np.pi)) % 1
         phase_difference = phase1 - phase2
         H = Metrics._calculate_shannon_entropy(phase_difference, num_bins)
         H_max = np.log2(num_bins)

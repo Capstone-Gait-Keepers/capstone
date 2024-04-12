@@ -13,6 +13,7 @@ const props = defineProps({
   y: Array,
   xlabel: String,
   ylabel: String,
+  minrange: { type: Number, default: 0.3 },
   hline: { type: Number, default: null },
   plot_type: { plot_type: String, default: 'scatter' },
   title: { type: String | null, default: null },
@@ -28,7 +29,7 @@ const _id = uuidv4();
 
 function getLayout(y) {
   const maxY = Math.max(...y);
-  const rangeMax = Math.max(0.5, props.hline * 1.1 + 0.1, maxY * 1.1 + 0.1);
+  const rangeMax = Math.max(props.minrange, props.hline * 1.1 + 0.1, maxY * 1.1 + 0.1);
   const minY = Math.min(...y);
   const rangeMin = Math.min(0, minY * 0.9 - 0.1);
 

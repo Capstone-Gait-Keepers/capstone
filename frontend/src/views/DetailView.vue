@@ -12,6 +12,7 @@
                 <div class="accordion-header">
                   {{ metric_titles[key] }}
                   <p
+                    v-if="key in metric_changes"
                     :style="{'color': getMetricColor(key)}">
                     {{ metric_changes[key] > 0 ? '+' : '' }}{{ metric_changes[key] }}%
                   </p>
@@ -87,13 +88,12 @@ const metric_controls: Record<string, number> = {
 };
 
 const metric_changes: Record<string, number> = {
-  "var_coef": 0,
-  "STGA": -10,
+  "var_coef": 20,
+  "STGA": 0,
   "phase_sync": 0,
   "conditional_entropy": 0,
   "stride_time": 0,
   "cadence": 0,
-  "step_count": 0,
 };
 
 function cleanedMetric(metric: string) {
@@ -143,6 +143,7 @@ function cleanedDates(metric: string) {
 
 .accordion-header p {
   font-weight: bold;
+  margin: 0 1rem;
 }
 
 .category {
@@ -154,7 +155,7 @@ function cleanedDates(metric: string) {
   margin-bottom: 1rem;
 }
 
-.metric p {
+.metric > p {
   margin: 1rem;
 }
 
