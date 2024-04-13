@@ -30,7 +30,7 @@ ESP8266Timer i_timer;  // Hardware Timer
 #define CALIBRATION_TIME 6 // Time to run calibration for (in seconds)
 
 // #define AMP_THRESHOLD 0.5 // Threshold for amplitude of acceleration data to be considered "good" (in m/s^2)
-float amp_threshold = 0.05; // Threshold for amplitude of acceleration data to be considered "good" (in m/s^2)
+float amp_threshold = 0.041; // Threshold for amplitude of acceleration data to be considered "good" (in m/s^2)
 
 volatile bool start_sampling = false; // Flag to indicate if a new sample should be taken based on timer interrupt
 

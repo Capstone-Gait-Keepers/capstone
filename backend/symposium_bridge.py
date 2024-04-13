@@ -12,7 +12,7 @@ from data_analysis.metric_analysis import AnalysisController
 START_SIGNAL = b'BEGIN_TRANSMISSION'
 ctrl = AnalysisController(**get_optimal_analysis_params(SensorType.PIEZO, fs=500))
 
-MIN_AMP = 0.08
+MIN_AMP = 0.07
 
 
 def serial_bridge(serial_port='/dev/cu.usbserial-0001', baud_rate=115200):
@@ -35,32 +35,33 @@ def serial_bridge(serial_port='/dev/cu.usbserial-0001', baud_rate=115200):
                 print(f"Max amplitude too low ({max_amp}), skipping")
             else:
                 print(f"Data length {len(json_ts_data)}")
-                rec = Recording.from_real_data(fs=ctrl.fs, data=json_ts_data)
+                length = len(json_ts_data) - ctrl.fs
+                rec = Recording.from_real_data(fs=ctrl.fs, data=json_ts_data[:length])
                 ctrl.get_recording_metrics(rec, plot_with_metrics=True)
                 save_attempt(rec)
-        except UnicodeDecodeError:
+        except (UnicodeDecodeError, json.JSONDecodeError):
             print(f"500: Couldn't decode")
 
 def save_attempt(rec: Recording):
     timestamp = datetime.now().strftime('%Y-%m-%d-%H-%M-%S')
     rec.env = RecordingEnvironment(
-                        ctrl.fs,
-                        location="Custom Floor",
-                        user="guest",
-                        floor="plywood",
-                        footwear="socks",
-                        walk_type="normal",
-                        obstacle_radius=0,
-                        path=WalkPath(
-                            start=1.8,
-                            stop=1.8,
-                            length=3.0,
-                        ),
-                        wall_radius=0,
-                        quality="normal",
-                        walk_speed="normal",
-                        notes="Symposium",
-                    )
+        ctrl.fs,
+        location="Custom Floor",
+        user="guest",
+        floor="plywood",
+        footwear="socks",
+        walk_type="normal",
+        obstacle_radius=0,
+        path=WalkPath(
+            start=1.8,
+            stop=1.8,
+            length=3.0,
+        ),
+        wall_radius=0,
+        quality="normal",
+        walk_speed="normal",
+        notes="Symposium",
+    )
     rec.to_file(f'datasets/piezo_symposium/{timestamp}.yml')
 
 
