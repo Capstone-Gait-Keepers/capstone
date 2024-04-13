@@ -33,7 +33,7 @@ class Metrics:
     }
 
     stats = pd.DataFrame.from_dict({
-            'STGA': [0.015,0.050,0.1,0.2,0.15], # TODO: FAKE NUMBERS
+            'STGA': [0.105,0.050,0.1,0.2,0.15], # TODO: FAKE NUMBERS
             'stride_time': [1.036,0.1,1.128,0.107,0.092],
             'cadence': [1.692,0.202,1.588,0.197,0.107],
             'var_coef': [0.017,0.05,0.031,0.012,0.14],
@@ -228,7 +228,7 @@ class Metrics:
         """Combines two Metrics objects by averaging their values."""
         return self if other == 0 else self.__add__(other)
 
-    def error(self, truth: 'Metrics', absolute=False, normalize=False) -> pd.DataFrame:
+    def error(self, truth: 'Metrics', absolute=False, normalize=False, count_both_nan=False) -> pd.DataFrame:
         """Returns the % error between two Metrics objects. Groups by recording_id."""
         if not isinstance(truth, Metrics):
             raise ValueError('Can only compare Metrics to Metrics.')
@@ -244,8 +244,9 @@ class Metrics:
                 if key not in Metrics.summed_vars:
                     error[key] /= truth_rec_metrics[key]
         # Where they are both NaN, the error is 0
-        error = error.where(error != np.inf, np.nan)
-        error = error.where(truth_rec_metrics.notna() | self_rec_metrics.notna(), 0)
+        if count_both_nan:
+            error = error.where(error != np.inf, np.nan)
+            error = error.where(truth_rec_metrics.notna() | self_rec_metrics.notna(), 0)
         # Add classification bool
         correct_class = (self_rec_metrics['step_count'] > 0) ^ (truth_rec_metrics['step_count'] == 0)
         correct_class.name = "correct_class"

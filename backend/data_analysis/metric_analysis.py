@@ -172,6 +172,7 @@ class RecordingProcessor:
 class AnalysisController:
     def __init__(self, model: Recording=None, fs=None, noise_amp=None, window_duration=0.2, logger: Optional[Logger]=None, log_file='latest.log', **kwargs) -> None:
         self.logger = self.init_logger(log_file) if logger is None else logger
+        self.fig = None
         if model:
             noise = RecordingProcessor.get_noise(model, window_duration)
             weights = RecordingProcessor.get_frequency_weights(model, window_duration, plot=False)
@@ -201,7 +202,7 @@ class AnalysisController:
         logger.addHandler(handler)
         return logger
 
-    def get_metric_error(self, datasets: Iterable[Recording], absolute=False, normalize=False, append_env=False, plot_signals=False, plot_title=None, plot_dist=False, plot_vs_env=False) -> pd.DataFrame:
+    def get_metric_error(self, datasets: Iterable[Recording], absolute=False, normalize=False, count_both_nan=False, append_env=False, plot_signals=False, plot_title=None, plot_dist=False, plot_vs_env=False) -> pd.DataFrame:
         """Calculates the metric error based on a set of datasets and returns a dataframe"""
         results = []
         recordings = []
@@ -210,7 +211,7 @@ class AnalysisController:
             result = self.get_recording_metrics(data, plot_signals)
             results.append(result)
         measured, truth, alg_err = self._parse_metric_results(results)
-        err = measured.error(truth, absolute, normalize)
+        err = measured.error(truth, absolute, normalize, count_both_nan)
         err.index = [rec.tag for rec in recordings]
         # Log false negative and false positive rates
         env_df = self.get_env_df(recordings)
@@ -337,7 +338,7 @@ class AnalysisController:
 
             rows = {
                 'measurements': measured.by_tag().squeeze(),
-                'healthy walk': Metrics.get_control(),
+                # 'healthy walk': Metrics.get_control(),
             }
             if len(true_steps):
                 rows['truth'] = source_of_truth.by_tag().squeeze()
@@ -347,10 +348,11 @@ class AnalysisController:
             df.columns = ['Step count', 'Asymmetry (-)', 'Stride time (-)', 'Cadence (+)', 'Var. coef (-)']
             df.insert(loc=0, column='data', value=rows.keys())
             fig.add_table(
-                header=dict(values=df.columns, height=25, font=dict(size=15)),
-                cells=dict(values=df.values.T, height=25, font=dict(size=15)),
+                header=dict(values=df.columns, height=30, font=dict(size=20)),
+                cells=dict(values=df.values.T, height=30, font=dict(size=20)),
                 row=4, col=1
             )
+            self.fig = fig
             if show:
                 fig.show()
         return measured, source_of_truth, algorithm_error
@@ -520,17 +522,12 @@ if __name__ == "__main__":
     datasets = DataHandler.from_sensor_type(sensor_type).get_lazy(user='ron', location='Aarons Studio')
     # datasets = DataHandler('datasets/piezo_custom').get_lazy()
     # df = controller.get_metric_error(datasets, absolute=False, normalize=False, plot_dist=False, plot_title=str(params))
-    # for metric in df.columns:
-    #     errors = df[metric].dropna()
-    #     print(f"{metric} error: {errors.mean():.3f} ± {errors.std():.3f}")
 
     # print(controller.get_false_rates(datasets, plot_dist=False))
     # print(*controller.get_metrics(datasets, plot_signals=False))
 
-    # rec = Recording.from_file('datasets/piezo_custom/1.1.yml')
     # rec = Recording.from_file('datasets/piezo/2024-02-11_18-27-09.yaml')
 
-    for rec in datasets:
-        controller.get_recording_metrics(rec, plot=True)
-        break
-        # input("Press Enter to continue...")
+    # for rec in datasets:
+    #     controller.get_recording_metrics(rec, plot=True)
+    #     input("Press Enter to continue...")

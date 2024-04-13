@@ -36,7 +36,9 @@ def plot_recording(recording_id: int):
     recording = db.session.query(Recordings).filter(Recordings._id == recording_id).first()
     sensor = db.session.query(NewSensor).filter(NewSensor._id == recording.sensorid).first()
     rec = Recording.from_real_data(sensor.fs, recording.ts_data)
-    return rec.plot(show=False).to_html()
+    analysis_controller = AnalysisController(fs=sensor.fs, noise_amp=0.05)
+    analysis_controller.get_recording_metrics(rec, plot=True, show=False)
+    return analysis_controller.fig.to_html()
 
 
 @endpoints.route('/api/get_metrics/<email>')

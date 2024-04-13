@@ -363,7 +363,7 @@ class StepDetector(TimeSeriesProcessor):
                 cols=1,
                 shared_xaxes=True,
                 subplot_titles=("Raw Timeseries", "Scrolling FFT", "Average Energy"),
-                vertical_spacing=0.07,
+                vertical_spacing=0.05,
                 **plot_kwargs
             )
             fig.update_layout(showlegend=False)
