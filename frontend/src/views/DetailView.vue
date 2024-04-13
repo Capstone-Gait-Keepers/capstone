@@ -96,10 +96,11 @@ function getChange(metric: string): number {
   if (data.length === 0) {
     return 0;
   }
-  const firstHalf = data.slice(0, Math.floor(data.length / 2));
-  const secondHalf = data.slice(Math.floor(data.length / 2));
-  const denom = Math.max(data[0], 1);
-  return Math.round(100 * (average(secondHalf) - average(firstHalf)) / denom);
+    const firstHalf = average(data.slice(0, Math.floor(data.length / 2)));
+  const secondHalf = average(data.slice(Math.floor(data.length / 2)));
+  const denom = Math.max(firstHalf, 1);
+  // const denom = firstHalf === 0 ? 1 : firstHalf;
+  return Math.round(100 * (secondHalf - firstHalf) / denom);
 }
 
 function average(arr: number[]): number {
