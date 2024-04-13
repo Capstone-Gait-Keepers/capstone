@@ -304,25 +304,23 @@ class AnalysisController:
         varied_vars = {key: value for key, value in env_vars.items() if len(value) > 1}
         return varied_vars
     
-    def get_recording_metrics(self, data: Recording, plot=False, plot_with_metrics=False):
+    def get_recording_metrics(self, data: Recording, plot=False, show=True):
         """Analyzes a recording and returns metrics"""
         if not isinstance(data, Recording):
             self.logger.warning(f"Data might not be of type recording: {type(data)}")
         try:
-            return self._get_recording_metrics(data, plot, plot_with_metrics)
+            return self._get_recording_metrics(data, plot, show)
         except Exception as e:
             self.logger.error(f"Failed to get metrics for {data.tag}: {e}")
             raise e
 
-    def _get_recording_metrics(self, data: Recording, plot=False, plot_with_metrics=False) -> Tuple[Metrics, Metrics, pd.DataFrame]:
+    def _get_recording_metrics(self, data: Recording, plot=False, show=True) -> Tuple[Metrics, Metrics, pd.DataFrame]:
         """Analyzes a recording and returns metrics"""
         if data.env.fs != self.fs:
             raise ValueError(f"Recording fs ({data.env.fs}) does not match model fs ({self.fs})")
-        if plot and plot_with_metrics:
-            raise ValueError("Should not plot twice. Choose either plot or plot_with_metrics")
         true_step_groups = self._get_true_step_timestamps(data)
         true_steps = self.merge_step_groups(true_step_groups)
-        step_groups = self._detector.get_step_groups(data.ts, plot, truth=true_steps, plot_title=data.tag)
+        step_groups = self._detector.get_step_groups(data.ts, plot=plot, show=False, num_plots=4, specs=[[{'type': 'xy'}], [{'type': 'xy'}], [{'type': 'xy'}], [{'type': 'table'}]])
         if len(step_groups):
             self.logger.info(f"Found {len(step_groups)} step groups in {data.tag} ({len(true_steps)} true steps)")
             self.logger.debug(f"Step groups: {step_groups}")
@@ -330,21 +328,30 @@ class AnalysisController:
         measured = Metrics(step_groups)
         source_of_truth = Metrics(true_step_groups)
         algorithm_error = self._get_algorithm_error(predicted_steps, true_steps)
-        if plot_with_metrics:
-            df = measured.by_tag()
-            control = Metrics.get_control()
+        if plot:
+            fig = self._detector.fig
+            fig.update_layout(title=data.tag)
+            for timestamp in self._get_true_step_timestamps(data, ignore_quality=True)[0]:
+                fig.add_vline(x=timestamp + 0.05, line_color='green', row=1, col=1)
+
             rows = {
-                'measurements': df,
-                'healthy walk': control,
+                'measurements': measured.by_tag().squeeze(),
+                'healthy walk': Metrics.get_control(),
             }
             if len(true_steps):
-                rows['truth'] = source_of_truth.by_tag()
-            df = pd.concat(rows.values(), axis=0)
+                rows['truth'] = source_of_truth.by_tag().squeeze()
+            df = pd.DataFrame(rows).T
             df = df.apply(np.round, decimals=3)
             df = df.filter(['step_count', 'STGA', 'stride_time', 'cadence', 'var_coef'])
             df.columns = ['Step count', 'Asymmetry (-)', 'Stride time (-)', 'Cadence (+)', 'Var. coef (-)']
             df.insert(loc=0, column='data', value=rows.keys())
-            self._detector.get_step_groups(data.ts, plot_with_metrics, truth=true_steps, plot_table=df, plot_title=data.tag)
+            fig.add_table(
+                header=dict(values=df.columns, height=25, font=dict(size=15)),
+                cells=dict(values=df.values.T, height=25, font=dict(size=15)),
+                row=4, col=1
+            )
+            if show:
+                fig.show()
         return measured, source_of_truth, algorithm_error
 
     def _get_true_step_timestamps(self, data: Recording, ignore_quality=False, max_step_delta=2) -> List[np.ndarray]:
@@ -507,25 +514,22 @@ def compare_sensor_snrs(use_weights=True):
 
 if __name__ == "__main__":
     sensor_type = SensorType.PIEZO
-    params = get_optimal_analysis_params(sensor_type, fs=500)
+    params = get_optimal_analysis_params(sensor_type, fs=200)
     controller = AnalysisController(**params)
-    # datasets = DataHandler.from_sensor_type(sensor_type).get_lazy(user='ron', location='Aarons Studio')
-    datasets = DataHandler('datasets/piezo_custom').get_lazy()
-    df = controller.get_metric_error(datasets, absolute=False, normalize=False, plot_dist=False, plot_title=str(params))
-    for metric in df.columns:
-        errors = df[metric].dropna()
-        print(f"{metric} error: {errors.mean():.3f} ± {errors.std():.3f}")
+    datasets = DataHandler.from_sensor_type(sensor_type).get_lazy(user='ron', location='Aarons Studio')
+    # datasets = DataHandler('datasets/piezo_custom').get_lazy()
+    # df = controller.get_metric_error(datasets, absolute=False, normalize=False, plot_dist=False, plot_title=str(params))
+    # for metric in df.columns:
+    #     errors = df[metric].dropna()
+    #     print(f"{metric} error: {errors.mean():.3f} ± {errors.std():.3f}")
 
     # print(controller.get_false_rates(datasets, plot_dist=False))
     # print(*controller.get_metrics(datasets, plot_signals=False))
 
+    # rec = Recording.from_file('datasets/piezo_custom/1.1.yml')
+    # rec = Recording.from_file('datasets/piezo/2024-02-11_18-27-09.yaml')
 
-    # from scipy import stats
-    # df = pd.read_csv("error.csv", index_col=0)
-    # print(len(df))
-    # for metric in df.columns:
-    #     data = df[metric].dropna()
-    #     trimmed = data[(np.abs(stats.zscore(data)) < 3)]
-    #     print(f"{metric} error: {data.mean():.3f} ± {data.std():.3f}")
-    #     print(f"{metric} error: {trimmed.mean():.3f} ± {trimmed.std():.3f}")
-    # print(df.head())
+    for rec in datasets:
+        controller.get_recording_metrics(rec, plot=True)
+        break
+        # input("Press Enter to continue...")

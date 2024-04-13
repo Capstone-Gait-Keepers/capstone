@@ -267,8 +267,9 @@ class StepDetector(TimeSeriesProcessor):
         if freq_weights is not None and len(freq_weights) != len(self.get_window_fft_freqs()):
             raise ValueError(f"Length of freq_weights ({len(freq_weights)}) must match the window duration ({window_duration})")
         self._noise = self.get_energy(noise_profile)
+        self.fig = None
 
-    def get_step_groups(self, ts: np.ndarray, plot=False, truth=None, plot_table=None, plot_title=None) -> List[np.ndarray]:
+    def get_step_groups(self, ts: np.ndarray, plot=False, show=True, **kwargs) -> List[np.ndarray]:
         """
         Analyzes time series and returns a list of step groups
         """
@@ -280,18 +281,30 @@ class StepDetector(TimeSeriesProcessor):
         if np.all(ts == 0):
             self.logger.debug("Time series is all zeros, ignoring")
             return []
-        steps, uncertain_steps = self._find_steps(ts, plot, truth, plot_table, plot_title)
+        steps, uncertain_steps = self._find_steps(ts, plot, **kwargs)
         self.logger.debug(f"Found {len(steps)} confirmed steps and {len(uncertain_steps)} uncertain steps")
+        step_groups = []
         if len(steps) > 1: # We need at least two confirmed steps to do anything
             step_groups = self._resolve_step_sections(steps, uncertain_steps)
-            if len(step_groups):
-                self.logger.info(f"Resolved {len(steps)} steps into {len(step_groups)} step groups of lengths {[len(group) for group in step_groups]}")
-                step_groups = self._enforce_min_step_delta(step_groups)
-                step_groups = self._enforce_max_step_delta(step_groups)
-            else:
-                self.logger.debug(f"Found {len(steps)} steps, but none could be grouped into a walk")
-            return step_groups
-        return []
+        if len(step_groups):
+            self.logger.info(f"Resolved {len(steps)} steps into {len(step_groups)} step groups of lengths {[len(group) for group in step_groups]}")
+            step_groups = self._enforce_min_step_delta(step_groups)
+            step_groups = self._enforce_max_step_delta(step_groups)
+        else:
+            self.logger.debug(f"Found {len(steps)} steps, but none could be grouped into a walk")
+        if plot:
+            for step_group in step_groups:
+                for step in step_group:
+                    self.fig.add_vline(x=step, line_dash="dash", row=1, col=1)
+                    self.fig.add_annotation(x=step, y=0.8, xshift=-10, yref='y domain', text="C", showarrow=False, row=1, col=1)
+                self.fig.add_vrect(x0=step_group[0], x1=step_group[-1], yref='paper', y0=0, y1=0.1, fillcolor="rgba(0, 0, 20, 0.1)", row=1, col=1)
+            removed_steps = np.setdiff1d(np.concatenate([steps, uncertain_steps]), np.concatenate(step_groups))
+            for step in removed_steps:
+                self.fig.add_vline(x=step, line_dash="dot", line_color='red', row=1, col=1)
+                self.fig.add_annotation(x=step, y=1, xshift=-10, yref='y domain', text="R", showarrow=False, row=1, col=1)
+            if show:
+                self.fig.show()
+        return step_groups
 
     def get_energy(self, vibes: np.ndarray) -> np.ndarray:
         return super().get_energy(vibes, self._window_duration, weights=self._freq_weights)
@@ -299,7 +312,7 @@ class StepDetector(TimeSeriesProcessor):
     def get_window_fft_freqs(self) -> np.ndarray:
         return super().get_window_fft_freqs(self._window_duration)
 
-    def _find_steps(self, vibes: np.ndarray, plot=False, truth=None, plot_table=None, plot_title=None) -> Tuple[np.ndarray, np.ndarray]:
+    def _find_steps(self, vibes: np.ndarray, plot=False, num_plots=3, **plot_kwargs) -> Tuple[np.ndarray, np.ndarray]:
         """
         Counts the number of steps in a time series of accelerometer data. This function should not use
         anything from `data.events` except for plotting purposes. This is because it is meant to mimic
@@ -344,17 +357,15 @@ class StepDetector(TimeSeriesProcessor):
         confirmed_stamps = timestamps[confirmed_indices]
         uncertain_stamps = timestamps[uncertain_indices]
         if plot:
-            titles = ("Raw Timeseries", "Scrolling FFT", "Average Energy")
             fig = make_subplots(
-                rows=3 if plot_table is None else 4,
+                rows=num_plots,
                 cols=1,
                 shared_xaxes=True,
-                subplot_titles=titles,
+                subplot_titles=("Raw Timeseries", "Scrolling FFT", "Average Energy"),
                 vertical_spacing=0.07,
-                specs=[[{'type': 'xy'}], [{'type': 'xy'}], [{'type': 'xy'}], [{'type': 'table'}]] if plot_table is not None else None
+                **plot_kwargs
             )
-            if plot_title is not None:
-                fig.update_layout(title=plot_title, showlegend=False)
+            fig.update_layout(showlegend=False)
             fig.add_scatter(x=timestamps, y=vibes, name='vibes', row=1, col=1)
             freqs = self.get_window_fft_freqs()
             fig.add_heatmap(x=timestamps, y=freqs, z=amps, row=2, col=1)
@@ -365,25 +376,7 @@ class StepDetector(TimeSeriesProcessor):
             for i, (symbol, threshold) in enumerate(thresholds.items(), 2):
                 fig.add_hline(y=threshold, row=3, col=1)
                 fig.add_annotation(x=i/20, y=threshold + max_sig/20, text=symbol, showarrow=False, row=3, col=1)
-            DC = np.mean(vibes)
-            offset = 0.05 * np.max(vibes)
-            if truth is not None:
-                for timestamp in truth:
-                    fig.add_vline(x=timestamp + 0.05, line_color='green', row=1, col=1)
-                    fig.add_annotation(x=timestamp, y=DC + offset, xshift=-17, text="Step", showarrow=False, row=1, col=1)
-            for confirmed in confirmed_stamps:
-                fig.add_vline(x=confirmed, line_dash="dash", row=1, col=1)
-                fig.add_annotation(x=confirmed, y=DC - offset, xshift=-10, text="C", showarrow=False, row=1, col=1)
-            for uncertain in uncertain_stamps:
-                fig.add_vline(x=uncertain, line_dash="dot", row=1, col=1)
-                fig.add_annotation(x=uncertain, y=DC - offset, xshift=-10, text="U", showarrow=False, row=1, col=1)
-            if plot_table is not None:
-                fig.add_table(
-                    header=dict(values=plot_table.columns, height=40, font=dict(size=30)),
-                    cells=dict(values=plot_table.values.T, height=40, font=dict(size=30)),
-                    row=4, col=1
-                )
-            fig.show()
+            self.fig = fig
         if self._min_signal is not None and max_sig < self._min_signal:
             return [], []
         return confirmed_stamps, uncertain_stamps
