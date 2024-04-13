@@ -4,6 +4,18 @@
     <ChangeAlert metric_type="dementia" v-model="alertOpen" />
     <h2>Welcome to your personal insights.</h2>
 
+    <div class="row" v-if="validSection(Section.dementia)">
+      <h3>Dementia Indicators</h3>
+      <div class="row-grid">
+        <div class="row-info">
+          <p>WalkWise measures four metrics associated with Dementia.</p>
+          <button><RouterLink to="/trends#dementia">View Trends</RouterLink></button>
+        </div>
+        <StatusIndicator :section="Section.dementia" timespan="Month" />
+        <StatusIndicator :section="Section.dementia" timespan="Year" />
+      </div>
+    </div>
+
     <div class="row" v-if="validSection(Section.balance)">
       <h3>Balance Indicators</h3>
       <div class="row-grid">
@@ -25,18 +37,6 @@
         </div>
         <StatusIndicator :section="Section.neurodegenerative" timespan="Month" />
         <StatusIndicator :section="Section.neurodegenerative" timespan="Year" />
-      </div>
-    </div>
-
-    <div class="row" v-if="validSection(Section.dementia)">
-      <h3>Dementia Indicators</h3>
-      <div class="row-grid">
-        <div class="row-info">
-          <p>WalkWise measures four metrics associated with Dementia.</p>
-          <button><RouterLink to="/trends#dementia">View Trends</RouterLink></button>
-        </div>
-        <StatusIndicator :section="Section.dementia" timespan="Month" />
-        <StatusIndicator :section="Section.dementia" timespan="Year" />
       </div>
     </div>
 

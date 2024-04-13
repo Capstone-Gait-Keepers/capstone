@@ -12,9 +12,9 @@
                 <div class="accordion-header">
                   {{ metric_titles[key] }}
                   <p
-                    v-if="key in metric_changes"
+                    v-if="key in metric_controls"
                     :style="{'color': getMetricColor(key)}">
-                    {{ metric_changes[key] > 0 ? '+' : '' }}{{ metric_changes[key] }}%
+                    {{ getChange(key) > 0 ? '+' : '' }}{{ getChange(key) }}%
                   </p>
                 </div>
               </template>
@@ -87,24 +87,24 @@ const metric_controls: Record<string, number> = {
   "conditional_entropy": 0.007,
 };
 
-const metric_changes: Record<string, number> = {
-  "var_coef": 0,
-  "STGA": 0,
-  "phase_sync": 0,
-  "conditional_entropy": 0,
-  "stride_time": 20,
-  "cadence": -20,
-};
-
 function cleanedMetric(metric: string) {
   return store.data?.metrics[metric].filter((x: number) => x !== null) || [];
+}
+
+function getChange(metric: string): number {
+  const data = cleanedMetric(metric);
+  if (data.length === 0) {
+    return 0;
+  }
+  const denom = Math.max(data[0], 1);
+  return Math.round((data[data.length - 1] - data[0]) / denom * 100);
 }
 
 function getMetricColor(metric: string) {
   const upmeans = upMeaning[metric];
   const sign = upmeans === Status.Good ? 1 : -1;
-  const change = sign * metric_changes[metric];
-  if (change === 0) {
+  const change = sign * getChange(metric);
+  if (Math.abs(change) < 5) {
     return '';
   } else if (change > 0) {
     return 'var(--green)';
