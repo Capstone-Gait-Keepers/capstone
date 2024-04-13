@@ -67,7 +67,8 @@ function getPlotUrl(rec_id: Number): string {
 main {
   display: flex;
   flex-direction: column;
-  width: 50%
+  padding: 2rem;
+  width: 60%;
 }
 
 a {
