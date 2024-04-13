@@ -96,8 +96,14 @@ function getChange(metric: string): number {
   if (data.length === 0) {
     return 0;
   }
+  const firstHalf = data.slice(0, Math.floor(data.length / 2));
+  const secondHalf = data.slice(Math.floor(data.length / 2));
   const denom = Math.max(data[0], 1);
-  return Math.round((data[data.length - 1] - data[0]) / denom * 100);
+  return Math.round(100 * (average(secondHalf) - average(firstHalf)) / denom);
+}
+
+function average(arr: number[]): number {
+  return arr.reduce((a, b) => a + b, 0) / arr.length;
 }
 
 function getMetricColor(metric: string) {
