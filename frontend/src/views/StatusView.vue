@@ -1,5 +1,5 @@
 <template>
-  <BasePage>
+  <main>
     <h2>Sensor Status</h2>
     <table v-if="sensors !== null && sensors.length">
       <tr>
@@ -24,17 +24,16 @@
 
     <div v-if="recordingIds !== null && recordingIds.length">
       <h2>Recordings</h2>
-      <div v-for="recordingId in recordingIds">
+      <div v-for="recordingId in recordingIds.reverse()">
         <a target="_blank" :href="getPlotUrl(recordingId)">{{ recordingId }}</a>
       </div>
     </div>
     <p v-else-if="recordingIds !== null">No available recordings</p>
-  </BasePage>
+  </main>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
-import BasePage from '@/components/BasePage.vue'
 import type { SensorConfig } from '@/types';
 import { queryBackend } from '@/backend_interface';
 const sensors = ref<SensorConfig[] | null>(null);
@@ -65,7 +64,15 @@ function getPlotUrl(rec_id: Number): string {
 </script>
 
 <style scoped>
+main {
+  display: flex;
+  flex-direction: column;
+  width: 50%
+}
+
 a {
   cursor: pointer;
+  text-decoration: underline;
+  color: blue;
 }
 </style>

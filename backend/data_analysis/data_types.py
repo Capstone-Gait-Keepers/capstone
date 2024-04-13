@@ -182,9 +182,9 @@ PARAM_MAP = {
             'window_duration': 0.5,
             'min_signal': 0.0,
             'min_step_delta': 0.0,
-            'max_step_delta': 1.94702008044308,
+            'max_step_delta': 1.75,
             'confirm_coefs': [0.2877633076936741, 0.4879086903112724, 0.9106027824886926, 0.0],
-            'unconfirm_coefs': [0.48855200391108067, 0.6020246859906139, 0.2541307658769687, 0.0],
+            'unconfirm_coefs': [0.18, 0.60202, 0.254, 0.0],
             'reset_coefs': [0.034887749913138366, 1.121288775057767, 0.0, 0.0]
         },
         # false-negative: 46.67%, false-positive: 23.08%

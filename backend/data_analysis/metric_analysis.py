@@ -338,7 +338,7 @@ class AnalysisController:
 
             rows = {
                 'measurements': measured.by_tag().squeeze(),
-                # 'healthy walk': Metrics.get_control(),
+                'healthy walk': Metrics.get_control(),
             }
             if len(true_steps):
                 rows['truth'] = source_of_truth.by_tag().squeeze()

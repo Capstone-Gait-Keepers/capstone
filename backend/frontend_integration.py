@@ -11,7 +11,7 @@ from database import db, Recordings, NewSensor, FakeUser
 # This is hack, but it's the simplest way to get things to work without changing things - Daniel
 sys.path.append(os.path.join(os.path.dirname(__file__), 'data_analysis'))
 from data_analysis.metric_analysis import AnalysisController
-from data_analysis.data_types import Recording
+from data_analysis.data_types import Recording, get_optimal_analysis_params, SensorType
 from data_analysis.generate_dummies import generate_metrics, decay
 
 
@@ -36,7 +36,8 @@ def plot_recording(recording_id: int):
     recording = db.session.query(Recordings).filter(Recordings._id == recording_id).first()
     sensor = db.session.query(NewSensor).filter(NewSensor._id == recording.sensorid).first()
     rec = Recording.from_real_data(sensor.fs, recording.ts_data)
-    analysis_controller = AnalysisController(fs=sensor.fs, noise_amp=0.05)
+    params = get_optimal_analysis_params(SensorType.PIEZO, sensor.fs, version=-2, include_model=False)
+    analysis_controller = AnalysisController(fs=sensor.fs, noise_amp=0.05, **params)
     analysis_controller.get_recording_metrics(rec, plot=True, show=False)
     return analysis_controller.fig.to_html()
 
