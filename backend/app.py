@@ -166,7 +166,7 @@ def add_recording():
             print("Data has been received by the database!")
 
             time_taken = time.time() - start_time
-            print(time_taken) # will print to server logs for performance testing
+            #print(time_taken) # will print to server logs for performance testing
 
             return jsonify({"message": "Data added successfully"}), HTTPStatus.CREATED
 
