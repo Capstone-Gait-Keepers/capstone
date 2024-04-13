@@ -298,10 +298,11 @@ class StepDetector(TimeSeriesProcessor):
                     self.fig.add_vline(x=step, line_dash="dash", row=1, col=1)
                     self.fig.add_annotation(x=step, y=0.8, xshift=-10, yref='y domain', text="C", showarrow=False, row=1, col=1)
                 self.fig.add_vrect(x0=step_group[0], x1=step_group[-1], yref='paper', y0=0, y1=0.1, fillcolor="rgba(0, 0, 20, 0.1)", row=1, col=1)
-            removed_steps = np.setdiff1d(np.concatenate([steps, uncertain_steps]), np.concatenate(step_groups))
-            for step in removed_steps:
-                self.fig.add_vline(x=step, line_dash="dot", line_color='red', row=1, col=1)
-                self.fig.add_annotation(x=step, y=1, xshift=-10, yref='y domain', text="R", showarrow=False, row=1, col=1)
+            if len(step_groups):
+                removed_steps = np.setdiff1d(np.concatenate([steps, uncertain_steps]), np.concatenate(step_groups))
+                for step in removed_steps:
+                    self.fig.add_vline(x=step, line_dash="dot", line_color='red', row=1, col=1)
+                    self.fig.add_annotation(x=step, y=1, xshift=-10, yref='y domain', text="R", showarrow=False, row=1, col=1)
             if show:
                 self.fig.show()
         return step_groups

@@ -331,8 +331,9 @@ class AnalysisController:
         if plot:
             fig = self._detector.fig
             fig.update_layout(title=data.tag)
-            for timestamp in self._get_true_step_timestamps(data, ignore_quality=True)[0]:
-                fig.add_vline(x=timestamp + 0.05, line_color='green', row=1, col=1)
+            for true_groups in self._get_true_step_timestamps(data, ignore_quality=True):
+                for true_step in true_groups:
+                    fig.add_vline(x=true_step, line_color='green', row=1, col=1)
 
             rows = {
                 'measurements': measured.by_tag().squeeze(),
