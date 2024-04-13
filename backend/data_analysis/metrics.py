@@ -286,7 +286,7 @@ class Metrics:
         data = self.by_tag()[keys]
         fig = make_subplots(rows=len(keys), cols=1, shared_xaxes=True, subplot_titles=keys)
         for i, key in enumerate(keys):
-            fig.add_trace(go.Scatter(x=data.index, y=data[key], mode='lines', name=key), row=i+1, col=1)
+            fig.add_trace(go.Scatter(x=data.index, y=data[key], mode='lines+markers', name=key), row=i+1, col=1)
         fig.update_layout(showlegend=False)
         fig.show()
 

@@ -1,7 +1,3 @@
-<script setup lang="ts">
-import { RouterLink } from 'vue-router'
-</script>
-
 <template>
   <div class="logo">
     <img alt="WalkWise Logo" class="logo" src="@/assets/logo.svg" width="125" height="125" />

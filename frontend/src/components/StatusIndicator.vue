@@ -18,23 +18,9 @@
 </template>
 
 <script setup lang="ts">
-import { store, Section, metric_sections, datesBackIndex } from '@/store';
+import { store, Section, metric_sections, datesBackIndex, upMeaning, Status } from '@/store';
 const { data } = store;
 
-enum Status {
-  Good = 'good',
-  Neutral = 'neutral',
-  Bad = 'bad',
-}
-
-const upMeaning: Record<string, Status> = {
-  var_coef: Status.Bad,
-  STGA: Status.Bad,
-  phase_sync: Status.Good,
-  conditional_entropy: Status.Bad,
-  stride_time: Status.Good,
-  cadence: Status.Good,
-};
 
 const { section, timespan } = defineProps<{section: Section, timespan: "Month" | "Year"}>();
 let status: Status | null = null;

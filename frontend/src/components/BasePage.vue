@@ -16,7 +16,7 @@ function highContrast() {
 </script>
 
 <template>
-  <div :style="{'font-size': display.large_font ? '20px': '15px', ...highContrast()}">
+  <div class="base" :style="{'font-size': display.large_font ? '20px': '15px', ...highContrast()}">
     <header>
       <RouterLink to="/">
         <Logo />
@@ -36,6 +36,12 @@ function highContrast() {
 </template>
 
 <style scoped>
+.base {
+  transition:
+    color 0.5s,
+    background-color 0.5s,
+    font-size 0.5s;
+}
 header {
   position: sticky;
   top: 0;
@@ -73,6 +79,7 @@ nav a {
   margin: 0 .5rem;
   border-radius: 4px;
   gap: .5rem;
+  transition: none; /* Transition is handled globally */
 }
 
 nav a img {

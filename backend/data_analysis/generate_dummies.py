@@ -14,7 +14,7 @@ def get_timestamps(count: int, cadence=2, asymmetry=0, var=0) -> np.array:
     return timestamps
 
 
-def generate_metrics(days: int, current_date: Optional[datetime]=None, asymmetry=0, cadence=2, var=0.01, hard_max=5) -> Metrics:
+def generate_metrics(days: int, current_date: Optional[datetime]=None, asymmetry=0, cadence=2, var=0.01, hard_max={}) -> Metrics:
     if current_date is None:
         current_date = datetime.now()
 
@@ -35,7 +35,8 @@ def generate_metrics(days: int, current_date: Optional[datetime]=None, asymmetry
     metrics: Metrics = sum(metric_arr)
     metrics.set_index(date_range[::-1])
     metrics._df = metrics._df[metrics._df['step_count'] > 2]
-    metrics._df[metrics._df[metrics.get_metric_names()] > hard_max] = np.nan
+    for metric, max_val in hard_max.items():
+        metrics._df[metric][metrics._df[metric] > max_val] = np.nan
     return metrics
 
 
@@ -54,8 +55,9 @@ if __name__ == "__main__":
     #     steps = get_timestamps(5, asymmetry=asymmetry / 2, var=0)
     #     print('steps', steps)
 
-    days = 5
+    days = 90
     asymmetry = decay(days, 0, 0)
-    cadence = decay(days, 2, 0.5)
-    var = decay(days, 0.5, 1)
-    print(generate_metrics(days=days, cadence=cadence, asymmetry=asymmetry, var=var))
+    cadence = decay(days, 2, 1)
+    var = decay(days, 0.01, 0.01)
+    df = generate_metrics(days=days, cadence=cadence, asymmetry=asymmetry, var=var, hard_max={'conditional_entropy': 0.2})
+    df.plot(['conditional_entropy', 'stride_time'])

@@ -53,6 +53,21 @@ export const metric_sections: Record<Section, string[]> = {
   [Section.reliability]: ['step_count']
 };
 
+export enum Status {
+  Good = 'good',
+  Neutral = 'neutral',
+  Bad = 'bad',
+}
+
+export const upMeaning: Record<string, Status> = {
+  var_coef: Status.Bad,
+  STGA: Status.Bad,
+  phase_sync: Status.Good,
+  conditional_entropy: Status.Bad,
+  stride_time: Status.Bad,
+  cadence: Status.Good,
+};
+
 export function validSection(section: Section): boolean {
   if (store.data?.metrics === undefined) {
     return false;

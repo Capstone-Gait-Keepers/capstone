@@ -43,7 +43,7 @@ import { ListLoader } from 'vue-content-loader'
 import BasePage from '@/components/BasePage.vue';
 import InteractivePlot from '@/components/InteractivePlot.vue';
 import Accordion from '@/components/Accordion.vue';
-import { store, metric_sections, section_titles, validMetric, validSection } from '@/store';
+import { store, metric_sections, section_titles, validMetric, validSection, upMeaning, Status } from '@/store';
 
 
 const hash = window.location.hash.slice(1);
@@ -88,12 +88,12 @@ const metric_controls: Record<string, number> = {
 };
 
 const metric_changes: Record<string, number> = {
-  "var_coef": 20,
+  "var_coef": 0,
   "STGA": 0,
   "phase_sync": 0,
   "conditional_entropy": 0,
-  "stride_time": 0,
-  "cadence": 0,
+  "stride_time": 20,
+  "cadence": -20,
 };
 
 function cleanedMetric(metric: string) {
@@ -101,13 +101,15 @@ function cleanedMetric(metric: string) {
 }
 
 function getMetricColor(metric: string) {
-  if (metric_changes[metric] === 0) {
+  const upmeans = upMeaning[metric];
+  const sign = upmeans === Status.Good ? 1 : -1;
+  const change = sign * metric_changes[metric];
+  if (change === 0) {
     return '';
-  } else if (metric_changes[metric] > 0) {
-    return 'var(--red)';
-  } else {
+  } else if (change > 0) {
     return 'var(--green)';
   }
+  return 'var(--red)';
 }
 
 function cleanedDates(metric: string) {

@@ -44,9 +44,9 @@ def get_metrics(email: str, fake=True):
     if fake:
         days = 90
         plateau_length = 30
-        asymmetry = np.concatenate([np.array([0.2] * (days - plateau_length)), decay(plateau_length, 0.2, 0)])
-        var = np.concatenate([np.array([0.01] * plateau_length), decay(days - plateau_length, 0.01, 0.1)])
-        df = generate_metrics(days=days, cadence=1.7, asymmetry=asymmetry, var=var).by_tag(smooth_window=7)
+        cadence = np.concatenate([np.array([1.7] * plateau_length), decay(days - plateau_length, 1.7, 1.3)])
+        metrics = generate_metrics(days=days, cadence=cadence, asymmetry=0.1, var=0.02, hard_max={'conditional_entropy': 0.2})
+        df = metrics.by_tag(smooth_window=7)
         df = df.replace(np.nan, None)
         df.reset_index(inplace=True, drop=False)
         print(df)
