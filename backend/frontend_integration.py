@@ -36,8 +36,8 @@ def plot_recording(recording_id: int):
     recording = db.session.query(Recordings).filter(Recordings._id == recording_id).first()
     sensor = db.session.query(NewSensor).filter(NewSensor._id == recording.sensorid).first()
     rec = Recording.from_real_data(sensor.fs, recording.ts_data)
-    params = get_optimal_analysis_params(SensorType.PIEZO, sensor.fs, version=-2, include_model=False)
-    analysis_controller = AnalysisController(fs=sensor.fs, noise_amp=0.05, **params)
+    ctrl_params = get_optimal_analysis_params(SensorType.PIEZO, sensor.fs, version=-2, include_model=False)
+    analysis_controller = AnalysisController(fs=sensor.fs, noise_amp=0.05, **ctrl_params)
     analysis_controller.get_recording_metrics(rec, plot=True, show=False)
     return analysis_controller.fig.to_html()
 
@@ -71,14 +71,16 @@ def get_metrics(email: str, fake=True):
         recordings = db.session.query(Recordings).filter(Recordings.sensorid == sensor._id).all()
         datasets = [Recording.from_real_data(sensor.fs, recording.ts_data, tag=recording.timestamp.strftime('%Y-%m-%d')) for recording in recordings]
         print("Datasets:", len(datasets))
-        start_time = time.time() # for performance testing
-        analysis_controller = AnalysisController(fs=sensor.fs, noise_amp=0.05)
-
+        if len(datasets) == 0:
+            return jsonify(error=f"No recordings found for user: {email}"), HTTPStatus.NOT_FOUND
+        start_time = time() # for performance testing
+        ctrl_params = get_optimal_analysis_params(SensorType.PIEZO, sensor.fs, version=-2, include_model=False)
+        analysis_controller = AnalysisController(fs=sensor.fs, noise_amp=0.05, **ctrl_params)
         metrics = analysis_controller.get_metrics(datasets)[0]
         df = metrics.by_tag()
         df = df.replace(np.nan, None)
         df.reset_index(inplace=True, drop=False)
-        time_taken = time.time() - start_time
+        time_taken = time() - start_time
         print(time_taken) # will print to server log for performance testing
         print(df)
         response = jsonify(df.to_dict('list'))

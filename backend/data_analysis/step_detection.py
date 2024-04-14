@@ -372,7 +372,7 @@ class StepDetector(TimeSeriesProcessor):
             fig.add_heatmap(x=timestamps, y=freqs, z=amps, row=2, col=1)
             fig.add_scatter(x=timestamps, y=energy, name='energy', row=3, col=1)
             thresholds = {'C': confirmed_threshold, 'U': uncertain_threshold, 'R': reset_threshold}
-            if self._min_signal is not None:
+            if self._min_signal:
                 thresholds['Min'] = self._min_signal
             for i, (symbol, threshold) in enumerate(thresholds.items(), 2):
                 fig.add_hline(y=threshold, row=3, col=1)

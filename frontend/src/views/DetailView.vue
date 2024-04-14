@@ -100,7 +100,11 @@ function getChange(metric: string): number {
   const secondHalf = average(data.slice(Math.floor(data.length / 2)));
   const denom = Math.max(firstHalf, 1);
   // const denom = firstHalf === 0 ? 1 : firstHalf;
-  return Math.round(100 * (secondHalf - firstHalf) / denom);
+  const change = Math.round(100 * (secondHalf - firstHalf) / denom);
+  if (isNaN(change)) {
+    return 0;
+  }
+  return change;
 }
 
 function average(arr: number[]): number {
