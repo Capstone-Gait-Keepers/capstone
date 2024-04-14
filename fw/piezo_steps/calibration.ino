@@ -5,9 +5,9 @@
 #include <utility/imumaths.h>
 #include "ESP8266TimerInterrupt.h"              //https://github.com/khoih-prog/ESP8266TimerInterrupt
 
-#define FAILED_THRESHOLD_AMP 0.1    // Minimum amplitude to consider calibration successful
+#define FAILED_THRESHOLD_AMP 0.05    // Minimum amplitude to consider calibration successful
 #define NOISE_AMP 0.05    // Assumed noise amplitude
-#define MAX_AMP_RATIO 0.5   // Ratio of max amplitude to set as threshold
+#define MAX_AMP_RATIO 0.2   // Ratio of max amplitude to set as threshold
 
 float max_amp = 0;
 int calibration_index = 0;
@@ -33,7 +33,7 @@ void calibration_mode() {
             calibration_index++;
         }
         if ((calibration_index == CALIBRATION_TIME * SAMPLE_RATE - 1) && (max_amp - NOISE_AMP >= FAILED_THRESHOLD_AMP)) {
-            // amp_threshold = (max_amp + NOISE_AMP) * MAX_AMP_RATIO;
+            amp_threshold = (max_amp + NOISE_AMP) * MAX_AMP_RATIO;
             Serial.println("Calibration finished. Max amplitude: " + String(max_amp) + " Threshold: " + String(amp_threshold));
             calibration_flag = false;
         }

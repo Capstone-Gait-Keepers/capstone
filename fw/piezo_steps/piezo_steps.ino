@@ -147,8 +147,6 @@ void setup(void)
   Serial.println(SAMPLE_RATE);
   i_timer.attachInterruptInterval(INTERRUPT_INTERVAL_US, TimerHandler);
   i_timer.enableTimer();
-
-  calibration_flag = false;
 }
 
 void loop(void)
