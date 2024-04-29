@@ -191,7 +191,7 @@ PARAM_MAP = {
         {
             'window_duration': 0.15, # window_duration
             'min_step_delta': 0.3,  # min_step_delta
-            'max_step_delta': 1.2,  # max_step_delta
+            'max_step_delta': 1,  # max_step_delta
             'confirm_coefs': [0.07, 0, 0, 0.013], # confirmed
             'unconfirm_coefs': [0.04, 0, 0, 0.013], # unconfirmed
             'reset_coefs': [0, 0, 0, 0.013], # reset

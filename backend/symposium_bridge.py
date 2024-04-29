@@ -12,7 +12,7 @@ from data_analysis.metric_analysis import AnalysisController
 START_SIGNAL = b'BEGIN_TRANSMISSION'
 ctrl = AnalysisController(**get_optimal_analysis_params(SensorType.PIEZO, fs=500))
 
-MIN_AMP = 0.07
+MIN_AMP = 0.045
 
 
 def serial_bridge(serial_port='/dev/cu.usbserial-0001', baud_rate=115200):
@@ -36,7 +36,7 @@ def serial_bridge(serial_port='/dev/cu.usbserial-0001', baud_rate=115200):
             else:
                 print(f"Data length {len(json_ts_data)}")
                 length = len(json_ts_data) - int(1.5 * ctrl.fs)
-                rec = Recording.from_real_data(fs=ctrl.fs, data=json_ts_data[:length])
+                rec = Recording.from_real_data(fs=ctrl.fs, data=json_ts_data)
                 ctrl.get_recording_metrics(rec, plot=True)
                 save_attempt(rec)
         except (UnicodeDecodeError, json.JSONDecodeError):
